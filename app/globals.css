@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   HaacoPro · Identidad
+   Verde HAACO PRO sobre papel neutro, membrete minimalista como su recibo.
+   ========================================================================== */
+@theme {
+  --color-haaco-50:  #eef7f1;
+  --color-haaco-100: #d6ecdf;
+  --color-haaco-200: #aedac0;
+  --color-haaco-300: #7fc19b;
+  --color-haaco-400: #4ea474;
+  --color-haaco-500: #2d8a56;
+  --color-haaco-600: #1b6f42;
+  --color-haaco-700: #145836;
+  --color-haaco-800: #10462c;
+  --color-haaco-900: #0c3722;
+
+  --color-tinta-50:  #f7f8f7;
+  --color-tinta-100: #eef0ee;
+  --color-tinta-200: #dfe3df;
+  --color-tinta-300: #c3cac4;
+  --color-tinta-400: #939e96;
+  --color-tinta-500: #6b776e;
+  --color-tinta-600: #525d55;
+  --color-tinta-700: #414a44;
+  --color-tinta-800: #2c332e;
+  --color-tinta-900: #1a1f1c;
+
+  --font-sans: var(--fuente-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  --fondo: #f6f7f6;
+  --texto: var(--color-tinta-900);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+}
+
+/* Evita el zoom automático de Safari iOS al enfocar un campo */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px; }
+}
+
+/* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */
+@media (pointer: coarse) {
+  button, a[role="button"], [data-tap] { min-height: 44px; }
+}

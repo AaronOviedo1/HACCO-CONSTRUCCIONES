@@ -1,0 +1,431 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useMemo, useState, useTransition } from 'react'
+import { CalendarClock, Plus, Trash2 } from 'lucide-react'
+import {
+  Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
+} from '@/components/formulario'
+import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { fecha, fechaHora } from '@/lib/format'
+import { hoyISO, num } from '@/lib/cotizaciones'
+import { ESTATUS_TAREA } from '@/lib/obras'
+import {
+  anotarEnBitacora, eliminarTarea, guardarTarea, recorrerCronograma,
+} from '@/app/admin/obras/acciones'
+import type { CronogramaTarea, EstatusTarea } from '@/types/database'
+import type { DatosObra } from '@/app/admin/obras/datos'
+
+const DIA = 86_400_000
+
+export function PanelCronograma({ datos }: { datos: DatosObra }) {
+  const router = useRouter()
+  const [editando, setEditando] = useState<CronogramaTarea | 'nueva' | null>(null)
+  const [recorriendo, setRecorriendo] = useState(false)
+  const [nota, setNota] = useState('')
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const cerrada = datos.concentrado.estatus === 'cerrada'
+  const responsables = new Map(datos.oficiales.map((o) => [o.id, o.nombre]))
+
+  // Rango del timeline: de la primera fecha a la última, con un margen.
+  const linea = useMemo(() => {
+    const fechas = datos.tareas
+      .flatMap((t) => [t.fecha_inicio, t.fecha_fin])
+      .filter((f): f is string => Boolean(f))
+      .map((f) => new Date(`${f}T00:00:00`).getTime())
+
+    if (fechas.length === 0) return null
+    const inicio = Math.min(...fechas)
+    const fin = Math.max(...fechas)
+    const dias = Math.max(1, Math.round((fin - inicio) / DIA) + 1)
+    return { inicio, fin, dias }
+  }, [datos.tareas])
+
+  const accion = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
+    iniciar(async () => {
+      setError(null)
+      const r = await fn()
+      if (!r.ok) return setError(r.error ?? 'No se pudo completar la operación.')
+      router.refresh()
+    })
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="space-y-4 lg:col-span-2">
+        {error && (
+          <p role="alert" className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
+            {error}
+          </p>
+        )}
+
+        <Tarjeta
+          titulo={
+            <span className="flex items-center justify-between gap-2">
+              <span>Cronograma</span>
+              {!cerrada && (
+                <button
+                  type="button"
+                  onClick={() => setRecorriendo(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+                >
+                  <CalendarClock size={14} />
+                  Recorrer fechas
+                </button>
+              )}
+            </span>
+          }
+          pie="El timeline dibuja cada tarea sobre el rango completo de la obra."
+        >
+          {datos.tareas.length === 0 ? (
+            <EstadoVacio
+              titulo="Sin tareas"
+              descripcion="Arma el cronograma para poder recorrerlo cuando llueva o falte un oficial."
+              accion={
+                !cerrada ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditando('nueva')}
+                    className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+                  >
+                    <Plus size={16} />
+                    Nueva tarea
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <ul className="divide-y divide-tinta-100">
+                {datos.tareas.map((t) => {
+                  const inicio = t.fecha_inicio ? new Date(`${t.fecha_inicio}T00:00:00`).getTime() : null
+                  const fin = t.fecha_fin ? new Date(`${t.fecha_fin}T00:00:00`).getTime() : inicio
+                  const desfase =
+                    linea && inicio ? ((inicio - linea.inicio) / DIA / linea.dias) * 100 : 0
+                  const ancho =
+                    linea && inicio && fin
+                      ? Math.max(3, (((fin - inicio) / DIA + 1) / linea.dias) * 100)
+                      : 0
+
+                  return (
+                    <li key={t.id} className="px-4 py-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => !cerrada && setEditando(t)}
+                          className="text-left text-sm font-medium text-tinta-900 hover:text-haaco-700"
+                        >
+                          {t.nombre}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-tinta-500">
+                            {fecha(t.fecha_inicio)} → {fecha(t.fecha_fin)}
+                          </span>
+                          <Etiqueta tono={ESTATUS_TAREA[t.estatus].tono}>
+                            {ESTATUS_TAREA[t.estatus].texto}
+                          </Etiqueta>
+                          {!cerrada && (
+                            <button
+                              type="button"
+                              onClick={() => accion(() => eliminarTarea(datos.obra.id, t.id))}
+                              disabled={pendiente}
+                              className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
+                              aria-label={`Eliminar ${t.nombre}`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {linea && inicio && (
+                        <div className="h-2.5 overflow-hidden rounded-full bg-tinta-100">
+                          <div
+                            className={`h-full rounded-full ${
+                              t.estatus === 'terminada'
+                                ? 'bg-haaco-500'
+                                : t.estatus === 'en_proceso'
+                                  ? 'bg-sky-500'
+                                  : 'bg-tinta-300'
+                            }`}
+                            style={{ marginLeft: `${desfase}%`, width: `${ancho}%` }}
+                          />
+                        </div>
+                      )}
+
+                      {t.responsable_id && (
+                        <p className="mt-1 text-xs text-tinta-400">
+                          {responsables.get(t.responsable_id)}
+                        </p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+
+              {!cerrada && (
+                <div className="border-t border-tinta-100 px-4 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditando('nueva')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-tinta-300 px-2.5 py-1.5 text-xs font-medium text-tinta-600 transition hover:bg-tinta-50"
+                  >
+                    <Plus size={14} />
+                    Agregar tarea
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </Tarjeta>
+      </div>
+
+      {/* Bitácora ---------------------------------------------------------- */}
+      <Tarjeta titulo="Bitácora de la obra" pie="Los movimientos se anotan solos; aquí puedes agregar una nota.">
+        {!cerrada && (
+          <div className="border-b border-tinta-100 p-3">
+            <div className="flex gap-2">
+              <Entrada
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+                placeholder="Nota para el historial…"
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' || !nota.trim()) return
+                  accion(() => anotarEnBitacora(datos.obra.id, nota))
+                  setNota('')
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!nota.trim()) return
+                  accion(() => anotarEnBitacora(datos.obra.id, nota))
+                  setNota('')
+                }}
+                disabled={pendiente || !nota.trim()}
+                className="shrink-0 rounded-lg bg-haaco-700 px-3 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+              >
+                Anotar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {datos.bitacora.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-tinta-500">Sin movimientos.</p>
+        ) : (
+          <ul className="max-h-[36rem] divide-y divide-tinta-100 overflow-y-auto">
+            {datos.bitacora.map((b) => (
+              <li key={b.id} className="px-4 py-2.5">
+                <p className="text-sm text-tinta-700">{b.descripcion}</p>
+                <p className="mt-0.5 text-xs text-tinta-400">
+                  {fechaHora(b.created_at)} · {b.tipo}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Tarjeta>
+
+      {editando && (
+        <FormularioTarea
+          obraId={datos.obra.id}
+          tarea={editando === 'nueva' ? undefined : editando}
+          orden={datos.tareas.length}
+          oficiales={datos.oficiales}
+          onCerrar={() => setEditando(null)}
+        />
+      )}
+
+      {recorriendo && (
+        <DialogoRecorrer obraId={datos.obra.id} onCerrar={() => setRecorriendo(false)} />
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function FormularioTarea({
+  obraId, tarea, orden, oficiales, onCerrar,
+}: {
+  obraId: string
+  tarea?: CronogramaTarea
+  orden: number
+  oficiales: DatosObra['oficiales']
+  onCerrar: () => void
+}) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [nombre, setNombre] = useState(tarea?.nombre ?? '')
+  const [inicio, setInicio] = useState(tarea?.fecha_inicio ?? hoyISO())
+  const [fin, setFin] = useState(tarea?.fecha_fin ?? '')
+  const [estatus, setEstatus] = useState<EstatusTarea>(tarea?.estatus ?? 'pendiente')
+  const [responsable, setResponsable] = useState(tarea?.responsable_id ?? '')
+
+  const guardar = () =>
+    iniciar(async () => {
+      setError(null)
+      const r = await guardarTarea(obraId, {
+        id: tarea?.id,
+        nombre,
+        fecha_inicio: inicio || null,
+        fecha_fin: fin || inicio || null,
+        estatus,
+        responsable_id: responsable || null,
+        orden: tarea?.orden ?? orden,
+      })
+      if (!r.ok) return setError(r.error)
+      onCerrar()
+      router.refresh()
+    })
+
+  return (
+    <Dialogo abierto onCerrar={onCerrar} titulo={tarea ? 'Editar tarea' : 'Nueva tarea'}>
+      <CuerpoDialogo>
+        <Campo
+          etiqueta="Tarea"
+          hijo={
+            <Entrada
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Aplicación de sellador"
+              autoFocus
+            />
+          }
+        />
+        <Campo
+          etiqueta="Inicio"
+          ancho="medio"
+          hijo={<Entrada type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />}
+        />
+        <Campo
+          etiqueta="Fin"
+          ancho="medio"
+          hijo={<Entrada type="date" value={fin} onChange={(e) => setFin(e.target.value)} />}
+        />
+        <Campo
+          etiqueta="Estatus"
+          ancho="medio"
+          hijo={
+            <Seleccion value={estatus} onChange={(e) => setEstatus(e.target.value as EstatusTarea)}>
+              <option value="pendiente">Pendiente</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="terminada">Terminada</option>
+            </Seleccion>
+          }
+        />
+        <Campo
+          etiqueta="Responsable"
+          ancho="medio"
+          hijo={
+            <Seleccion value={responsable} onChange={(e) => setResponsable(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {oficiales.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nombre}
+                </option>
+              ))}
+            </Seleccion>
+          }
+        />
+        <MensajeError mensaje={error} />
+      </CuerpoDialogo>
+
+      <PieDialogo>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={pendiente || !nombre.trim()}
+          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+        >
+          {pendiente ? 'Guardando…' : 'Guardar'}
+        </button>
+      </PieDialogo>
+    </Dialogo>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function DialogoRecorrer({ obraId, onCerrar }: { obraId: string; onCerrar: () => void }) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [dias, setDias] = useState('1')
+  const [desde, setDesde] = useState(hoyISO())
+  const [resultado, setResultado] = useState<number | null>(null)
+
+  const recorrer = (signo: 1 | -1) =>
+    iniciar(async () => {
+      setError(null)
+      const r = await recorrerCronograma(obraId, signo * Math.abs(num(dias)), desde)
+      if (!r.ok) return setError(r.error)
+      setResultado(r.datos ?? 0)
+      router.refresh()
+    })
+
+  return (
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      titulo="Recorrer el cronograma"
+      descripcion="Mueve las tareas que todavía no terminan. Llovió, faltó el oficial, se atrasó el material."
+    >
+      <CuerpoDialogo>
+        <Campo
+          etiqueta="Días"
+          ancho="medio"
+          hijo={<Numero value={dias} onChange={(e) => setDias(e.target.value)} autoFocus />}
+        />
+        <Campo
+          etiqueta="A partir de"
+          ancho="medio"
+          hijo={<Entrada type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />}
+          ayuda="Sólo se mueven las tareas que empiezan en esa fecha o después."
+        />
+
+        {resultado != null && (
+          <p className="rounded-lg bg-haaco-50 px-3 py-2 text-sm text-haaco-800 ring-1 ring-haaco-200 sm:col-span-2">
+            Se movieron {resultado} {resultado === 1 ? 'tarea' : 'tareas'}. Quedó anotado en la
+            bitácora.
+          </p>
+        )}
+        <MensajeError mensaje={error} />
+      </CuerpoDialogo>
+
+      <PieDialogo>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="mr-auto rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          Cerrar
+        </button>
+        <button
+          type="button"
+          onClick={() => recorrer(-1)}
+          disabled={pendiente}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
+        >
+          − {Math.abs(num(dias))} días
+        </button>
+        <button
+          type="button"
+          onClick={() => recorrer(1)}
+          disabled={pendiente}
+          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+        >
+          + {Math.abs(num(dias))} días
+        </button>
+      </PieDialogo>
+    </Dialogo>
+  )
+}

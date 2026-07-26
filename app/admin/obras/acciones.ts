@@ -1,0 +1,551 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { crearClienteServidor } from '@/lib/supabase/server'
+import { requerirRol } from '@/lib/auth'
+import type {
+  EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
+  ResultadoCierre, TipoPagoCobranza,
+} from '@/types/database'
+
+export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
+
+async function staff() {
+  await requerirRol(['admin', 'administracion'])
+  return crearClienteServidor()
+}
+
+function refrescar(obraId: string) {
+  revalidatePath(`/admin/obras/${obraId}`)
+  revalidatePath('/admin/obras')
+  revalidatePath('/admin')
+}
+
+const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
+
+// ===========================================================================
+// OBRA
+// ===========================================================================
+export async function actualizarObra(
+  id: string,
+  parche: {
+    nombre?: string
+    domicilio?: string | null
+    estatus?: EstatusObra
+    monto_cotizado?: number
+    fecha_estimada_entrega?: string | null
+    notas?: string | null
+  },
+): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('obras')
+    .update({ ...parche, fecha_ultima_actualizacion: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return fallo(error)
+  refrescar(id)
+  return { ok: true }
+}
+
+export async function anotarEnBitacora(obraId: string, texto: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('bitacora_obra').insert({
+    obra_id: obraId,
+    tipo: 'nota',
+    descripcion: texto,
+    autor_id: user?.id ?? null,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+// ===========================================================================
+// CONCEPTOS
+// ===========================================================================
+export async function guardarConcepto(
+  obraId: string,
+  concepto: { id?: string; nombre: string; presupuesto: number },
+): Promise<Resultado> {
+  const supabase = await staff()
+  if (!concepto.nombre.trim()) return { ok: false, error: 'El concepto necesita un nombre.' }
+
+  const fila = {
+    obra_id: obraId,
+    nombre: concepto.nombre.trim(),
+    presupuesto: concepto.presupuesto,
+  }
+
+  const { error } = concepto.id
+    ? await supabase.from('obra_conceptos').update(fila).eq('id', concepto.id)
+    : await supabase.from('obra_conceptos').insert(fila)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarConcepto(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('obra_conceptos').delete().eq('id', id)
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+// ===========================================================================
+// CONTRATOS DE MANO DE OBRA
+// ===========================================================================
+export async function guardarContrato(
+  obraId: string,
+  contrato: {
+    id?: string
+    trabajador_id: string
+    trabajos: Record<string, string[]>
+    m2: number
+    tarifa_m2: number
+    otros_importe: number
+    reparaciones: { descripcion: string; importe: number }[]
+    costo_haaco_pct: number
+    fecha_inicia: string | null
+    fecha_finaliza: string | null
+    notas: string | null
+  },
+): Promise<Resultado<{ id: string }>> {
+  const supabase = await staff()
+  if (!contrato.trabajador_id) return { ok: false, error: 'Falta elegir al oficial.' }
+
+  const reparaciones = contrato.reparaciones.filter((r) => r.descripcion.trim() || r.importe > 0)
+
+  const fila = {
+    obra_id: obraId,
+    trabajador_id: contrato.trabajador_id,
+    trabajos: contrato.trabajos,
+    m2: contrato.m2,
+    tarifa_m2: contrato.tarifa_m2,
+    otros_importe: contrato.otros_importe,
+    reparaciones,
+    reparaciones_importe: reparaciones.reduce((s, r) => s + r.importe, 0),
+    costo_haaco_pct: contrato.costo_haaco_pct,
+    fecha_inicia: contrato.fecha_inicia,
+    fecha_finaliza: contrato.fecha_finaliza,
+    notas: contrato.notas,
+  }
+
+  const { data, error } = contrato.id
+    ? await supabase.from('contratos_oficial').update(fila).eq('id', contrato.id).select('id').single()
+    : await supabase.from('contratos_oficial').insert(fila).select('id').single()
+
+  if (error) return fallo(error)
+
+  refrescar(obraId)
+  revalidatePath('/admin/nomina')
+  return { ok: true, datos: { id: data!.id } }
+}
+
+export async function firmarContrato(
+  obraId: string,
+  id: string,
+  quien: 'oficial' | 'director',
+): Promise<Resultado> {
+  const supabase = await staff()
+  const ahora = new Date().toISOString()
+  const parche =
+    quien === 'oficial' ? { firma_oficial_at: ahora } : { firma_director_at: ahora }
+
+  const { error } = await supabase.from('contratos_oficial').update(parche).eq('id', id)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarContrato(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+
+  const { count } = await supabase
+    .from('nomina_pagos')
+    .select('id', { count: 'exact', head: true })
+    .eq('contrato_id', id)
+
+  if ((count ?? 0) > 0) {
+    return { ok: false, error: 'No se puede borrar: el contrato ya tiene abonos de nómina.' }
+  }
+
+  const { error } = await supabase.from('contratos_oficial').delete().eq('id', id)
+  if (error) return fallo(error)
+
+  refrescar(obraId)
+  revalidatePath('/admin/nomina')
+  return { ok: true }
+}
+
+// ===========================================================================
+// PAGARÉS DE HERRAMIENTA
+// ===========================================================================
+export async function crearPagare(
+  obraId: string,
+  contratoId: string,
+  herramientas: string[],
+): Promise<Resultado<{ id: string }>> {
+  if (herramientas.length === 0) {
+    return { ok: false, error: 'Elige al menos una herramienta.' }
+  }
+
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('crear_pagare', {
+    p_contrato: contratoId,
+    p_herramientas: herramientas,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/herramientas')
+  return { ok: true, datos: { id: data as string } }
+}
+
+export async function cancelarPagare(obraId: string, pagareId: string): Promise<Resultado<number>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('cancelar_pagare', { p_pagare: pagareId })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/herramientas')
+  return { ok: true, datos: data as number }
+}
+
+export async function devolverHerramienta(obraId: string, itemId: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('pagare_items')
+    .update({ devuelta: true, fecha_devolucion: new Date().toISOString().slice(0, 10) })
+    .eq('id', itemId)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/herramientas')
+  return { ok: true }
+}
+
+// ===========================================================================
+// MATERIALES
+// ===========================================================================
+export async function guardarMaterial(
+  obraId: string,
+  material: {
+    id?: string
+    origen: OrigenMaterial
+    concepto_id: string | null
+    material: string
+    piezas: number
+    costo: number
+    folio_factura: string | null
+    es_taller: boolean
+  },
+): Promise<Resultado> {
+  const supabase = await staff()
+  if (!material.material.trim()) return { ok: false, error: 'Falta el nombre del material.' }
+
+  const fila = {
+    obra_id: obraId,
+    origen: material.origen,
+    concepto_id: material.concepto_id,
+    material: material.material.trim(),
+    piezas: material.piezas || 1,
+    costo: material.costo,
+    folio_factura: material.es_taller ? null : material.folio_factura,
+    es_taller: material.es_taller,
+  }
+
+  const { error } = material.id
+    ? await supabase.from('obra_materiales').update(fila).eq('id', material.id)
+    : await supabase.from('obra_materiales').insert(fila)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarMaterial(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('obra_materiales').delete().eq('id', id)
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+/** Salida del taller: descuenta el kardex y anota el material con folio TALLER. */
+export async function salidaDeTaller(
+  obraId: string,
+  productoId: string,
+  cantidad: number,
+  conceptoId: string | null,
+  notas: string | null,
+): Promise<Resultado> {
+  if (cantidad <= 0) return { ok: false, error: 'La cantidad tiene que ser mayor a cero.' }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('salida_taller_a_obra', {
+    p_obra: obraId,
+    p_producto: productoId,
+    p_cantidad: cantidad,
+    p_concepto: conceptoId,
+    p_notas: notas,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/catalogo')
+  return { ok: true }
+}
+
+// ===========================================================================
+// CRONOGRAMA
+// ===========================================================================
+export async function guardarTarea(
+  obraId: string,
+  tarea: {
+    id?: string
+    nombre: string
+    fecha_inicio: string | null
+    fecha_fin: string | null
+    estatus: EstatusTarea
+    responsable_id: string | null
+    orden: number
+  },
+): Promise<Resultado> {
+  const supabase = await staff()
+  if (!tarea.nombre.trim()) return { ok: false, error: 'La tarea necesita un nombre.' }
+
+  const fila = { obra_id: obraId, ...tarea, nombre: tarea.nombre.trim() }
+
+  const { error } = tarea.id
+    ? await supabase.from('cronograma_tareas').update(fila).eq('id', tarea.id)
+    : await supabase.from('cronograma_tareas').insert(fila)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarTarea(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('cronograma_tareas').delete().eq('id', id)
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+/** Llovió, faltó el oficial, se atrasó el material: se recorre lo que falta. */
+export async function recorrerCronograma(
+  obraId: string,
+  dias: number,
+  desde: string,
+): Promise<Resultado<number>> {
+  if (dias === 0) return { ok: false, error: 'Indica cuántos días recorrer.' }
+
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('recorrer_cronograma', {
+    p_obra: obraId,
+    p_dias: dias,
+    p_desde: desde,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true, datos: data as number }
+}
+
+// ===========================================================================
+// COBRANZA Y RECIBO-CONTRATO
+// ===========================================================================
+export async function registrarPago(
+  obraId: string,
+  pago: {
+    cotizacion_id: string
+    tipo: TipoPagoCobranza
+    monto: number
+    metodo: MetodoPago
+    fecha: string
+    notas: string | null
+  },
+  recibo: {
+    generar: boolean
+    concepto: string
+    esquema_pagos: string | null
+    fecha_inicio: string | null
+    fecha_estimada_entrega: string | null
+    datos_bancarios: string | null
+  },
+): Promise<Resultado<{ reciboId?: string }>> {
+  if (pago.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
+
+  const supabase = await staff()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: filaPago, error: errorPago } = await supabase
+    .from('pagos_cobranza')
+    .insert({ ...pago, registrado_por: user?.id ?? null })
+    .select('id')
+    .single()
+
+  if (errorPago) return fallo(errorPago)
+
+  let reciboId: string | undefined
+  if (recibo.generar) {
+    const { data: filaRecibo, error: errorRecibo } = await supabase
+      .from('recibos')
+      .insert({
+        pago_id: filaPago!.id,
+        cotizacion_id: pago.cotizacion_id,
+        obra_id: obraId,
+        concepto: recibo.concepto,
+        esquema_pagos: recibo.esquema_pagos,
+        fecha_inicio: recibo.fecha_inicio,
+        fecha_estimada_entrega: recibo.fecha_estimada_entrega,
+        datos_bancarios: recibo.datos_bancarios,
+      })
+      .select('id')
+      .single()
+
+    if (errorRecibo) return fallo(errorRecibo)
+    reciboId = filaRecibo!.id
+  }
+
+  refrescar(obraId)
+  revalidatePath('/admin/cobranza')
+  return { ok: true, datos: { reciboId } }
+}
+
+// ===========================================================================
+// DETALLES, ENTREGA Y CIERRE
+// ===========================================================================
+export async function agregarDetalle(obraId: string, descripcion: string): Promise<Resultado> {
+  if (!descripcion.trim()) return { ok: false, error: 'Escribe el detalle.' }
+
+  const supabase = await staff()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('obra_detalles').insert({
+    obra_id: obraId,
+    descripcion: descripcion.trim(),
+    reportado_por: user?.id ?? null,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function marcarDetalle(
+  obraId: string,
+  id: string,
+  atendido: boolean,
+): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('obra_detalles')
+    .update({
+      atendido,
+      fecha_atencion: atendido ? new Date().toISOString().slice(0, 10) : null,
+    })
+    .eq('id', id)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarDetalle(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('obra_detalles').delete().eq('id', id)
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function entregarObra(obraId: string, fecha: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.rpc('entregar_obra', { p_obra: obraId, p_fecha: fecha })
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function cerrarObra(
+  obraId: string,
+  fecha: string,
+  forzar: boolean,
+): Promise<Resultado<ResultadoCierre>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('cerrar_obra', {
+    p_obra: obraId,
+    p_fecha: fecha,
+    p_forzar: forzar,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/herramientas')
+  revalidatePath('/admin/cotizaciones')
+  return { ok: true, datos: data as ResultadoCierre }
+}
+
+// ===========================================================================
+// PÓLIZA DE GARANTÍA
+// ===========================================================================
+export async function guardarPoliza(
+  obraId: string,
+  poliza: {
+    id?: string
+    fecha_conclusion: string | null
+    vigencia_dias: number
+    items: { area: string; pintura: string; color: string; codigo: string }[]
+    condiciones: string | null
+    deslindes: string | null
+  },
+): Promise<Resultado<{ id: string }>> {
+  const supabase = await staff()
+
+  const fila = {
+    obra_id: obraId,
+    fecha_conclusion: poliza.fecha_conclusion,
+    vigencia_dias: poliza.vigencia_dias,
+    items: poliza.items.filter((i) => i.area.trim() || i.pintura.trim()),
+    condiciones: poliza.condiciones,
+    deslindes: poliza.deslindes,
+  }
+
+  const { data, error } = poliza.id
+    ? await supabase.from('polizas_garantia').update(fila).eq('id', poliza.id).select('id').single()
+    : await supabase.from('polizas_garantia').insert(fila).select('id').single()
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true, datos: { id: data!.id } }
+}
+
+// ===========================================================================
+// SOLICITUDES DE MATERIAL DEL HERRERO
+// ===========================================================================
+export async function cambiarEstatusSolicitud(
+  obraId: string,
+  id: string,
+  estatus: EstatusSolicitud,
+  notas: string | null,
+): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('solicitudes_material')
+    .update({ estatus, notas })
+    .eq('id', id)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/obras')
+  return { ok: true }
+}
