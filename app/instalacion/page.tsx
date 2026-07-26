@@ -9,7 +9,7 @@ const PASOS = [
   },
   {
     titulo: 'Copiar las llaves a .env.local',
-    detalle: 'Project Settings → API. Se necesitan NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY y SUPABASE_SERVICE_ROLE_KEY.',
+    detalle: 'Project Settings → API. Se necesitan NEXT_PUBLIC_SUPABASE_URL, la llave pública (anon o publishable) y SUPABASE_SERVICE_ROLE_KEY.',
   },
   {
     titulo: 'Aplicar las migraciones',

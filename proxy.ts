@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { SUPABASE_CONFIGURADO } from '@/lib/config'
+import { SUPABASE_CONFIGURADO, SUPABASE_LLAVE_PUBLICA, SUPABASE_URL } from '@/lib/supabase/entorno'
 import type { RolUsuario } from '@/types/database'
 
 const RUTA_POR_ROL: Record<RolUsuario, string> = {
@@ -30,8 +30,8 @@ export default async function proxy(request: NextRequest) {
   let respuesta = NextResponse.next({ request })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL,
+    SUPABASE_LLAVE_PUBLICA,
     {
       cookies: {
         getAll() {
