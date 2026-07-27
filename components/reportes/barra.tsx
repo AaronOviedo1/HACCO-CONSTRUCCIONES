@@ -1,12 +1,9 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { FiltroMes } from '@/components/filtro-fechas'
 import { etiquetaMes } from '@/lib/finanzas'
-
-const CLASE =
-  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200'
 
 /** Descarga el archivo sin sacar al usuario de la página. */
 async function descargar(url: string, nombre: string) {
@@ -22,9 +19,6 @@ async function descargar(url: string, nombre: string) {
 }
 
 export function BarraReportes({ mes, soloLectura }: { mes: string; soloLectura: boolean }) {
-  const router = useRouter()
-  const params = useSearchParams()
-  const [, iniciarNavegacion] = useTransition()
   const [bajando, setBajando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,17 +40,8 @@ export function BarraReportes({ mes, soloLectura }: { mes: string; soloLectura: 
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <input
-          type="month"
-          className={CLASE}
-          value={mes}
-          onChange={(e) => {
-            const nuevos = new URLSearchParams(params.toString())
-            nuevos.set('mes', e.target.value)
-            iniciarNavegacion(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
-          }}
-          aria-label="Mes del cierre"
-        />
+        {/* El cierre del contador es mensual: aquí se elige mes, no rango. */}
+        <FiltroMes mes={mes} titulo="Mes del cierre" />
 
         <nav className="hidden flex-wrap gap-1 sm:flex">
           {[

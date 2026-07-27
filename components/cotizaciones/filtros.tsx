@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
 import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
+import { FiltroRango } from '@/components/filtro-fechas'
 
 const ESTATUS = [
   { valor: '', texto: 'Todos los estatus' },
@@ -40,7 +41,7 @@ export function FiltrosCotizaciones({
     iniciar(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
   }
 
-  const hayFiltros = ['estatus', 'tipo', 'cliente', 'mes', 'q'].some((k) => params.get(k))
+  const hayFiltros = ['estatus', 'tipo', 'cliente', 'desde', 'hasta', 'q'].some((k) => params.get(k))
   const estatusActual = params.get('estatus') ?? ''
 
   return (
@@ -102,13 +103,7 @@ export function FiltrosCotizaciones({
         ))}
       </select>
 
-      <input
-        type="month"
-        className={`${CLASE} hidden lg:block`}
-        value={params.get('mes') ?? ''}
-        onChange={(e) => fijar('mes', e.target.value)}
-        aria-label="Mes"
-      />
+      <FiltroRango titulo="Fecha de la cotización" />
 
       {hayFiltros && (
         <button

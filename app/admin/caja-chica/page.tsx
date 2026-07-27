@@ -1,7 +1,7 @@
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
-import { etiquetaMes, mesActual, rangoMes } from '@/lib/finanzas'
+import { rangoDeUrl } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
@@ -12,11 +12,10 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaCajaChica({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>
+  searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
   await requerirRol(['admin', 'administracion'])
-  const { mes = mesActual() } = await searchParams
-  const { desde, hasta } = rangoMes(mes)
+  const periodo = rangoDeUrl(await searchParams)
 
   const supabase = await crearClienteServidor()
 
@@ -26,15 +25,18 @@ export default async function PaginaCajaChica({
   ])
 
   const movimientos = todos ?? []
-  const delMes = movimientos.filter((m) => m.fecha >= desde && m.fecha < hasta)
+  const delPeriodo = movimientos.filter(
+    (m) =>
+      (!periodo.desde || m.fecha >= periodo.desde) && (!periodo.hasta || m.fecha < periodo.hasta),
+  )
 
   // El saldo es histórico: no se corta por mes.
   const saldo = movimientos.reduce(
     (s, m) => s + (m.tipo === 'entrada' ? Number(m.monto) : -Number(m.monto)),
     0,
   )
-  const entradas = delMes.filter((m) => m.tipo === 'entrada').reduce((s, m) => s + Number(m.monto), 0)
-  const salidas = delMes.filter((m) => m.tipo === 'salida').reduce((s, m) => s + Number(m.monto), 0)
+  const entradas = delPeriodo.filter((m) => m.tipo === 'entrada').reduce((s, m) => s + Number(m.monto), 0)
+  const salidas = delPeriodo.filter((m) => m.tipo === 'salida').reduce((s, m) => s + Number(m.monto), 0)
 
   const nombreObra = new Map((obras ?? []).map((o) => [o.id, `${o.ot_numero} · ${o.nombre}`]))
 
@@ -42,7 +44,7 @@ export default async function PaginaCajaChica({
     <>
       <EncabezadoPagina
         titulo="Caja chica"
-        descripcion="Entradas y salidas de efectivo. El saldo es acumulado; los totales son del mes elegido."
+        descripcion="Entradas y salidas de efectivo. El saldo es acumulado; los totales son del periodo elegido."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -52,17 +54,17 @@ export default async function PaginaCajaChica({
           nota="acumulado a hoy"
           tono={saldo < 0 ? 'rojo' : 'verde'}
         />
-        <Indicador etiqueta={`Entradas ${etiquetaMes(mes)}`} valor={pesos(entradas)} />
-        <Indicador etiqueta="Salidas del mes" valor={pesos(salidas)} tono="ambar" />
-        <Indicador etiqueta="Movimientos del mes" valor={String(delMes.length)} />
+        <Indicador etiqueta="Entradas del periodo" valor={pesos(entradas)} nota={periodo.etiqueta} />
+        <Indicador etiqueta="Salidas del periodo" valor={pesos(salidas)} tono="ambar" />
+        <Indicador etiqueta="Movimientos" valor={String(delPeriodo.length)} />
       </div>
 
-      <BarraCajaChica mes={mes} obras={obras ?? []} />
+      <BarraCajaChica obras={obras ?? []} />
 
-      <Tarjeta pie={`${delMes.length} movimientos en ${etiquetaMes(mes)} · saldo acumulado ${pesos(saldo)}`}>
-        {delMes.length === 0 ? (
+      <Tarjeta pie={`${delPeriodo.length} movimientos · ${periodo.etiqueta} · saldo acumulado ${pesos(saldo)}`}>
+        {delPeriodo.length === 0 ? (
           <EstadoVacio
-            titulo="Sin movimientos este mes"
+            titulo="Sin movimientos en el periodo"
             descripcion="Registra la entrada del fondo o la primera salida."
           />
         ) : (
@@ -78,7 +80,7 @@ export default async function PaginaCajaChica({
               </tr>
             </thead>
             <tbody>
-              {delMes.map((m) => (
+              {delPeriodo.map((m) => (
                 <tr key={m.id} className="hover:bg-tinta-50/60">
                   <Td className="whitespace-nowrap text-tinta-500">{fecha(m.fecha)}</Td>
                   <Td>{m.concepto}</Td>

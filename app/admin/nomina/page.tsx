@@ -8,6 +8,7 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { PanelNomina } from '@/components/finanzas/nomina'
+import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -173,6 +174,7 @@ export default async function PaginaNomina({
             {p.titulo}
           </Link>
         ))}
+        <FiltroMes mes={mes} titulo="Mes de la nómina" />
         <PanelNomina
           contratos={filas}
           prenomina={prenomina ?? []}

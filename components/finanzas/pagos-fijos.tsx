@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Check, CopyPlus, Pencil, Plus } from 'lucide-react'
 import {
   AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
   Seleccion,
 } from '@/components/formulario'
+import { FiltroMes } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import {
@@ -17,12 +18,8 @@ import {
 } from '@/app/admin/finanzas-acciones'
 import type { EstadoPagoFijo, MetodoPago, PagoFijo } from '@/types/database'
 
-const CLASE =
-  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200'
-
 export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: string[] }) {
   const router = useRouter()
-  const params = useSearchParams()
   const [pendiente, iniciar] = useTransition()
   const [nuevo, setNuevo] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -42,17 +39,8 @@ export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: st
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          type="month"
-          className={CLASE}
-          value={mes}
-          onChange={(e) => {
-            const nuevos = new URLSearchParams(params.toString())
-            nuevos.set('mes', e.target.value)
-            router.replace(`?${nuevos.toString()}`, { scroll: false })
-          }}
-          aria-label="Mes"
-        />
+        {/* Se paga por quincena: el mes es la unidad que importa. */}
+        <FiltroMes mes={mes} titulo="Mes de las quincenas" />
 
         {quincenas.map((q) => (
           <button

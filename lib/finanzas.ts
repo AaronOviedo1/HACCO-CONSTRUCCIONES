@@ -104,6 +104,69 @@ export function rangoMes(mes: string): { desde: string; hasta: string } {
   return { desde: iso(new Date(anio, m - 1, 1)), hasta: iso(new Date(anio, m, 1)) }
 }
 
+/**
+ * Traduce los parámetros `desde`/`hasta` de la URL a un rango de consulta.
+ *
+ * El `hasta` que devuelve es **exclusivo** (el día siguiente al elegido), que
+ * es como se filtra en Postgres: `.gte(desde).lt(hasta)`. Sin parámetros, el
+ * periodo por defecto es el mes en curso, salvo que se pida lo contrario.
+ */
+export function rangoDeUrl(
+  params: { desde?: string; hasta?: string },
+  { porDefecto = 'mes' }: { porDefecto?: 'mes' | 'todo' } = {},
+): { desde: string | null; hasta: string | null; etiqueta: string; filtrado: boolean } {
+  const valida = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)
+  const desde = valida(params.desde)
+  const hastaElegido = valida(params.hasta)
+
+  if (!desde && !hastaElegido) {
+    if (porDefecto === 'todo') {
+      return { desde: null, hasta: null, etiqueta: 'todo el histórico', filtrado: false }
+    }
+    const { desde: d, hasta: h } = rangoMes(mesActual())
+    return { desde: d, hasta: h, etiqueta: etiquetaMes(mesActual()), filtrado: false }
+  }
+
+  // El día final se guarda inclusivo, pero se consulta con el siguiente.
+  const siguiente = hastaElegido
+    ? (() => {
+        const [a, m, d] = hastaElegido.split('-').map(Number)
+        return iso(new Date(a, m - 1, d + 1))
+      })()
+    : null
+
+  return {
+    desde,
+    hasta: siguiente,
+    etiqueta: etiquetaRangoLegible(desde, hastaElegido),
+    filtrado: true,
+  }
+}
+
+const MESES_LARGOS_MIN = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+/** "julio de 2026", "del 1 al 15 de julio" o "desde el 3 de agosto". */
+export function etiquetaRangoLegible(desde: string | null, hasta: string | null): string {
+  const partes = (v: string) => v.split('-').map(Number)
+
+  if (desde && hasta) {
+    const [a1, m1, d1] = partes(desde)
+    const [a2, m2, d2] = partes(hasta)
+    const finDeMes = new Date(a1, m1, 0).getDate()
+    if (a1 === a2 && m1 === m2 && d1 === 1 && d2 === finDeMes) {
+      return `${MESES_LARGOS_MIN[m1 - 1]} de ${a1}`
+    }
+    if (a1 === a2 && m1 === m2) return `del ${d1} al ${d2} de ${MESES_LARGOS_MIN[m1 - 1]}`
+    return `del ${d1} de ${MESES_LARGOS_MIN[m1 - 1]} al ${d2} de ${MESES_LARGOS_MIN[m2 - 1]} de ${a2}`
+  }
+
+  const solo = desde ?? hasta
+  if (!solo) return 'todo el histórico'
+  const [a, m, d] = partes(solo)
+  return `${desde ? 'desde' : 'hasta'} el ${d} de ${MESES_LARGOS_MIN[m - 1]} de ${a}`
+}
+
 export function etiquetaMes(mes: string): string {
   const [anio, m] = mes.split('-').map(Number)
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',

@@ -1,43 +1,27 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
+import { FiltroRango } from '@/components/filtro-fechas'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { eliminarMovimientoCaja, guardarMovimientoCaja } from '@/app/admin/finanzas-acciones'
 import type { TipoMovimientoCaja } from '@/types/database'
 
-const CLASE =
-  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200'
-
 export function BarraCajaChica({
-  mes,
   obras,
 }: {
-  mes: string
   obras: { id: string; nombre: string; ot_numero: string | null }[]
 }) {
-  const router = useRouter()
-  const params = useSearchParams()
   const [tipo, setTipo] = useState<TipoMovimientoCaja | null>(null)
 
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          type="month"
-          className={CLASE}
-          value={mes}
-          onChange={(e) => {
-            const nuevos = new URLSearchParams(params.toString())
-            nuevos.set('mes', e.target.value)
-            router.replace(`?${nuevos.toString()}`, { scroll: false })
-          }}
-          aria-label="Mes"
-        />
+        <FiltroRango titulo="Periodo de los movimientos" />
 
         <button
           type="button"

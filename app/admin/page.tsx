@@ -43,6 +43,10 @@ export default async function Dashboard() {
   const supabase = await crearClienteServidor()
   const mes = mesActual()
   const { desde, hasta } = rangoMes(mes)
+  // El filtro de cotizaciones espera el último día del mes, no el primero del siguiente.
+  const finDeMes = new Date(new Date(`${hasta}T00:00:00`).getTime() - 86400000)
+    .toISOString()
+    .slice(0, 10)
   const ventana = ultimosSeisMeses()
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
 
@@ -315,7 +319,7 @@ export default async function Dashboard() {
             etiqueta="Cotizado este mes"
             valor={pesosCortos(cotizadoMes)}
             nota={`${delMes.length} ${delMes.length === 1 ? 'cotización' : 'cotizaciones'} · ${porResolver} por resolver`}
-            href={`/admin/cotizaciones?mes=${mes}`}
+            href={`/admin/cotizaciones?desde=${desde}&hasta=${finDeMes}`}
             titulo={`Cotizado en ${etiquetaMes(mes)}`}
             descripcion="Cada cotización del mes con el estatus en el que quedó."
             irA="Ver las cotizaciones del mes"

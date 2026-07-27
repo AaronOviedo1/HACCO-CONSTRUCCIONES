@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
 import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
+import { FiltroRango } from '@/components/filtro-fechas'
 import { CATEGORIA_GASTO, METODO_PAGO } from '@/lib/finanzas'
 
 /* En el teléfono los filtros se acomodan en rejilla; en escritorio, en fila. */
@@ -12,10 +13,8 @@ const CLASE =
 
 export function FiltrosGastos({
   obras,
-  mes,
 }: {
   obras: { id: string; nombre: string; ot_numero: string | null }[]
-  mes: string
 }) {
   const router = useRouter()
   const params = useSearchParams()
@@ -28,7 +27,7 @@ export function FiltrosGastos({
     iniciar(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
   }
 
-  const hayFiltros = ['obra', 'categoria', 'metodo', 'q'].some((k) => params.get(k))
+  const hayFiltros = ['obra', 'categoria', 'metodo', 'q', 'desde', 'hasta'].some((k) => params.get(k))
 
   return (
     <div className="mb-3.5 grid grid-cols-2 gap-2 lg:mb-4 lg:flex lg:flex-wrap lg:items-center">
@@ -36,13 +35,7 @@ export function FiltrosGastos({
         <BuscadorTabla marcador="Descripción, folio, proveedor…" />
       </div>
 
-      <input
-        type="month"
-        className={CLASE}
-        value={mes}
-        onChange={(e) => fijar('mes', e.target.value)}
-        aria-label="Mes"
-      />
+      <FiltroRango titulo="Periodo de los gastos" />
 
       <select className={`${CLASE} lg:max-w-52`} value={params.get('obra') ?? ''} onChange={(e) => fijar('obra', e.target.value)}>
         <option value="">Todas las obras</option>
@@ -83,7 +76,7 @@ export function FiltrosGastos({
       {hayFiltros && (
         <button
           type="button"
-          onClick={() => iniciar(() => router.replace(`?mes=${mes}`, { scroll: false }))}
+          onClick={() => iniciar(() => router.replace('?', { scroll: false }))}
           className="col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100 lg:col-span-1 lg:min-h-0 lg:py-2"
         >
           <X size={14} />

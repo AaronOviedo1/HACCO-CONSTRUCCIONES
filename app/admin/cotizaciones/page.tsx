@@ -4,6 +4,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { ESTATUS_COTIZACION, TIPO_COTIZACION } from '@/lib/cotizaciones'
+import { rangoDeUrl } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
@@ -17,7 +18,8 @@ type Filtros = {
   estatus?: string
   tipo?: string
   cliente?: string
-  mes?: string
+  desde?: string
+  hasta?: string
   q?: string
 }
 
@@ -35,13 +37,11 @@ export default async function PaginaCotizaciones({
   if (filtros.estatus) consulta = consulta.eq('estatus', filtros.estatus as EstatusCotizacion)
   if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo as TipoCotizacion)
   if (filtros.cliente) consulta = consulta.eq('cliente_id', filtros.cliente)
-  if (filtros.mes) {
-    const [anio, mes] = filtros.mes.split('-').map(Number)
-    const desde = `${anio}-${String(mes).padStart(2, '0')}-01`
-    const hastaFecha = new Date(anio, mes, 1)
-    const hasta = `${hastaFecha.getFullYear()}-${String(hastaFecha.getMonth() + 1).padStart(2, '0')}-01`
-    consulta = consulta.gte('fecha', desde).lt('fecha', hasta)
-  }
+
+  // Sin fechas en la URL se ven todas: aquí el periodo es opcional.
+  const periodo = rangoDeUrl(filtros, { porDefecto: 'todo' })
+  if (periodo.desde) consulta = consulta.gte('fecha', periodo.desde)
+  if (periodo.hasta) consulta = consulta.lt('fecha', periodo.hasta)
 
   const [{ data, error }, { data: clientes }] = await Promise.all([
     consulta,
@@ -77,7 +77,11 @@ export default async function PaginaCotizaciones({
       />
 
       <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
-        <Indicador etiqueta="Cotizaciones" valor={String(filas.length)} nota="con los filtros actuales" />
+        <Indicador
+          etiqueta="Cotizaciones"
+          valor={String(filas.length)}
+          nota={periodo.filtrado ? periodo.etiqueta : 'con los filtros actuales'}
+        />
         <Indicador etiqueta="Monto cotizado" valor={pesos(montoTotal)} />
         <Indicador
           etiqueta="Aprobadas"

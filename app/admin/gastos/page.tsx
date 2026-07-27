@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
-import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, mesActual, rangoMes } from '@/lib/finanzas'
+import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, rangoDeUrl } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
@@ -16,21 +16,23 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaGastos({
   searchParams,
 }: {
-  searchParams: Promise<{ obra?: string; categoria?: string; metodo?: string; mes?: string; q?: string }>
+  searchParams: Promise<{
+    obra?: string; categoria?: string; metodo?: string; desde?: string; hasta?: string; q?: string
+  }>
 }) {
   await requerirRol(['admin', 'administracion'])
   const filtros = await searchParams
-  const mes = filtros.mes ?? mesActual()
-  const { desde, hasta } = rangoMes(mes)
+  const periodo = rangoDeUrl(filtros)
 
   const supabase = await crearClienteServidor()
 
   let consulta = supabase
     .from('v_gastos')
     .select('*')
-    .gte('fecha', desde)
-    .lt('fecha', hasta)
     .order('fecha', { ascending: false })
+
+  if (periodo.desde) consulta = consulta.gte('fecha', periodo.desde)
+  if (periodo.hasta) consulta = consulta.lt('fecha', periodo.hasta)
 
   if (filtros.obra === 'general') consulta = consulta.is('obra_id', null)
   else if (filtros.obra) consulta = consulta.eq('obra_id', filtros.obra)
@@ -86,7 +88,11 @@ export default async function PaginaGastos({
       />
 
       <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
-        <Indicador etiqueta="Gastado en el mes" valor={pesosCortos(total)} nota={`${filas.length} movimientos`} />
+        <Indicador
+          etiqueta="Gastado en el periodo"
+          valor={pesosCortos(total)}
+          nota={`${filas.length} movimientos · ${periodo.etiqueta}`}
+        />
         <Indicador
           etiqueta="A crédito"
           valor={pesosCortos(aCredito)}
@@ -97,7 +103,7 @@ export default async function PaginaGastos({
         <Indicador etiqueta="Efectivo" valor={pesosCortos(enEfectivo)} className="hidden lg:block" />
       </div>
 
-      <FiltrosGastos obras={obras ?? []} mes={mes} />
+      <FiltrosGastos obras={obras ?? []} />
 
       {/* Teléfono: el ticket del día, en renglones ------------------------- */}
       {filas.length > 0 && (
