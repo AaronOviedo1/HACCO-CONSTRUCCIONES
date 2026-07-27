@@ -27,7 +27,7 @@ export default async function PaginaCobranza({
 
   const supabase = await crearClienteServidor()
 
-  const [{ data: cobranza }, { data: pagos }, { data: obras }] = await Promise.all([
+  const [{ data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }] = await Promise.all([
     supabase
       .from('v_cobranza')
       .select('*')
@@ -35,7 +35,12 @@ export default async function PaginaCobranza({
       .order('fecha', { ascending: false }),
     supabase.from('pagos_cobranza').select('*').order('fecha'),
     supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
+    supabase.from('cotizaciones').select('id, nombre_obra'),
   ])
+
+  // Si la cotización todavía no abre OT, la tarjeta se titula con el nombre
+  // de obra que traía la cotización.
+  const nombreCotizado = new Map((nombres ?? []).map((c) => [c.id, c.nombre_obra]))
 
   const filas = cobranza ?? []
   const porCotizacion = new Map<string, PagoCobranza[]>()
@@ -106,7 +111,7 @@ export default async function PaginaCobranza({
                 className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta"
               >
                 <h2 className="text-[15.5px] font-semibold leading-snug -tracking-[0.2px]">
-                  {suyas[0]?.nombre ?? `Cotización ${c.folio ?? ''}`}
+                  {suyas[0]?.nombre ?? nombreCotizado.get(c.cotizacion_id) ?? `Cotización ${c.folio ?? ''}`}
                 </h2>
                 <p className="mt-0.5 text-xs text-tinta-400">{c.cliente}</p>
 

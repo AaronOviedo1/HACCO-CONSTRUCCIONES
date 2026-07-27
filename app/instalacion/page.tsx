@@ -23,6 +23,10 @@ const PASOS = [
     titulo: 'Crear los usuarios del equipo',
     detalle: 'npm run usuarios:demo — genera una cuenta por rol para probar. Después Dirección los administra desde la app.',
   },
+  {
+    titulo: 'Opcional: cargar una operación de ejemplo',
+    detalle: 'npm run bd:demo — cotizaciones, obras con avance, cobranza, gastos y nómina para recorrer la app antes de capturar lo real.',
+  },
 ]
 
 export default function PaginaInstalacion() {

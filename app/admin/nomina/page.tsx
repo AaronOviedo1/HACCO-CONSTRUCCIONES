@@ -102,7 +102,7 @@ export default async function PaginaNomina({
                       <div className="mb-1.5 flex items-baseline justify-between">
                         <span className="text-sm font-medium">{p.trabajador}</span>
                         <span className="text-sm font-bold tabular-nums text-haaco-600">
-                          {pesos(aPagar)}
+                          {pesosCortos(aPagar)}
                         </span>
                       </div>
                       <div className="flex h-2.5 overflow-hidden rounded-full bg-tinta-100" aria-hidden>
@@ -115,7 +115,7 @@ export default async function PaginaNomina({
                       <p className="mt-1 text-[11px] text-tinta-400">
                         {p.contratos_activos} {p.contratos_activos === 1 ? 'obra' : 'obras'} ·{' '}
                         {Number(p.deducciones) > 0
-                          ? `${pesos(p.deducciones)} en préstamos`
+                          ? `${pesosCortos(p.deducciones)} en préstamos`
                           : 'sin deducciones'}
                       </p>
                     </li>

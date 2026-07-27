@@ -11,6 +11,7 @@
     "bd:enlazar": "npx supabase link",
     "bd:push": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",
     "bd:seed": "node --env-file=.env.local scripts/cargar-seed.mjs",
+    "bd:demo": "node --env-file=.env.local scripts/datos-demo.mjs",
     "usuarios:demo": "node --env-file=.env.local scripts/crear-usuarios-demo.mjs",
     "tipos": "npx supabase gen types typescript --linked > types/supabase.ts",
     "bd:push:cli": "npx supabase db push"

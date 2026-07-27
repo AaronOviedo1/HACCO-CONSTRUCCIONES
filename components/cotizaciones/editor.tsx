@@ -142,12 +142,17 @@ export function EditorCotizacion({
   const cliente = clientes.find((c) => c.id === doc.cliente_id)
 
   return (
-    <div className="pb-32">
+    <div className="pb-44 lg:pb-32">
       {/* Encabezado -------------------------------------------------------- */}
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="font-mono text-[26px] font-bold -tracking-[0.5px] text-haaco-700 lg:font-sans lg:text-2xl lg:font-semibold lg:tracking-tight lg:text-tinta-900">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* El folio es un dato, no un título: se lee mejor en monoespaciada. */}
+            <h1
+              className={`text-[26px] font-bold -tracking-[0.5px] lg:text-2xl lg:font-semibold lg:tracking-tight lg:text-tinta-900 ${
+                folio ? 'font-mono text-haaco-700 lg:font-sans' : 'text-tinta-900'
+              }`}
+            >
               {folio ?? 'Nueva cotización'}
             </h1>
             <Etiqueta tono={ESTATUS_COTIZACION[estatus].tono}>
@@ -433,7 +438,7 @@ export function EditorCotizacion({
               <button
                 type="button"
                 onClick={() => setAprobando(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-haaco-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-haaco-800"
+                className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-[16px] bg-haaco-700 px-4 text-base font-semibold text-white shadow-verde transition hover:bg-haaco-800 lg:min-h-0 lg:rounded-lg lg:py-3 lg:text-sm lg:shadow-none"
               >
                 <Check size={17} />
                 Aprobar y abrir órdenes de trabajo
@@ -646,7 +651,7 @@ function BloqueProcesos({
                     key={t.id}
                     type="button"
                     onClick={() => agregar(t)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-200 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-600 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800"
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full border-[0.5px] border-tinta-200 bg-white px-3 text-[13px] font-medium text-tinta-600 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800 lg:min-h-0 lg:rounded-lg lg:px-2.5 lg:py-1.5 lg:text-xs"
                   >
                     <Plus size={13} />
                     {t.titulo}
@@ -661,7 +666,7 @@ function BloqueProcesos({
                   }))
                   setSucio(true)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-tinta-300 px-2.5 py-1.5 text-xs font-medium text-tinta-500 transition hover:bg-tinta-50"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-dashed border-tinta-300 px-3 text-[13px] font-medium text-tinta-500 transition hover:bg-tinta-50 lg:min-h-0 lg:rounded-lg lg:px-2.5 lg:py-1.5 lg:text-xs"
               >
                 <Plus size={13} />
                 Texto libre
@@ -692,7 +697,59 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
 
   return (
     <Tarjeta titulo="Partidas">
-      <div className="overflow-x-auto">
+      {/* Teléfono: una tarjeta por partida, que la tabla no cabe. */}
+      <div className="flex flex-col gap-3 px-4 py-4 lg:hidden">
+        {doc.items.map((item, i) => (
+          <div key={i} className="rounded-[16px] border-[0.5px] border-tinta-200 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tinta-100 text-xs font-semibold text-tinta-500">
+                {i + 1}
+              </span>
+              <Entrada
+                value={item.descripcion}
+                onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
+                placeholder="Exterior fachada principal"
+                disabled={bloqueado}
+              />
+              {!bloqueado && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDoc((d) => ({ ...d, items: d.items.filter((_, j) => j !== i) }))
+                    setSucio(true)
+                  }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-tinta-400"
+                  aria-label={`Quitar partida ${i + 1}`}
+                >
+                  <Trash2 size={17} />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Numero
+                value={item.m2}
+                onChange={(e) => actualizar(i, 'm2', e.target.value)}
+                placeholder="m²"
+                disabled={bloqueado}
+                className="!text-center"
+              />
+              <span className="shrink-0 text-tinta-400">×</span>
+              <Numero
+                value={item.precio_unitario}
+                onChange={(e) => actualizar(i, 'precio_unitario', e.target.value)}
+                placeholder="$ / m²"
+                disabled={bloqueado}
+                className="!text-center"
+              />
+              <span className="min-w-[88px] shrink-0 text-right text-[14.5px] font-semibold tabular-nums">
+                {pesos(importePartida(item))}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[40rem] text-sm">
           <thead>
             <tr>
@@ -767,7 +824,7 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
               }))
               setSucio(true)
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-tinta-300 px-3 py-2 text-sm font-medium text-tinta-600 transition hover:bg-tinta-50"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-tinta-300 px-3 text-[15px] font-medium text-tinta-600 transition hover:bg-tinta-50 lg:min-h-0 lg:w-auto lg:rounded-lg lg:border lg:py-2 lg:text-sm"
           >
             <Plus size={15} />
             Agregar partida
@@ -821,7 +878,7 @@ function BloqueHerreria({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
               setDoc((d) => ({ ...d, desglose: [...d.desglose, conceptoVacio()] }))
               setSucio(true)
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-tinta-300 px-3 py-2 text-sm font-medium text-tinta-600 transition hover:bg-tinta-50"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-tinta-300 px-3 text-[15px] font-medium text-tinta-600 transition hover:bg-tinta-50 lg:min-h-0 lg:w-auto lg:rounded-lg lg:border lg:py-2 lg:text-sm"
           >
             <Plus size={15} />
             Agregar concepto
@@ -878,8 +935,11 @@ function ConceptoHerreria({
         </p>
         <div className="space-y-1.5">
           {concepto.materiales.map((m, i) => (
-            <div key={i} className="grid grid-cols-12 gap-1.5">
-              <div className="col-span-5">
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12"
+            >
+              <div className="lg:col-span-5">
                 <Entrada
                   value={m.material}
                   onChange={(e) => cambiarMaterial(i, { material: e.target.value })}
@@ -887,34 +947,7 @@ function ConceptoHerreria({
                   disabled={bloqueado}
                 />
               </div>
-              <div className="col-span-2">
-                <Seleccion
-                  value={m.rubro}
-                  onChange={(e) => cambiarMaterial(i, { rubro: e.target.value as MaterialBorrador['rubro'] })}
-                  disabled={bloqueado}
-                >
-                  <option value="herreria">Herrería</option>
-                  <option value="pintura">Pintura</option>
-                  <option value="otro">Otro</option>
-                </Seleccion>
-              </div>
-              <div className="col-span-2">
-                <Numero
-                  value={m.piezas}
-                  onChange={(e) => cambiarMaterial(i, { piezas: e.target.value })}
-                  placeholder="pzas"
-                  disabled={bloqueado}
-                />
-              </div>
-              <div className="col-span-2">
-                <Numero
-                  value={m.costo}
-                  onChange={(e) => cambiarMaterial(i, { costo: e.target.value })}
-                  placeholder="$"
-                  disabled={bloqueado}
-                />
-              </div>
-              <div className="col-span-1 flex items-center justify-end">
+              <div className="flex items-center justify-end lg:order-last lg:col-span-1">
                 {bloqueado ? (
                   <span className="text-xs tabular-nums text-tinta-500">{pesos(totalMaterial(m))}</span>
                 ) : (
@@ -923,12 +956,41 @@ function ConceptoHerreria({
                     onClick={() =>
                       onCambio({ materiales: concepto.materiales.filter((_, j) => j !== i) })
                     }
-                    className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
+                    className="flex h-11 w-11 items-center justify-center rounded text-tinta-400 hover:bg-red-50 hover:text-red-600 lg:h-auto lg:w-auto lg:p-1"
                     aria-label="Quitar material"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 )}
+              </div>
+              <div className="col-span-2 grid grid-cols-3 gap-1.5 lg:contents">
+                <div className="lg:col-span-2">
+                  <Seleccion
+                    value={m.rubro}
+                    onChange={(e) => cambiarMaterial(i, { rubro: e.target.value as MaterialBorrador['rubro'] })}
+                    disabled={bloqueado}
+                  >
+                    <option value="herreria">Herrería</option>
+                    <option value="pintura">Pintura</option>
+                    <option value="otro">Otro</option>
+                  </Seleccion>
+                </div>
+                <div className="lg:col-span-2">
+                  <Numero
+                    value={m.piezas}
+                    onChange={(e) => cambiarMaterial(i, { piezas: e.target.value })}
+                    placeholder="pzas"
+                    disabled={bloqueado}
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <Numero
+                    value={m.costo}
+                    onChange={(e) => cambiarMaterial(i, { costo: e.target.value })}
+                    placeholder="$"
+                    disabled={bloqueado}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -945,7 +1007,7 @@ function ConceptoHerreria({
                 ],
               })
             }
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-haaco-700 hover:underline"
+            className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-haaco-700 hover:underline lg:min-h-0 lg:text-xs lg:font-medium"
           >
             <Plus size={13} />
             Agregar material
@@ -1029,8 +1091,11 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
 
         <div className="space-y-1.5">
           {sueltos.map((m, i) => (
-            <div key={i} className="grid grid-cols-12 gap-1.5">
-              <div className="col-span-6">
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12"
+            >
+              <div className="lg:col-span-6">
                 <Entrada
                   value={m.material}
                   onChange={(e) => actualizar(i, { material: e.target.value })}
@@ -1038,23 +1103,7 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
                   disabled={bloqueado}
                 />
               </div>
-              <div className="col-span-2">
-                <Numero
-                  value={m.piezas}
-                  onChange={(e) => actualizar(i, { piezas: e.target.value })}
-                  placeholder="pzas"
-                  disabled={bloqueado}
-                />
-              </div>
-              <div className="col-span-3">
-                <Numero
-                  value={m.costo}
-                  onChange={(e) => actualizar(i, { costo: e.target.value })}
-                  placeholder="costo"
-                  disabled={bloqueado}
-                />
-              </div>
-              <div className="col-span-1 flex items-center justify-end">
+              <div className="flex items-center justify-end lg:order-last lg:col-span-1">
                 {!bloqueado && (
                   <button
                     type="button"
@@ -1062,12 +1111,30 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
                       setDoc((d) => ({ ...d, materiales: d.materiales.filter((_, j) => j !== i) }))
                       setSucio(true)
                     }}
-                    className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
+                    className="flex h-11 w-11 items-center justify-center rounded text-tinta-400 hover:bg-red-50 hover:text-red-600 lg:h-auto lg:w-auto lg:p-1"
                     aria-label="Quitar material"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 )}
+              </div>
+              <div className="col-span-2 grid grid-cols-2 gap-1.5 lg:contents">
+                <div className="lg:col-span-2">
+                  <Numero
+                    value={m.piezas}
+                    onChange={(e) => actualizar(i, { piezas: e.target.value })}
+                    placeholder="pzas"
+                    disabled={bloqueado}
+                  />
+                </div>
+                <div className="lg:col-span-3">
+                  <Numero
+                    value={m.costo}
+                    onChange={(e) => actualizar(i, { costo: e.target.value })}
+                    placeholder="costo"
+                    disabled={bloqueado}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -1086,7 +1153,7 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
               }))
               setSucio(true)
             }}
-            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-haaco-700 hover:underline"
+            className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-haaco-700 hover:underline lg:min-h-0 lg:font-medium"
           >
             <Plus size={14} />
             Agregar material
