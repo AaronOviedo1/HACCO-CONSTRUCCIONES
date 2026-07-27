@@ -211,6 +211,7 @@ Detalle completo del esquema y de las funciones en [supabase/README.md](supabase
 | `npm run bd:seed` | Carga el catálogo inicial |
 | `npm run usuarios:demo` | Crea una cuenta por rol |
 | `npm run tipos` | Regenera `types/supabase.ts` desde el proyecto enlazado |
+| `npm run iconos` | Regenera el favicon y los iconos de la PWA desde el imagotipo |
 
 ---
 

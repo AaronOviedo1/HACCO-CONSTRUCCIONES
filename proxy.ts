@@ -113,8 +113,10 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Todo excepto archivos estáticos e imágenes.
+     * Todo excepto archivos estáticos, imágenes y la ficha de instalación de
+     * la PWA: el teléfono pide el manifest y los iconos sin cookies, así que
+     * si pasaran por aquí acabarían redirigidos al login.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 }
