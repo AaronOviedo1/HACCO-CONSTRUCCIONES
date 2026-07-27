@@ -1,13 +1,15 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
+import { MARCA } from '@/lib/marca'
 import { fechaLarga, pesos } from '@/lib/format'
 import { notasCotizacion } from '@/lib/cotizaciones'
 
-const VERDE = '#145836'
-const VERDE_CLARO = '#eef7f1'
-const TINTA = '#1a1f1c'
-const GRIS = '#6b776e'
-const LINEA = '#dfe3df'
+const VERDE = MARCA.verde
+const VERDE_CLARO = MARCA.verdeClaro
+const TINTA = MARCA.tinta
+const GRIS = MARCA.gris
+const LINEA = MARCA.linea
 
 const e = StyleSheet.create({
   pagina: {
@@ -30,20 +32,6 @@ const e = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 18,
   },
-  marcaFila: { flexDirection: 'row', alignItems: 'center' },
-  logo: {
-    width: 30,
-    height: 30,
-    backgroundColor: VERDE,
-    color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-    paddingTop: 8.5,
-    marginRight: 9,
-  },
-  marca: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: TINTA, letterSpacing: 0.2 },
-  giro: { fontSize: 7, color: GRIS, letterSpacing: 1.1, textTransform: 'uppercase', marginTop: 1 },
   contacto: { fontSize: 7.5, color: GRIS, textAlign: 'right', lineHeight: 1.5 },
 
   // Encabezado de la carta
@@ -75,7 +63,7 @@ const e = StyleSheet.create({
   encabezadoTabla: {
     flexDirection: 'row',
     backgroundColor: VERDE,
-    color: '#ffffff',
+    color: MARCA.blanco,
     fontFamily: 'Helvetica-Bold',
     fontSize: 8.5,
     paddingVertical: 5,
@@ -88,7 +76,7 @@ const e = StyleSheet.create({
     paddingVertical: 5.5,
     paddingHorizontal: 6,
   },
-  filaAlterna: { backgroundColor: '#fafbfa' },
+  filaAlterna: { backgroundColor: MARCA.papel },
   cNum: { width: 22 },
   cDesc: { flex: 1, paddingRight: 8 },
   cM2: { width: 52, textAlign: 'right' },
@@ -176,13 +164,7 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
       <Page size="LETTER" style={e.pagina}>
         {/* Membrete ------------------------------------------------------- */}
         <View style={e.membrete} fixed>
-          <View style={e.marcaFila}>
-            <Text style={e.logo}>HP</Text>
-            <View>
-              <Text style={e.marca}>HAACO PRO</Text>
-              <Text style={e.giro}>Recubrimientos y herrería</Text>
-            </View>
-          </View>
+          <MembretePdf tamano={30} />
           <View>
             <Text style={e.contacto}>{EMPRESA.ciudad}</Text>
             {EMPRESA.telefono ? <Text style={e.contacto}>{EMPRESA.telefono}</Text> : null}

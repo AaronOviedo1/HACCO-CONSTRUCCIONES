@@ -257,7 +257,7 @@ function DialogoPago({
                           l.includes(d.id) ? l.filter((x) => x !== d.id) : [...l, d.id],
                         )
                       }
-                      className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+                      className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
                     />
                     <span className="flex-1 capitalize text-tinta-700">{d.tipo}</span>
                     {d.notas && <span className="text-xs text-tinta-400">{d.notas}</span>}

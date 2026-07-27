@@ -1,13 +1,15 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
+import { MARCA } from '@/lib/marca'
 import { fecha, fechaLarga, montoEnLetra, pesos } from '@/lib/format'
 import { GRUPOS_TRABAJOS, textoPagare, type ReparacionContrato } from '@/lib/obras'
 
-const VERDE = '#145836'
-const VERDE_CLARO = '#eef7f1'
-const TINTA = '#1a1f1c'
-const GRIS = '#6b776e'
-const LINEA = '#dfe3df'
+const VERDE = MARCA.verde
+const VERDE_CLARO = MARCA.verdeClaro
+const TINTA = MARCA.tinta
+const GRIS = MARCA.gris
+const LINEA = MARCA.linea
 
 const e = StyleSheet.create({
   pagina: {
@@ -28,13 +30,6 @@ const e = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 12,
   },
-  marcaFila: { flexDirection: 'row', alignItems: 'center' },
-  logo: {
-    width: 30, height: 30, backgroundColor: VERDE, color: '#ffffff',
-    fontSize: 12, fontFamily: 'Helvetica-Bold', textAlign: 'center', paddingTop: 8.5, marginRight: 9,
-  },
-  marca: { fontSize: 14, fontFamily: 'Helvetica-Bold', letterSpacing: 0.2 },
-  giro: { fontSize: 7, color: GRIS, letterSpacing: 1.1, textTransform: 'uppercase', marginTop: 1 },
   contacto: { fontSize: 7.5, color: GRIS, textAlign: 'right', lineHeight: 1.5 },
 
   titulo: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: VERDE, letterSpacing: 0.8 },
@@ -44,7 +39,7 @@ const e = StyleSheet.create({
   },
 
   seccion: {
-    backgroundColor: VERDE, color: '#ffffff', fontFamily: 'Helvetica-Bold', fontSize: 8.5,
+    backgroundColor: VERDE, color: MARCA.blanco, fontFamily: 'Helvetica-Bold', fontSize: 8.5,
     letterSpacing: 0.9, paddingVertical: 4, paddingHorizontal: 7, marginTop: 9, marginBottom: 5,
   },
   fila: { flexDirection: 'row', marginBottom: 3 },
@@ -61,7 +56,7 @@ const e = StyleSheet.create({
   letra: { fontSize: 8.5, color: GRIS, fontStyle: 'italic', marginTop: 2 },
 
   th: {
-    flexDirection: 'row', backgroundColor: VERDE, color: '#ffffff',
+    flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,
     fontFamily: 'Helvetica-Bold', fontSize: 8, paddingVertical: 4, paddingHorizontal: 6,
   },
   tr: {
@@ -85,13 +80,7 @@ const e = StyleSheet.create({
 function Membrete() {
   return (
     <View style={e.membrete} fixed>
-      <View style={e.marcaFila}>
-        <Text style={e.logo}>HP</Text>
-        <View>
-          <Text style={e.marca}>HAACO PRO</Text>
-          <Text style={e.giro}>Recubrimientos y herrería</Text>
-        </View>
-      </View>
+      <MembretePdf tamano={28} />
       <View>
         <Text style={e.contacto}>{EMPRESA.ciudad}</Text>
         {EMPRESA.telefono ? <Text style={e.contacto}>{EMPRESA.telefono}</Text> : null}

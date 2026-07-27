@@ -1,12 +1,14 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
+import { MARCA } from '@/lib/marca'
 import { fechaLarga, montoEnLetra, pesos } from '@/lib/format'
 
-const VERDE = '#145836'
-const VERDE_CLARO = '#eef7f1'
-const TINTA = '#1a1f1c'
-const GRIS = '#6b776e'
-const LINEA = '#dfe3df'
+const VERDE = MARCA.verde
+const VERDE_CLARO = MARCA.verdeClaro
+const TINTA = MARCA.tinta
+const GRIS = MARCA.gris
+const LINEA = MARCA.linea
 
 const e = StyleSheet.create({
   pagina: {
@@ -17,13 +19,6 @@ const e = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderBottomWidth: 2, borderBottomColor: VERDE, paddingBottom: 8, marginBottom: 14,
   },
-  marcaFila: { flexDirection: 'row', alignItems: 'center' },
-  logo: {
-    width: 30, height: 30, backgroundColor: VERDE, color: '#ffffff', fontSize: 12,
-    fontFamily: 'Helvetica-Bold', textAlign: 'center', paddingTop: 8.5, marginRight: 9,
-  },
-  marca: { fontSize: 14, fontFamily: 'Helvetica-Bold' },
-  giro: { fontSize: 7, color: GRIS, letterSpacing: 1.1, textTransform: 'uppercase', marginTop: 1 },
   contacto: { fontSize: 7.5, color: GRIS, textAlign: 'right' },
 
   encabezado: {
@@ -37,7 +32,7 @@ const e = StyleSheet.create({
   valor: { flex: 1, fontFamily: 'Helvetica-Bold' },
 
   th: {
-    flexDirection: 'row', backgroundColor: VERDE, color: '#ffffff',
+    flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,
     fontFamily: 'Helvetica-Bold', fontSize: 8.5, paddingVertical: 5, paddingHorizontal: 7,
     marginTop: 14,
   },
@@ -92,13 +87,7 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
     <Document title={`Recibo de abono ${datos.folio}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
         <View style={e.membrete}>
-          <View style={e.marcaFila}>
-            <Text style={e.logo}>HP</Text>
-            <View>
-              <Text style={e.marca}>HAACO PRO</Text>
-              <Text style={e.giro}>Recubrimientos y herrería</Text>
-            </View>
-          </View>
+          <MembretePdf tamano={28} />
           <View>
             <Text style={e.contacto}>{EMPRESA.ciudad}</Text>
             {EMPRESA.telefono ? <Text style={e.contacto}>{EMPRESA.telefono}</Text> : null}

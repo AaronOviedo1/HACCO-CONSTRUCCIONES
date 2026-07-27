@@ -405,7 +405,7 @@ function DialogoPago({
             type="checkbox"
             checked={generar}
             onChange={(e) => setGenerar(e.target.checked)}
-            className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+            className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
           />
           Generar recibo-contrato
         </label>

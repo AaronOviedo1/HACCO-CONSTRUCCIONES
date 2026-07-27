@@ -18,7 +18,7 @@ import {
 import type { EstadoPagoFijo, MetodoPago, PagoFijo } from '@/types/database'
 
 const CLASE =
-  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100'
+  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200'
 
 export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: string[] }) {
   const router = useRouter()

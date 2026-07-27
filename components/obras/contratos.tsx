@@ -556,7 +556,7 @@ function FormularioContrato({
                             type="checkbox"
                             checked={marcada}
                             onChange={() => alternar(grupo.clave, o.clave)}
-                            className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+                            className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
                           />
                           {o.texto}
                         </label>
@@ -753,7 +753,7 @@ function FormularioPagare({
                     onChange={() =>
                       setElegidas((l) => (marcada ? l.filter((x) => x !== h.id) : [...l, h.id]))
                     }
-                    className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+                    className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
                   />
                   <span className="w-20 shrink-0 font-mono text-xs font-medium text-tinta-900">
                     {h.codigo}
