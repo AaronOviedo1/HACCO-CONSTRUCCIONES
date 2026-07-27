@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
-import { fecha, pesosCortos } from '@/lib/format'
+import { fecha, pesos, pesosCortos } from '@/lib/format'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
 import { ESTATUS_OBRA } from '@/lib/obras'
-import { CATEGORIA_GASTO, mesActual, rangoMes } from '@/lib/finanzas'
-import { EncabezadoPagina, EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { CATEGORIA_GASTO, etiquetaMes, mesActual, rangoMes } from '@/lib/finanzas'
 import {
-  Anillo, Donut, FilaLista, GraficaMeses, PieTarjeta, Tile,
-} from '@/components/movil/piezas'
+  EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th,
+} from '@/components/ui'
+import { Anillo, Donut, FilaLista, PieTarjeta } from '@/components/movil/piezas'
+import { GraficaMeses } from '@/components/movil/grafica-meses'
+import { TileResumen } from '@/components/admin/tile-resumen'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -45,12 +47,18 @@ export default async function Dashboard() {
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
 
   const [historico, obras, cobranza, cxp, gastosMes, prenomina, recientes] = await Promise.all([
-    supabase.from('v_cotizaciones').select('fecha, estatus, total').gte('fecha', desdeSeis),
-    supabase.from('obras').select('estatus'),
+    supabase
+      .from('v_cotizaciones')
+      .select('id, folio, cliente, nombre_obra, fecha, estatus, total')
+      .gte('fecha', desdeSeis),
+    supabase.from('obras').select('id, ot_numero, nombre, estatus, avance_pct'),
     supabase.from('v_cobranza').select('saldo, cobrado, estatus, anticipo_esperado, anticipo'),
-    supabase.from('v_cuentas_por_pagar').select('saldo, estado, proveedor, vencimiento, folio_factura'),
+    supabase
+      .from('v_cuentas_por_pagar')
+      .select('saldo, estado, proveedor, vencimiento, folio_factura, dias_restantes')
+      .order('vencimiento'),
     supabase.from('v_gastos').select('categoria, monto').gte('fecha', desde).lt('fecha', hasta),
-    supabase.from('v_prenomina').select('disponible, deducciones'),
+    supabase.from('v_prenomina').select('*').order('disponible', { ascending: false }),
     supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
   ])
 
@@ -69,12 +77,26 @@ export default async function Dashboard() {
     }
   })
 
-  const delMes = todas.filter((c) => String(c.fecha ?? '').startsWith(mes))
+  const delMes = todas
+    .filter((c) => String(c.fecha ?? '').startsWith(mes))
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
   const porEstatusCot = (e: EstatusCotizacion) => delMes.filter((c) => c.estatus === e)
   const porResolver = porEstatusCot('borrador').length + porEstatusCot('enviada').length
+  const cotizadoMes = delMes.reduce((s, c) => s + Number(c.total), 0)
+
+  const resumenEstatus = (['borrador', 'enviada', 'aprobada', 'rechazada'] as EstatusCotizacion[])
+    .map((clave) => ({
+      clave,
+      texto: ESTATUS_COTIZACION[clave].texto,
+      n: porEstatusCot(clave).length,
+      monto: porEstatusCot(clave).reduce((s, c) => s + Number(c.total), 0),
+    }))
 
   // ---- obras --------------------------------------------------------------
   const listaObras = obras.data ?? []
+  const obrasAbiertas = listaObras
+    .filter((o) => o.estatus !== 'cerrada')
+    .sort((a, b) => Number(b.avance_pct) - Number(a.avance_pct))
   const enObra = listaObras.filter((o) => o.estatus === 'en_obra').length
   const pausadas = listaObras.filter((o) => o.estatus === 'pausada').length
   const agendadas = listaObras.filter((o) => o.estatus === 'agendada').length
@@ -105,7 +127,8 @@ export default async function Dashboard() {
   const urgentes = (cxp.data ?? []).filter((c) => c.estado === 'vencida' || c.estado === 'urgente')
   const montoUrgente = urgentes.reduce((s, c) => s + Number(c.saldo ?? 0), 0)
 
-  const aPagarNomina = (prenomina.data ?? []).reduce(
+  const nomina = prenomina.data ?? []
+  const aPagarNomina = nomina.reduce(
     (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
     0,
   )
@@ -174,32 +197,229 @@ export default async function Dashboard() {
 
         {/* Los cuatro números del día ---------------------------------------- */}
         <div className="grid grid-cols-2 gap-2.5 lg:col-span-2 lg:grid-cols-4 lg:gap-3">
-          <Tile
+          {/* En escritorio cada número abre su detalle sin salir del tablero. */}
+          <TileResumen
             etiqueta="Nómina de la semana"
             valor={pesosCortos(aPagarNomina)}
             nota="devengado por avance"
             href="/admin/nomina?t=prenomina"
-          />
-          <Tile
+            titulo="Prenómina de la semana"
+            descripcion="Lo que se puede pagar hoy según el avance reportado, menos préstamos."
+            irA="Ir a nómina"
+          >
+            {nomina.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-tinta-500">Sin contratos activos.</p>
+            ) : (
+              <Tabla>
+                <thead>
+                  <tr>
+                    <Th>Trabajador</Th>
+                    <Th numerico>Obras</Th>
+                    <Th numerico>Devengado</Th>
+                    <Th numerico>Pagado</Th>
+                    <Th numerico>Deducciones</Th>
+                    <Th numerico>A pagar</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nomina.map((p) => (
+                    <tr key={p.trabajador_id}>
+                      <Td className="font-medium text-tinta-900">{p.trabajador}</Td>
+                      <Td numerico className="text-tinta-500">{p.contratos_activos}</Td>
+                      <Td numerico>{pesos(p.devengado)}</Td>
+                      <Td numerico className="text-tinta-500">{pesos(p.pagado)}</Td>
+                      <Td numerico className={Number(p.deducciones) > 0 ? 'text-red-600' : 'text-tinta-300'}>
+                        {Number(p.deducciones) > 0 ? `- ${pesos(p.deducciones)}` : '—'}
+                      </Td>
+                      <Td numerico className="font-semibold text-haaco-700">
+                        {pesos(Math.max(0, Number(p.disponible) - Number(p.deducciones)))}
+                      </Td>
+                    </tr>
+                  ))}
+                  <tr className="bg-haaco-50/60">
+                    <Td className="font-semibold text-tinta-900">Total</Td>
+                    <Td> </Td>
+                    <Td> </Td>
+                    <Td> </Td>
+                    <Td> </Td>
+                    <Td numerico className="text-base font-semibold text-haaco-700">
+                      {pesos(aPagarNomina)}
+                    </Td>
+                  </tr>
+                </tbody>
+              </Tabla>
+            )}
+          </TileResumen>
+
+          <TileResumen
             etiqueta="Pagos urgentes"
             valor={pesosCortos(montoUrgente)}
             tono={montoUrgente > 0 ? 'rojo' : 'neutro'}
             nota={`${urgentes.length} ${urgentes.length === 1 ? 'factura vencida o por vencer' : 'facturas vencidas o por vencer'}`}
             href="/admin/cuentas-por-pagar"
-          />
-          <Tile
+            titulo="Pagos que no pueden esperar"
+            descripcion="Facturas de proveedor vencidas o que vencen en tres días o menos."
+            irA="Ir a cuentas por pagar"
+          >
+            {urgentes.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-tinta-500">
+                Nada vencido ni por vencer.
+              </p>
+            ) : (
+              <Tabla>
+                <thead>
+                  <tr>
+                    <Th>Proveedor</Th>
+                    <Th>Factura</Th>
+                    <Th>Vence</Th>
+                    <Th>Estado</Th>
+                    <Th numerico>Saldo</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {urgentes.map((cuenta, i) => (
+                    <tr key={`${cuenta.folio_factura}-${i}`}>
+                      <Td className="font-medium text-tinta-900">{cuenta.proveedor}</Td>
+                      <Td className="font-mono text-xs">{cuenta.folio_factura ?? '—'}</Td>
+                      <Td className="whitespace-nowrap text-tinta-500">
+                        {fecha(cuenta.vencimiento)}
+                        <span className="ml-1.5 text-xs text-tinta-400">
+                          {Number(cuenta.dias_restantes) < 0
+                            ? `venció hace ${Math.abs(Number(cuenta.dias_restantes))} d`
+                            : `en ${cuenta.dias_restantes} d`}
+                        </span>
+                      </Td>
+                      <Td>
+                        <Etiqueta tono={cuenta.estado === 'vencida' ? 'rojo' : 'ambar'}>
+                          {cuenta.estado === 'vencida' ? 'Vencida' : 'Urgente'}
+                        </Etiqueta>
+                      </Td>
+                      <Td numerico className="font-semibold text-red-600">{pesos(cuenta.saldo)}</Td>
+                    </tr>
+                  ))}
+                  <tr className="bg-haaco-50/60">
+                    <Td className="font-semibold text-tinta-900">Total</Td>
+                    <Td> </Td>
+                    <Td> </Td>
+                    <Td> </Td>
+                    <Td numerico className="text-base font-semibold text-red-600">
+                      {pesos(montoUrgente)}
+                    </Td>
+                  </tr>
+                </tbody>
+              </Tabla>
+            )}
+          </TileResumen>
+
+          <TileResumen
             etiqueta="Cotizado este mes"
-            valor={pesosCortos(delMes.reduce((s, c) => s + Number(c.total), 0))}
+            valor={pesosCortos(cotizadoMes)}
             nota={`${delMes.length} ${delMes.length === 1 ? 'cotización' : 'cotizaciones'} · ${porResolver} por resolver`}
             href={`/admin/cotizaciones?mes=${mes}`}
-          />
-          <Tile
+            titulo={`Cotizado en ${etiquetaMes(mes)}`}
+            descripcion="Cada cotización del mes con el estatus en el que quedó."
+            irA="Ver las cotizaciones del mes"
+          >
+            {delMes.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-tinta-500">
+                Todavía no hay cotizaciones este mes.
+              </p>
+            ) : (
+              <>
+                <dl className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
+                  {resumenEstatus.map((r) => (
+                    <div key={r.clave} className="rounded-xl border border-tinta-200 px-3 py-2.5">
+                      <dt className="text-xs text-tinta-500">{r.texto}</dt>
+                      <dd className="mt-0.5 text-lg font-semibold tabular-nums text-tinta-900">
+                        {r.n}
+                      </dd>
+                      <dd className="text-xs text-tinta-400">{pesosCortos(r.monto)}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <Tabla>
+                  <thead>
+                    <tr>
+                      <Th>Folio</Th>
+                      <Th>Cliente</Th>
+                      <Th>Obra</Th>
+                      <Th>Fecha</Th>
+                      <Th numerico>Total</Th>
+                      <Th>Estatus</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {delMes.map((c) => (
+                      <tr key={c.id}>
+                        <Td className="font-mono text-xs text-haaco-700">{c.folio}</Td>
+                        <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                        <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
+                        <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+                        <Td numerico className="font-medium">{pesos(c.total)}</Td>
+                        <Td>
+                          <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+                            {ESTATUS_COTIZACION[c.estatus].texto}
+                          </Etiqueta>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Tabla>
+              </>
+            )}
+          </TileResumen>
+
+          <TileResumen
             etiqueta="Obras en proceso"
             valor={String(enObra)}
             tono="verde"
             nota={`${agendadas} agendadas · ${pausadas} pausadas`}
             href="/admin/obras"
-          />
+            titulo="Obras abiertas"
+            descripcion="Las órdenes de trabajo que no están cerradas, con su avance reportado."
+            irA="Ir a obras"
+          >
+            {obrasAbiertas.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-tinta-500">
+                No hay órdenes de trabajo abiertas.
+              </p>
+            ) : (
+              <Tabla>
+                <thead>
+                  <tr>
+                    <Th>OT</Th>
+                    <Th>Obra</Th>
+                    <Th>Estatus</Th>
+                    <Th numerico>Avance</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {obrasAbiertas.map((o) => (
+                    <tr key={o.id}>
+                      <Td className="font-mono text-xs text-haaco-700">{o.ot_numero}</Td>
+                      <Td className="font-medium text-tinta-900">{o.nombre}</Td>
+                      <Td>
+                        <Etiqueta tono={ESTATUS_OBRA[o.estatus].tono}>
+                          {ESTATUS_OBRA[o.estatus].texto}
+                        </Etiqueta>
+                      </Td>
+                      <Td numerico>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-tinta-100">
+                            <span
+                              className="block h-full rounded-full bg-haaco-500"
+                              style={{ width: `${Math.min(100, Number(o.avance_pct))}%` }}
+                            />
+                          </span>
+                          {Number(o.avance_pct)}%
+                        </span>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Tabla>
+            )}
+          </TileResumen>
         </div>
       </div>
 

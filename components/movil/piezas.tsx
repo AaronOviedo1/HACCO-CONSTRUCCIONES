@@ -124,19 +124,23 @@ export function BarraProgreso({
 // ---------------------------------------------------------------------------
 // Tile: dato grande con enlace
 // ---------------------------------------------------------------------------
-export function Tile({
+export type TonoTile = 'neutro' | 'verde' | 'ambar' | 'rojo'
+
+export const CLASES_TILE =
+  'block rounded-[18px] border-[0.5px] border-tinta-200 bg-white p-3.5 text-left lg:rounded-xl'
+
+/** El contenido del tile, aparte para que lo reusen el enlace y el botón. */
+export function CuerpoTile({
   etiqueta,
   valor,
   nota,
-  href,
   tono = 'neutro',
   children,
 }: {
   etiqueta: string
   valor?: string
   nota?: ReactNode
-  href?: string
-  tono?: 'neutro' | 'verde' | 'ambar' | 'rojo'
+  tono?: TonoTile
   children?: ReactNode
 }) {
   const tonos = {
@@ -146,7 +150,7 @@ export function Tile({
     rojo: 'text-red-600',
   } as const
 
-  const cuerpo = (
+  return (
     <>
       <div className="text-[10.5px] font-semibold uppercase leading-tight tracking-[0.07em] text-tinta-500">
         {etiqueta}
@@ -160,16 +164,35 @@ export function Tile({
       {children}
     </>
   )
+}
 
-  const clases =
-    'block rounded-[18px] border-[0.5px] border-tinta-200 bg-white p-3.5 text-left lg:rounded-xl'
+export function Tile({
+  etiqueta,
+  valor,
+  nota,
+  href,
+  tono = 'neutro',
+  children,
+}: {
+  etiqueta: string
+  valor?: string
+  nota?: ReactNode
+  href?: string
+  tono?: TonoTile
+  children?: ReactNode
+}) {
+  const cuerpo = (
+    <CuerpoTile etiqueta={etiqueta} valor={valor} nota={nota} tono={tono}>
+      {children}
+    </CuerpoTile>
+  )
 
   return href ? (
-    <Link href={href} className={`${clases} transition active:bg-tinta-50 lg:hover:border-haaco-300`}>
+    <Link href={href} className={`${CLASES_TILE} transition active:bg-tinta-50 lg:hover:border-haaco-300`}>
       {cuerpo}
     </Link>
   ) : (
-    <div className={clases}>{cuerpo}</div>
+    <div className={CLASES_TILE}>{cuerpo}</div>
   )
 }
 
@@ -320,90 +343,6 @@ export function Donut({
         ))}
       </ul>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Gráfica de dos líneas (cotizado contra aprobado)
-// ---------------------------------------------------------------------------
-export function GraficaMeses({
-  meses,
-}: {
-  meses: { m: string; cotizado: number; aprobado: number }[]
-}) {
-  const ancho = 313
-  const alto = 88
-  const tope = Math.max(1, ...meses.map((x) => x.cotizado)) * 1.12
-  const paso = meses.length > 1 ? ancho / (meses.length - 1) : ancho
-
-  const puntos = meses.map((x, i) => ({
-    m: x.m,
-    x: i * paso,
-    y: alto - (x.cotizado / tope) * alto,
-    y2: alto - (x.aprobado / tope) * alto,
-  }))
-
-  const trazo = (clave: 'y' | 'y2') =>
-    puntos.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p[clave].toFixed(1)}`).join(' ')
-
-  return (
-    <>
-      <div className="mb-3 mt-2 flex gap-3.5">
-        <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
-          <span className="h-[3px] w-3.5 rounded-sm bg-haaco-700" aria-hidden />
-          Cotizado
-        </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
-          <span className="h-[3px] w-3.5 rounded-sm bg-haaco-300" aria-hidden />
-          Aprobado
-        </span>
-      </div>
-      <svg
-        viewBox="-2 -6 319 112"
-        className="block w-full overflow-visible"
-        role="img"
-        aria-label="Cotizado contra aprobado en los últimos meses"
-      >
-        <line x1="0" y1={alto} x2={ancho} y2={alto} stroke="var(--color-tinta-150)" strokeWidth="1" />
-        <line x1="0" y1={alto / 2} x2={ancho} y2={alto / 2} stroke="var(--color-tinta-100)" strokeWidth="1" />
-        <path d={`${trazo('y')} L${ancho} ${alto} L0 ${alto} Z`} fill="var(--color-haaco-50)" />
-        <path
-          d={trazo('y')}
-          fill="none"
-          stroke="var(--color-haaco-700)"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d={trazo('y2')}
-          fill="none"
-          stroke="var(--color-haaco-300)"
-          strokeWidth="2.2"
-          strokeDasharray="4 4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {puntos.map((p) => (
-          <circle
-            key={p.m}
-            cx={p.x}
-            cy={p.y}
-            r="3.4"
-            fill="#fff"
-            stroke="var(--color-haaco-700)"
-            strokeWidth="2.2"
-          />
-        ))}
-      </svg>
-      <div className="mt-1.5 flex justify-between">
-        {puntos.map((p) => (
-          <span key={p.m} className="text-[10.5px] capitalize text-tinta-400">
-            {p.m}
-          </span>
-        ))}
-      </div>
-    </>
   )
 }
 
