@@ -8,6 +8,7 @@ import {
 } from '@/components/ui'
 import { BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
+import { FilaLista } from '@/components/movil/piezas'
 import type { CategoriaGasto } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -84,21 +85,47 @@ export default async function PaginaGastos({
         }
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador etiqueta="Gastado en el mes" valor={pesos(total)} nota={`${filas.length} movimientos`} />
-        <Indicador etiqueta="Tarjeta de empresa" valor={pesosCortos(enTarjeta)} />
-        <Indicador etiqueta="Efectivo" valor={pesosCortos(enEfectivo)} />
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
+        <Indicador etiqueta="Gastado en el mes" valor={pesosCortos(total)} nota={`${filas.length} movimientos`} />
         <Indicador
           etiqueta="A crédito"
           valor={pesosCortos(aCredito)}
           nota="abrió cuentas por pagar"
           tono={aCredito > 0 ? 'ambar' : 'neutro'}
         />
+        <Indicador etiqueta="Tarjeta de empresa" valor={pesosCortos(enTarjeta)} className="hidden lg:block" />
+        <Indicador etiqueta="Efectivo" valor={pesosCortos(enEfectivo)} className="hidden lg:block" />
       </div>
 
       <FiltrosGastos obras={obras ?? []} mes={mes} />
 
-      <div className="grid gap-4 xl:grid-cols-4">
+      {/* Teléfono: el ticket del día, en renglones ------------------------- */}
+      {filas.length > 0 && (
+        <Tarjeta className="lg:hidden">
+          {filas.map((g) => (
+            <FilaLista
+              key={g.id}
+              href={g.obra_id ? `/admin/obras/${g.obra_id}` : undefined}
+              principal={g.descripcion}
+              secundario={`${fecha(g.fecha)} · ${CATEGORIA_GASTO[g.categoria]}${
+                g.proveedor ? ` · ${g.proveedor}` : ''
+              }`}
+              derecha={
+                <>
+                  <span className="text-sm font-semibold tabular-nums">{pesos(g.monto)}</span>
+                  {g.condicion === 'credito' ? (
+                    <Etiqueta tono="ambar">{CONDICION.credito}</Etiqueta>
+                  ) : (
+                    <span className="text-[10.5px] text-tinta-400">{METODO_PAGO[g.metodo]}</span>
+                  )}
+                </>
+              }
+            />
+          ))}
+        </Tarjeta>
+      )}
+
+      <div className={`grid gap-4 xl:grid-cols-4 ${filas.length > 0 ? 'hidden lg:grid' : ''}`}>
         <div className="xl:col-span-3">
           <Tarjeta pie={`${filas.length} movimientos · ${pesos(total)}`}>
             {error ? (

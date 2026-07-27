@@ -14,6 +14,8 @@ import type { Cliente, TextoProceso, TipoCotizacion } from '@/types/database'
 
 type Paso = 'cliente' | 'tipo' | 'proceso' | 'partidas'
 
+const PASOS: Paso[] = ['cliente', 'tipo', 'proceso', 'partidas']
+
 const TIPOS: { valor: TipoCotizacion; titulo: string; nota: string }[] = [
   { valor: 'pintura', titulo: 'Pintura', nota: 'Anticipo 50%' },
   { valor: 'herreria', titulo: 'Herrería', nota: 'Anticipo 60%' },
@@ -99,7 +101,14 @@ export function CotizadorRapido({
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-tinta-900">Cotización rápida</h1>
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className="text-[26px] font-bold -tracking-[0.7px] text-tinta-900 lg:text-2xl lg:font-semibold lg:tracking-tight">
+              Cotización rápida
+            </h1>
+            <span className="shrink-0 text-[11.5px] font-semibold text-tinta-500">
+              Paso {PASOS.indexOf(paso) + 1} de {PASOS.length}
+            </span>
+          </div>
           <p className="truncate text-sm text-tinta-500">
             {cliente ? cliente.nombre : 'Levantamiento en sitio'}
             {paso !== 'cliente' && paso !== 'tipo' && ` · ${TIPOS.find((t) => t.valor === doc.tipo)?.titulo}`}
@@ -126,7 +135,7 @@ export function CotizadorRapido({
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar cliente…"
-              className="w-full rounded-2xl border border-tinta-300 bg-white py-4 pl-12 pr-4 text-base text-tinta-900 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100"
+              className="w-full rounded-2xl border-[0.5px] border-tinta-300 bg-white py-4 pl-12 pr-4 text-base text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
             />
           </div>
 
@@ -134,7 +143,7 @@ export function CotizadorRapido({
             <button
               type="button"
               onClick={() => setNuevoCliente(true)}
-              className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-haaco-300 bg-haaco-50/40 px-5 py-5 text-left transition hover:bg-haaco-50"
+              className="flex items-center gap-3 rounded-[18px] border-2 border-dashed border-haaco-300 bg-haaco-50/50 px-5 py-5 text-left transition hover:bg-haaco-50"
             >
               <UserPlus size={22} className="text-haaco-600" />
               <span className="text-base font-semibold text-haaco-800">Cliente nuevo</span>
@@ -153,7 +162,7 @@ export function CotizadorRapido({
                   }))
                   setPaso('tipo')
                 }}
-                className="rounded-2xl border border-tinta-200 bg-white px-5 py-5 text-left transition hover:border-haaco-300 hover:bg-haaco-50/40"
+                className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-5 py-5 text-left transition hover:border-haaco-300 hover:bg-haaco-50/40 active:bg-haaco-50"
               >
                 <span className="block text-base font-semibold text-tinta-900">{c.nombre}</span>
                 {c.domicilio && (
@@ -173,7 +182,7 @@ export function CotizadorRapido({
               key={t.valor}
               type="button"
               onClick={() => elegirTipo(t.valor)}
-              className={`rounded-2xl border-2 px-5 py-8 text-center transition ${
+              className={`rounded-[18px] border-2 px-5 py-8 text-center transition ${
                 doc.tipo === t.valor
                   ? 'border-haaco-500 bg-haaco-50'
                   : 'border-tinta-200 bg-white hover:border-haaco-300'
@@ -200,7 +209,7 @@ export function CotizadorRapido({
                   key={t.id}
                   type="button"
                   onClick={() => alternarProceso(t)}
-                  className={`flex items-start gap-3 rounded-2xl border-2 px-4 py-4 text-left transition ${
+                  className={`flex items-start gap-3 rounded-[18px] border-2 px-4 py-4 text-left transition ${
                     activo ? 'border-haaco-500 bg-haaco-50' : 'border-tinta-200 bg-white'
                   }`}
                 >
@@ -223,7 +232,7 @@ export function CotizadorRapido({
           <button
             type="button"
             onClick={() => setPaso('partidas')}
-            className="mt-5 w-full rounded-2xl bg-haaco-700 px-5 py-4 text-base font-semibold text-white transition hover:bg-haaco-800"
+            className="mt-5 min-h-[54px] w-full rounded-[18px] bg-haaco-700 px-5 text-[17px] font-semibold text-white shadow-verde transition hover:bg-haaco-800"
           >
             Continuar a las partidas
           </button>
@@ -234,7 +243,7 @@ export function CotizadorRapido({
       {paso === 'partidas' && (
         <section className="space-y-3">
           {doc.items.map((item, i) => (
-            <div key={i} className="rounded-2xl border border-tinta-200 bg-white p-4">
+            <div key={i} className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white p-4">
               <div className="mb-3 flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tinta-100 text-sm font-semibold text-tinta-500">
                   {i + 1}
@@ -243,7 +252,7 @@ export function CotizadorRapido({
                   value={item.descripcion}
                   onChange={(e) => actualizarPartida(i, 'descripcion', e.target.value)}
                   placeholder="Exterior fachada"
-                  className="min-w-0 flex-1 rounded-lg border border-tinta-300 px-3 py-2.5 text-base outline-none focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100"
+                  className="min-w-0 flex-1 rounded-lg border border-tinta-300 px-3 py-2.5 text-base outline-none focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
                 />
                 {doc.items.length > 1 && (
                   <button
@@ -286,7 +295,7 @@ export function CotizadorRapido({
                 items: [...d.items, { descripcion: '', m2: '', precio_unitario: '' }],
               }))
             }
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-tinta-300 px-5 py-4 text-base font-medium text-tinta-600 transition hover:bg-tinta-50"
+            className="flex min-h-[50px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-tinta-300 px-5 text-[15.5px] font-medium text-tinta-600 transition hover:bg-tinta-50"
           >
             <Plus size={20} />
             Otra partida
@@ -296,7 +305,7 @@ export function CotizadorRapido({
 
       {/* Total gigante ----------------------------------------------------- */}
       {(paso === 'partidas' || totales.total > 0) && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-tinta-200 bg-white/95 px-4 py-4 backdrop-blur lg:pl-72">
+        <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-4 backdrop-blur-xl lg:bottom-0 lg:pl-72">
           <div className="mx-auto max-w-4xl">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
@@ -319,7 +328,7 @@ export function CotizadorRapido({
                   type="button"
                   onClick={() => guardar(false)}
                   disabled={pendiente || !doc.cliente_id}
-                  className="flex-1 rounded-2xl border border-tinta-300 bg-white px-4 py-4 text-base font-semibold text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
+                  className="min-h-[54px] flex-1 rounded-[18px] border-[0.5px] border-tinta-300 bg-white px-4 text-base font-semibold text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
                 >
                   {pendiente ? 'Guardando…' : 'Guardar borrador'}
                 </button>
@@ -327,7 +336,7 @@ export function CotizadorRapido({
                   type="button"
                   onClick={() => guardar(true)}
                   disabled={pendiente || !doc.cliente_id}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-haaco-700 px-4 py-4 text-base font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+                  className="flex min-h-[54px] flex-1 items-center justify-center gap-2 rounded-[18px] bg-haaco-700 px-4 text-base font-semibold text-white shadow-verde transition hover:bg-haaco-800 disabled:bg-haaco-300 disabled:shadow-none"
                 >
                   <Send size={18} />
                   Guardar y enviar
@@ -353,16 +362,15 @@ export function CotizadorRapido({
 
 // ---------------------------------------------------------------------------
 function Progreso({ paso }: { paso: Paso }) {
-  const pasos: Paso[] = ['cliente', 'tipo', 'proceso', 'partidas']
-  const actual = pasos.indexOf(paso)
+  const actual = PASOS.indexOf(paso)
 
   return (
     <div className="mb-5 flex gap-1.5">
-      {pasos.map((p, i) => (
+      {PASOS.map((p, i) => (
         <div
           key={p}
-          className={`h-1.5 flex-1 rounded-full transition ${
-            i <= actual ? 'bg-haaco-600' : 'bg-tinta-200'
+          className={`h-[5px] flex-1 rounded-full transition ${
+            i <= actual ? 'bg-haaco-700' : 'bg-tinta-200'
           }`}
         />
       ))}

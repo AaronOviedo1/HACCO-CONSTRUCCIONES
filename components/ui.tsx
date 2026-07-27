@@ -14,12 +14,19 @@ export function EncabezadoPagina({
   acciones?: ReactNode
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-tinta-900">{titulo}</h1>
-        {descripcion && <p className="mt-1 text-sm text-tinta-500">{descripcion}</p>}
+    <header className="mb-4 flex flex-wrap items-end justify-between gap-3 lg:mb-6 lg:gap-4">
+      <div className="min-w-0">
+        {/* Teléfono: título de portada, como en iOS. Escritorio: el display de marca. */}
+        <h1 className="text-[32px] font-bold leading-[1.1] -tracking-[0.8px] text-tinta-900 lg:tipo-display lg:text-2xl lg:font-extrabold lg:tracking-tight lg:text-haaco-900">
+          {titulo}
+        </h1>
+        {descripcion && (
+          <p className="mt-1.5 text-sm leading-[1.45] text-tinta-500 text-pretty lg:mt-1">
+            {descripcion}
+          </p>
+        )}
       </div>
-      {acciones && <div className="flex items-center gap-2">{acciones}</div>}
+      {acciones && <div className="flex w-full items-center gap-2 lg:w-auto">{acciones}</div>}
     </header>
   )
 }
@@ -40,15 +47,19 @@ export function Tarjeta({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-tinta-200 bg-white shadow-[0_1px_2px_rgba(16,70,44,0.04)] ${className}`}
+      className={`overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta lg:rounded-xl ${className}`}
     >
       {titulo && (
-        <div className="border-b border-tinta-100 px-4 py-3 text-sm font-semibold text-tinta-800 sm:px-5">
+        <div className="border-b-[0.5px] border-tinta-150 px-4 py-3 text-[14.5px] font-semibold text-tinta-900 sm:px-5 lg:text-sm lg:text-tinta-800">
           {titulo}
         </div>
       )}
       {children}
-      {pie && <div className="border-t border-tinta-100 bg-tinta-50 px-4 py-2 text-xs text-tinta-500 sm:px-5">{pie}</div>}
+      {pie && (
+        <div className="border-t-[0.5px] border-tinta-150 bg-tinta-50 px-4 py-2 text-xs text-tinta-500 sm:px-5">
+          {pie}
+        </div>
+      )}
     </section>
   )
 }
@@ -62,33 +73,41 @@ export function Indicador({
   nota,
   tono = 'neutro',
   href,
+  className = '',
 }: {
   etiqueta: string
   valor: string
   nota?: string
   tono?: 'neutro' | 'verde' | 'ambar' | 'rojo'
   href?: string
+  className?: string
 }) {
   const tonos = {
     neutro: 'text-tinta-900',
-    verde: 'text-haaco-600',
+    verde: 'text-haaco-700',
     ambar: 'text-amber-600',
     rojo: 'text-red-600',
   } as const
 
   const contenido = (
     <>
-      <div className="text-xs font-medium uppercase tracking-wide text-tinta-500">{etiqueta}</div>
-      <div className={`mt-1.5 text-2xl font-semibold tabular-nums ${tonos[tono]}`}>{valor}</div>
-      {nota && <div className="mt-1 text-xs text-tinta-400">{nota}</div>}
+      <div className="text-[10.5px] font-semibold uppercase leading-tight tracking-[0.07em] text-tinta-500 lg:text-xs lg:font-medium lg:tracking-wide">
+        {etiqueta}
+      </div>
+      <div
+        className={`mt-1.5 text-[22px] font-bold -tracking-[0.6px] tabular-nums lg:tipo-display lg:text-2xl lg:font-extrabold lg:tracking-normal ${tonos[tono]}`}
+      >
+        {valor}
+      </div>
+      {nota && <div className="mt-1 text-[11px] leading-snug text-tinta-400 lg:text-xs">{nota}</div>}
     </>
   )
 
   const clases =
-    'block rounded-xl border border-tinta-200 bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(16,70,44,0.04)]'
+    `block rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-3.5 py-3.5 shadow-tarjeta lg:rounded-xl lg:px-4 ${className}`
 
   return href ? (
-    <Link href={href} className={`${clases} transition hover:border-haaco-300 hover:bg-haaco-50/40`}>
+    <Link href={href} className={`${clases} transition active:bg-tinta-50 lg:hover:border-haaco-400 lg:hover:bg-haaco-50`}>
       {contenido}
     </Link>
   ) : (
@@ -100,11 +119,11 @@ export function Indicador({
 // Etiqueta de estado
 // ---------------------------------------------------------------------------
 const TONOS_ETIQUETA = {
-  verde: 'bg-haaco-100 text-haaco-800 ring-haaco-200',
-  gris: 'bg-tinta-100 text-tinta-700 ring-tinta-200',
-  ambar: 'bg-amber-100 text-amber-800 ring-amber-200',
-  rojo: 'bg-red-100 text-red-800 ring-red-200',
-  azul: 'bg-sky-100 text-sky-800 ring-sky-200',
+  verde: 'bg-haaco-100 text-haaco-800',
+  gris: 'bg-tinta-150 text-tinta-700',
+  ambar: 'bg-amber-100 text-amber-800',
+  rojo: 'bg-red-100 text-red-800',
+  azul: 'bg-sky-100 text-sky-800',
 } as const
 
 export type TonoEtiqueta = keyof typeof TONOS_ETIQUETA
@@ -118,7 +137,7 @@ export function Etiqueta({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONOS_ETIQUETA[tono]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-[3px] text-[10.5px] font-semibold lg:text-xs ${TONOS_ETIQUETA[tono]}`}
     >
       {children}
     </span>
@@ -145,7 +164,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`whitespace-nowrap border-b border-tinta-200 bg-tinta-50/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-tinta-500 ${
+      className={`whitespace-nowrap border-b border-haaco-200 bg-haaco-50 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-haaco-700 ${
         numerico ? 'text-right' : 'text-left'
       }`}
     >
@@ -240,14 +259,15 @@ export function Boton({
   variante?: 'primario' | 'secundario' | 'discreto'
 }) {
   const variantes = {
-    primario: 'bg-haaco-700 text-white hover:bg-haaco-800 disabled:bg-haaco-300',
-    secundario: 'border border-tinta-300 bg-white text-tinta-700 hover:bg-tinta-50',
-    discreto: 'text-tinta-500 hover:bg-tinta-100 hover:text-tinta-800',
+    primario: 'bg-haaco-700 text-white hover:bg-haaco-900 disabled:bg-haaco-300',
+    secundario:
+      'border border-tinta-300 bg-white text-tinta-700 hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800',
+    discreto: 'text-tinta-500 hover:bg-haaco-50 hover:text-haaco-800',
   } as const
 
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${variantes[variante]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] font-semibold transition disabled:cursor-not-allowed lg:rounded-lg lg:py-2 lg:text-sm lg:font-medium ${variantes[variante]} ${className}`}
       {...props}
     >
       {children}

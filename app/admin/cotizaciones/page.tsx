@@ -8,6 +8,7 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
+import { BotonGrande } from '@/components/movil/piezas'
 import type { EstatusCotizacion, TipoCotizacion } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -67,7 +68,7 @@ export default async function PaginaCotizaciones({
         acciones={
           <Link
             href="/admin/cotizaciones/nueva"
-            className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+            className="hidden items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 lg:inline-flex"
           >
             <Plus size={16} />
             Nueva cotización
@@ -75,7 +76,7 @@ export default async function PaginaCotizaciones({
         }
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
         <Indicador etiqueta="Cotizaciones" valor={String(filas.length)} nota="con los filtros actuales" />
         <Indicador etiqueta="Monto cotizado" valor={pesos(montoTotal)} />
         <Indicador
@@ -94,7 +95,63 @@ export default async function PaginaCotizaciones({
 
       <FiltrosCotizaciones clientes={clientes ?? []} />
 
-      <Tarjeta pie={`${filas.length} ${filas.length === 1 ? 'cotización' : 'cotizaciones'}`}>
+      {/* Teléfono: renglón tocable con el folio como ancla visual ----------- */}
+      {filas.length > 0 && (
+        <div className="lg:hidden">
+          <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
+            {filas.map((c) => (
+              <Link
+                key={c.id}
+                href={`/admin/cotizaciones/${c.id}`}
+                className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
+                  {c.folio ?? '—'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
+                    {c.cliente}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-tinta-400">
+                    {c.nombre_obra ?? 'Sin nombre de obra'} · {TIPO_COTIZACION[c.tipo]}
+                  </span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-[14.5px] font-semibold tabular-nums">{pesos(c.total)}</span>
+                  <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+                    {ESTATUS_COTIZACION[c.estatus].texto}
+                  </Etiqueta>
+                </span>
+              </Link>
+            ))}
+          </div>
+
+          <BotonGrande
+            href="/admin/cotizar-rapido"
+            className="mt-3.5"
+            icono={
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M13.4 2.6 5.6 14.2h5l-1 7.2 7.8-11.6h-5z"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            }
+          >
+            Cotización rápida
+          </BotonGrande>
+          <p className="mt-2.5 text-center text-[11.5px] text-tinta-400">
+            {filas.length} {filas.length === 1 ? 'cotización' : 'cotizaciones'}
+          </p>
+        </div>
+      )}
+
+      <Tarjeta
+        className={filas.length > 0 ? 'hidden lg:block' : ''}
+        pie={`${filas.length} ${filas.length === 1 ? 'cotización' : 'cotizaciones'}`}
+      >
         {error ? (
           <EstadoVacio
             titulo="No se pudo leer la lista"

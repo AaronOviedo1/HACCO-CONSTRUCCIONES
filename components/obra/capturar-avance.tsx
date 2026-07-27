@@ -96,16 +96,16 @@ export function CapturarAvance({
   const ocupado = pendiente || progreso
 
   return (
-    <section className="rounded-2xl border border-tinta-200 bg-white p-4">
+    <section className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta">
       {listo && (
-        <p className="mb-3 flex items-center gap-2 rounded-xl bg-haaco-50 px-3 py-2.5 text-sm font-medium text-haaco-800">
-          <Check size={16} />
+        <p className="mb-3 flex items-center gap-2.5 rounded-[14px] border-[0.5px] border-haaco-200 bg-haaco-50 p-3 text-[14.5px] font-semibold text-haaco-800">
+          <Check size={18} />
           Avance enviado. Dirección ya lo puede ver.
         </p>
       )}
 
       {error && (
-        <p role="alert" className="mb-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">
+        <p role="alert" className="mb-3 rounded-[14px] bg-red-50 px-3 py-2.5 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -120,17 +120,17 @@ export function CapturarAvance({
       />
 
       {vista ? (
-        <div className="relative mb-3">
+        <div className="relative mb-3.5">
           {archivo?.type.startsWith('video') ? (
-            <video src={vista} controls className="max-h-72 w-full rounded-xl bg-black object-contain" />
+            <video src={vista} controls className="max-h-72 w-full rounded-[16px] bg-black object-contain" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={vista} alt="Foto del avance" className="max-h-72 w-full rounded-xl object-cover" />
+            <img src={vista} alt="Foto del avance" className="max-h-72 w-full rounded-[16px] object-cover" />
           )}
           <button
             type="button"
             onClick={limpiar}
-            className="absolute right-2 top-2 rounded-full bg-tinta-900/70 p-2 text-white"
+            className="absolute right-2 top-2 rounded-full bg-tinta-950/70 p-2 text-white"
             aria-label="Quitar foto"
           >
             <X size={16} />
@@ -141,35 +141,39 @@ export function CapturarAvance({
           type="button"
           onClick={() => entrada.current?.click()}
           data-tap
-          className="mb-3 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-haaco-300 bg-haaco-50/40 px-4 py-8 text-base font-semibold text-haaco-800 transition active:bg-haaco-100"
+          className="mb-4 flex min-h-[88px] w-full items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-haaco-300 bg-haaco-50/50 px-4 text-[17px] font-semibold text-haaco-800 transition active:bg-haaco-100"
         >
           <Camera size={26} />
           Tomar foto o video
         </button>
       )}
 
+      <p className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tinta-500">
+        ¿Qué se avanzó hoy?
+      </p>
       <textarea
         value={comentario}
         onChange={(e) => setComentario(e.target.value)}
-        rows={2}
-        placeholder="¿Qué se avanzó hoy?"
-        className="mb-3 w-full rounded-xl border border-tinta-300 px-3 py-2.5 text-base outline-none focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100"
+        rows={3}
+        placeholder="Terminamos el sellado de la fachada norte…"
+        className="mb-4 w-full resize-none rounded-[14px] border border-tinta-300 p-3.5 leading-relaxed outline-none focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
       />
 
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-tinta-500">
-        Avance de la obra (opcional) · va en {avanceActual}%
+      <p className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-tinta-500">
+        Avance de la obra · va en {avanceActual}%
       </p>
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-5 flex flex-wrap gap-2">
         {PASOS_PORCENTAJE.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setPorcentaje(porcentaje === p ? null : p)}
+            aria-pressed={porcentaje === p}
             data-tap
-            className={`min-w-14 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+            className={`min-h-12 min-w-[62px] rounded-[14px] border px-3 text-base font-bold tabular-nums transition ${
               porcentaje === p
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-300 bg-white text-tinta-700'
+                ? 'border-haaco-700 bg-haaco-700 text-white'
+                : 'border-tinta-300 bg-white text-tinta-700'
             }`}
           >
             {p}%
@@ -177,13 +181,13 @@ export function CapturarAvance({
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2.5">
         {!vista && (
           <button
             type="button"
             onClick={() => entrada.current?.click()}
             data-tap
-            className="flex items-center justify-center gap-2 rounded-2xl border border-tinta-300 bg-white px-4 py-3.5 text-base font-semibold text-tinta-700"
+            className="flex min-h-14 items-center justify-center gap-2 rounded-[18px] border-[0.5px] border-tinta-300 bg-white px-4 text-base font-semibold text-tinta-700"
           >
             <Icono size={18} />
             Foto
@@ -194,9 +198,9 @@ export function CapturarAvance({
           onClick={enviar}
           disabled={ocupado || (!archivo && !comentario.trim())}
           data-tap
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-haaco-700 px-4 py-3.5 text-base font-semibold text-white transition active:bg-haaco-800 disabled:bg-tinta-200 disabled:text-tinta-400"
+          className="flex min-h-14 flex-1 items-center justify-center gap-2.5 rounded-[18px] bg-haaco-700 px-4 text-[17.5px] font-semibold text-white shadow-verde transition active:bg-haaco-800 disabled:bg-tinta-200 disabled:text-tinta-400 disabled:shadow-none"
         >
-          <Send size={18} />
+          <Send size={19} />
           {progreso ? 'Subiendo…' : pendiente ? 'Enviando…' : 'Enviar avance'}
         </button>
       </div>

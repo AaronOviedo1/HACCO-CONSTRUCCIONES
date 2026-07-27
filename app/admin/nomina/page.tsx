@@ -55,6 +55,12 @@ export default async function PaginaNomina({
   const totalDisponible = filas.reduce((s, c) => s + Number(c.disponible), 0)
   const alTope = filas.filter((c) => Number(c.pct_pagado) >= 100)
 
+  // Lo que de verdad sale de la caja esta semana: devengado menos préstamos.
+  const aPagarSemana = (prenomina ?? []).reduce(
+    (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
+    0,
+  )
+
   return (
     <>
       <EncabezadoPagina
@@ -62,15 +68,79 @@ export default async function PaginaNomina({
         descripcion="Se paga según el avance de la obra. El devengado es el total del contrato por el porcentaje reportado."
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Teléfono: lo que se puede pagar hoy, trabajador por trabajador ---- */}
+      {(prenomina ?? []).length > 0 && (
+        <div className="mb-3.5 lg:hidden">
+          <div className="rounded-[20px] bg-linear-[155deg,var(--color-haaco-700),var(--color-haaco-800)] p-4.5 text-white">
+            <div className="text-[11px] uppercase tracking-[0.09em] opacity-80">
+              A pagar esta semana
+            </div>
+            <div className="mt-1 text-3xl font-bold -tracking-[1px] tabular-nums">
+              {pesosCortos(aPagarSemana)}
+            </div>
+            <div className="mt-1 text-xs opacity-80">devengado por avance, menos préstamos</div>
+          </div>
+
+          <Tarjeta className="mt-3.5">
+            <div className="px-3.5 py-4">
+              <div className="mb-3.5 flex gap-3.5">
+                <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
+                  <span className="h-2 w-3 rounded-sm bg-haaco-700" aria-hidden />A pagar
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
+                  <span className="h-2 w-3 rounded-sm bg-amber-600" aria-hidden />
+                  Deducciones
+                </span>
+              </div>
+
+              <ul className="flex flex-col gap-3.5">
+                {(prenomina ?? []).map((p) => {
+                  const aPagar = Math.max(0, Number(p.disponible) - Number(p.deducciones))
+                  const tope = Math.max(1, ...(prenomina ?? []).map((x) => Number(x.disponible)))
+                  return (
+                    <li key={p.trabajador_id}>
+                      <div className="mb-1.5 flex items-baseline justify-between">
+                        <span className="text-sm font-medium">{p.trabajador}</span>
+                        <span className="text-sm font-bold tabular-nums text-haaco-600">
+                          {pesos(aPagar)}
+                        </span>
+                      </div>
+                      <div className="flex h-2.5 overflow-hidden rounded-full bg-tinta-100" aria-hidden>
+                        <div className="h-full bg-haaco-700" style={{ width: `${(aPagar / tope) * 100}%` }} />
+                        <div
+                          className="h-full bg-amber-600"
+                          style={{ width: `${(Number(p.deducciones) / tope) * 100}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-tinta-400">
+                        {p.contratos_activos} {p.contratos_activos === 1 ? 'obra' : 'obras'} ·{' '}
+                        {Number(p.deducciones) > 0
+                          ? `${pesos(p.deducciones)} en préstamos`
+                          : 'sin deducciones'}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </Tarjeta>
+        </div>
+      )}
+
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
         <Indicador etiqueta="Mano de obra contratada" valor={pesosCortos(totalMO)} nota={`${filas.length} contratos activos`} />
-        <Indicador etiqueta="Retención Costo Haaco" valor={pesosCortos(totalRetencion)} />
         <Indicador etiqueta="Pagado" valor={pesosCortos(totalPagado)} tono="verde" />
+        <Indicador
+          etiqueta="Retención Costo Haaco"
+          valor={pesosCortos(totalRetencion)}
+          className="hidden lg:block"
+        />
         <Indicador
           etiqueta="Se puede pagar hoy"
           valor={pesosCortos(totalDisponible)}
           nota="devengado menos lo abonado"
           tono={totalDisponible > 0 ? 'ambar' : 'neutro'}
+          className="hidden lg:block"
         />
       </div>
 
@@ -94,7 +164,7 @@ export default async function PaginaNomina({
           <Link
             key={p.clave}
             href={`/admin/nomina?t=${p.clave}&mes=${mes}`}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            className={`hidden rounded-lg px-3 py-2 text-sm font-medium transition lg:block ${
               vista === p.clave
                 ? 'bg-haaco-700 text-white'
                 : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
@@ -127,7 +197,10 @@ export default async function PaginaNomina({
           />
         </Tarjeta>
       ) : vista === 'mensual' ? (
-        <Tarjeta pie="Una fila por trabajador y obra, con una columna por cada fecha en que se pagó.">
+        <Tarjeta
+          className="hidden lg:block"
+          pie="Una fila por trabajador y obra, con una columna por cada fecha en que se pagó."
+        >
           <Tabla>
             <thead>
               <tr>
@@ -196,6 +269,7 @@ export default async function PaginaNomina({
         </Tarjeta>
       ) : vista === 'prenomina' ? (
         <Tarjeta
+          className="hidden lg:block"
           titulo="Prenómina concentrada"
           pie="Un renglón por trabajador con todo lo que trae abierto en todas sus obras."
         >
@@ -246,6 +320,7 @@ export default async function PaginaNomina({
         </Tarjeta>
       ) : (
         <Tarjeta
+          className="hidden lg:block"
           titulo="Préstamos y adelantos"
           pie="Se descuentan al elegirlos en el recibo de abono. Al aplicarse quedan saldados."
         >

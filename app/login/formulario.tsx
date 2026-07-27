@@ -10,7 +10,7 @@ function BotonEntrar() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-haaco-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+      className="min-h-[50px] w-full rounded-[14px] bg-haaco-700 px-4 text-[17px] font-semibold text-white transition hover:bg-haaco-800 active:bg-haaco-800 disabled:bg-haaco-300 lg:min-h-0 lg:rounded-lg lg:py-3 lg:text-sm"
     >
       {pending ? 'Entrando…' : 'Entrar'}
     </button>
@@ -23,13 +23,13 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
   return (
     <form action={accion} className="space-y-4">
       {aviso && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200">
           {aviso}
         </p>
       )}
 
       <div>
-        <label htmlFor="correo" className="mb-1.5 block text-sm font-medium text-tinta-700">
+        <label htmlFor="correo" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
           Correo
         </label>
         <input
@@ -40,13 +40,13 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
           inputMode="email"
           autoCapitalize="none"
           required
-          className="w-full rounded-lg border border-tinta-300 bg-white px-3 py-2.5 text-tinta-900 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100"
+          className="w-full rounded-[12px] border border-tinta-300 bg-white px-3.5 py-3 text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
           placeholder="nombre@haacopro.com"
         />
       </div>
 
       <div>
-        <label htmlFor="contrasena" className="mb-1.5 block text-sm font-medium text-tinta-700">
+        <label htmlFor="contrasena" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
           Contraseña
         </label>
         <input
@@ -55,13 +55,13 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
           type="password"
           autoComplete="current-password"
           required
-          className="w-full rounded-lg border border-tinta-300 bg-white px-3 py-2.5 text-tinta-900 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100"
+          className="w-full rounded-[12px] border border-tinta-300 bg-white px-3.5 py-3 text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
           placeholder="••••••••"
         />
       </div>
 
       {estado.error && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
+        <p role="alert" className="rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
           {estado.error}
         </p>
       )}

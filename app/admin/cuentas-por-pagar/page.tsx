@@ -2,11 +2,12 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
-import { ESTADO_CXP } from '@/lib/finanzas'
+import { ESTADO_CXP, vencimientosPorSemana } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { AccionesCxp, BotonNuevaCxp } from '@/components/finanzas/cxp'
+import { BarrasSemanas, FilaLista } from '@/components/movil/piezas'
 import type { EstadoCxp } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -58,14 +59,72 @@ export default async function PaginaCuentasPorPagar({
         acciones={<BotonNuevaCxp proveedores={proveedores ?? []} />}
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador etiqueta="Saldo total" valor={pesos(saldoTotal)} nota={`${activas.length} facturas abiertas`} />
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
+        <Indicador etiqueta="Saldo total" valor={pesosCortos(saldoTotal)} nota={`${activas.length} facturas abiertas`} />
         <Indicador etiqueta="Vencido" valor={pesosCortos(vencido)} tono={vencido > 0 ? 'rojo' : 'neutro'} />
-        <Indicador etiqueta="Urgente" valor={pesosCortos(urgente)} nota="vence en 3 días o menos" tono={urgente > 0 ? 'rojo' : 'neutro'} />
-        <Indicador etiqueta="Próximo" valor={pesosCortos(proximo)} nota="vence en 15 días" tono="ambar" />
+        <Indicador
+          etiqueta="Urgente"
+          valor={pesosCortos(urgente)}
+          nota="vence en 3 días o menos"
+          tono={urgente > 0 ? 'rojo' : 'neutro'}
+          className="hidden lg:block"
+        />
+        <Indicador
+          etiqueta="Próximo"
+          valor={pesosCortos(proximo)}
+          nota="vence en 15 días"
+          tono="ambar"
+          className="hidden lg:block"
+        />
       </div>
 
-      <nav className="mb-4 flex flex-wrap items-center gap-2">
+      {/* Teléfono: primero cuándo pega, luego a quién ---------------------- */}
+      {activas.length > 0 && (
+        <div className="lg:hidden">
+          <Tarjeta className="mb-3.5">
+            <div className="px-3.5 py-4">
+              <div className="mb-3.5 flex items-baseline justify-between">
+                <h2 className="text-[14.5px] font-semibold">Vencimientos por semana</h2>
+                <span
+                  className={`text-xs font-semibold tabular-nums ${
+                    vencido + urgente > 0 ? 'text-red-600' : 'text-tinta-400'
+                  }`}
+                >
+                  {vencido + urgente > 0
+                    ? `${pesosCortos(vencido + urgente)} urgente`
+                    : 'nada urgente'}
+                </span>
+              </div>
+              <BarrasSemanas
+                semanas={vencimientosPorSemana(
+                  activas.map((c) => ({ vencimiento: c.vencimiento, saldo: Number(c.saldo) })),
+                )}
+              />
+            </div>
+          </Tarjeta>
+
+          <Tarjeta>
+            {filas.map((c) => {
+              const estado = ESTADO_CXP[c.estado as EstadoCxp]
+              return (
+                <FilaLista
+                  key={c.id}
+                  principal={c.proveedor}
+                  secundario={`${c.folio_factura ?? 'sin folio'} · vence ${fecha(c.vencimiento)}`}
+                  derecha={
+                    <>
+                      <span className="text-[15px] font-bold tabular-nums">{pesos(c.saldo)}</span>
+                      <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
+                    </>
+                  }
+                />
+              )
+            })}
+          </Tarjeta>
+        </div>
+      )}
+
+      <nav className="mb-4 hidden flex-wrap items-center gap-2 lg:flex">
         {VISTAS.map((v) => (
           <Link
             key={v.clave}
@@ -89,7 +148,7 @@ export default async function PaginaCuentasPorPagar({
         )}
       </nav>
 
-      <div className="grid gap-4 xl:grid-cols-4">
+      <div className={`grid gap-4 xl:grid-cols-4 ${activas.length > 0 ? 'hidden lg:grid' : ''}`}>
         <div className="xl:col-span-3">
           <Tarjeta pie={`${filas.length} facturas · saldo ${pesos(filas.reduce((s, c) => s + Number(c.saldo), 0))}`}>
             {error ? (

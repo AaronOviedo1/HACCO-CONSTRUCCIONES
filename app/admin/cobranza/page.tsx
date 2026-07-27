@@ -69,24 +69,83 @@ export default async function PaginaCobranza({
         descripcion="Por cotización aprobada: anticipo, abonos, saldo y porcentaje pendiente."
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador etiqueta="Cotizado" valor={pesosCortos(totalCotizado)} nota={`${filas.length} obras`} />
+      <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
         <Indicador etiqueta="Cobrado" valor={pesosCortos(totalCobrado)} tono="verde" />
         <Indicador
-          etiqueta="Por cobrar"
+          etiqueta="Falta"
           valor={pesosCortos(totalSaldo)}
           nota={`${conSaldo.length} con saldo`}
           tono={totalSaldo > 0 ? 'ambar' : 'verde'}
+        />
+        <Indicador
+          etiqueta="Cotizado"
+          valor={pesosCortos(totalCotizado)}
+          nota={`${filas.length} obras`}
+          className="hidden lg:block"
         />
         <Indicador
           etiqueta="Anticipos sin cobrar"
           valor={pesosCortos(anticiposPendientes)}
           nota="obras aprobadas que aún no dan anticipo"
           tono={anticiposPendientes > 0 ? 'rojo' : 'neutro'}
+          className="hidden lg:block"
         />
       </div>
 
-      <nav className="mb-4 flex flex-wrap gap-1.5">
+      {/* Teléfono: una tarjeta por obra, con el abono a un toque ------------ */}
+      {filas.length > 0 && (
+        <div className="flex flex-col gap-3 lg:hidden">
+          {filas.map((c) => {
+            const cobradoPct =
+              Number(c.cotizado) > 0 ? Math.round((Number(c.cobrado) / Number(c.cotizado)) * 100) : 0
+            const suyas = obrasPorCotizacion.get(c.cotizacion_id) ?? []
+
+            return (
+              <article
+                key={c.cotizacion_id}
+                className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta"
+              >
+                <h2 className="text-[15.5px] font-semibold leading-snug -tracking-[0.2px]">
+                  {suyas[0]?.nombre ?? `Cotización ${c.folio ?? ''}`}
+                </h2>
+                <p className="mt-0.5 text-xs text-tinta-400">{c.cliente}</p>
+
+                <div className="mb-1.5 mt-3 flex justify-between text-[11.5px]">
+                  <span className="text-tinta-500">Cobrado {pesos(c.cobrado)}</span>
+                  <span className="font-semibold tabular-nums">{cobradoPct}%</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-tinta-150" aria-hidden>
+                  <div
+                    className={`h-full rounded-full ${
+                      cobradoPct >= 100 ? 'bg-haaco-600' : cobradoPct >= 50 ? 'bg-haaco-500' : 'bg-amber-600'
+                    }`}
+                    style={{ width: `${Math.min(100, cobradoPct)}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span>
+                    <span className="block text-[10px] uppercase tracking-[0.06em] text-tinta-400">
+                      Saldo
+                    </span>
+                    <span className="mt-px block text-base font-bold tabular-nums">
+                      {pesos(c.saldo)}
+                    </span>
+                  </span>
+                  <AccionesCobranza
+                    variante="movil"
+                    cobranza={c}
+                    pagos={porCotizacion.get(c.cotizacion_id) ?? []}
+                    obras={suyas}
+                  />
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+
+      <nav className="mb-4 hidden flex-wrap gap-1.5 lg:flex">
         {PESTANAS.map((p) => (
           <Link
             key={p.clave}
@@ -118,7 +177,10 @@ export default async function PaginaCobranza({
           />
         </Tarjeta>
       ) : vista === 'registro' ? (
-        <Tarjeta pie="Cada renglón es una cotización aprobada. Los abonos se capturan en orden.">
+        <Tarjeta
+          className="hidden lg:block"
+          pie="Cada renglón es una cotización aprobada. Los abonos se capturan en orden."
+        >
           <Tabla>
             <thead>
               <tr>
@@ -195,6 +257,7 @@ export default async function PaginaCobranza({
         </Tarjeta>
       ) : (
         <Tarjeta
+          className="hidden lg:block"
           titulo="Concentrado para el contador"
           pie={`Total general por cobrar: ${pesos(totalSaldo)}`}
         >
@@ -254,7 +317,7 @@ export default async function PaginaCobranza({
       )}
 
       {vista === 'registro' && (pagos ?? []).length > 0 && (
-        <Tarjeta titulo="Últimos pagos recibidos" className="mt-4">
+        <Tarjeta titulo="Últimos pagos recibidos" className="mt-4 hidden lg:block">
           <ul className="divide-y divide-tinta-100">
             {(pagos ?? [])
               .slice()

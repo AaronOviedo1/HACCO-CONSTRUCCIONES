@@ -7,6 +7,8 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
+import { ChipsFiltro } from '@/components/movil/piezas'
+import { TarjetaObraMovil } from '@/components/obras/tarjeta-movil'
 import type { EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -57,50 +59,72 @@ export default async function PaginaObras({
         descripcion="Cada orden de trabajo con su concentrado: lo cotizado contra lo que realmente se está gastando."
       />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador etiqueta="Obras activas" valor={String(activas.length)} />
+      <div className="mb-3.5 grid grid-cols-3 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
+        <Indicador etiqueta="Activas" valor={String(activas.length)} />
+        <Indicador etiqueta="Cotizado" valor={pesosCortos(cotizadoActivo)} />
+        <Indicador
+          etiqueta="Utilidad"
+          valor={pesosCortos(utilidadActiva)}
+          nota={cotizadoActivo > 0 ? porcentaje((utilidadActiva / cotizadoActivo) * 100) : undefined}
+          tono={tonoUtilidad(utilidadActiva, cotizadoActivo) === 'rojo' ? 'rojo' : 'verde'}
+        />
         <Indicador
           etiqueta="En obra"
           valor={String(todas.filter((o) => o.estatus === 'en_obra').length)}
           nota={`${todas.filter((o) => o.estatus === 'pausada').length} pausadas`}
           tono="verde"
-        />
-        <Indicador etiqueta="Cotizado activo" valor={pesosCortos(cotizadoActivo)} />
-        <Indicador
-          etiqueta="Utilidad proyectada"
-          valor={pesosCortos(utilidadActiva)}
-          nota={cotizadoActivo > 0 ? porcentaje((utilidadActiva / cotizadoActivo) * 100) : undefined}
-          tono={tonoUtilidad(utilidadActiva, cotizadoActivo) === 'rojo' ? 'rojo' : 'verde'}
+          className="hidden lg:block"
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-3.5 flex flex-col gap-3 lg:mb-4 lg:flex-row lg:flex-wrap lg:items-center">
         <BuscadorTabla marcador="OT, obra, cliente o folio de cotización…" />
-        <nav className="flex flex-wrap gap-1.5">
-          {FILTROS.map((f) => {
-            const activo = estatus === f.clave || (f.clave === '' && estatus === '')
+        <ChipsFiltro
+          opciones={FILTROS.map((f) => {
             const params = new URLSearchParams()
             if (q) params.set('q', q)
-            if (f.clave) params.set('estatus', f.clave)
-            else params.set('estatus', '')
-            return (
-              <Link
-                key={f.titulo}
-                href={`/admin/obras?${params}`}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  activo
-                    ? 'bg-haaco-700 text-white'
-                    : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-                }`}
-              >
-                {f.titulo}
-              </Link>
-            )
+            params.set('estatus', f.clave)
+            return {
+              titulo: f.titulo,
+              href: `/admin/obras?${params}`,
+              activo: estatus === f.clave,
+            }
           })}
-        </nav>
+        />
       </div>
 
-      <Tarjeta pie={`${filas.length} de ${todas.length} órdenes de trabajo`}>
+      {/* Teléfono: una tarjeta por orden de trabajo ------------------------- */}
+      <div className="flex flex-col gap-3 lg:hidden">
+        {filas.map((o) => {
+          const gastado =
+            Number(o.mano_obra) + Number(o.material_real) +
+            Number(o.viaticos) + Number(o.gastos_adicionales)
+
+          return (
+            <TarjetaObraMovil
+              key={o.obra_id}
+              href={`/admin/obras/${o.obra_id}`}
+              nombre={o.nombre}
+              ot={o.ot_numero}
+              cliente={o.cliente}
+              domicilio={o.domicilio}
+              estatus={o.estatus as EstatusObra}
+              avance={Number(o.avance_pct)}
+              dinero={{ cotizado: Number(o.cotizado), gastado, utilidad: Number(o.utilidad) }}
+            />
+          )
+        })}
+        {filas.length > 0 && (
+          <p className="py-1 text-center text-[11.5px] text-tinta-400">
+            {filas.length} de {todas.length} órdenes de trabajo
+          </p>
+        )}
+      </div>
+
+      <Tarjeta
+        className={filas.length > 0 ? 'hidden lg:block' : ''}
+        pie={`${filas.length} de ${todas.length} órdenes de trabajo`}
+      >
         {error ? (
           <EstadoVacio titulo="No se pudo leer la lista" descripcion="Revisa que las migraciones estén aplicadas." />
         ) : filas.length === 0 ? (

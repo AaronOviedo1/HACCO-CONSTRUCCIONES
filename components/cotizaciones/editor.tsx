@@ -147,7 +147,7 @@ export function EditorCotizacion({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-semibold tracking-tight text-tinta-900">
+            <h1 className="font-mono text-[26px] font-bold -tracking-[0.5px] text-haaco-700 lg:font-sans lg:text-2xl lg:font-semibold lg:tracking-tight lg:text-tinta-900">
               {folio ?? 'Nueva cotización'}
             </h1>
             <Etiqueta tono={ESTATUS_COTIZACION[estatus].tono}>
@@ -162,22 +162,22 @@ export function EditorCotizacion({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
           {cotizacionId && (
             <>
               <a
                 href={`/api/cotizaciones/${cotizacionId}/pdf?descargar=1`}
                 target="_blank"
                 rel="noopener"
-                className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] border-[0.5px] border-tinta-300 bg-white px-3 text-[15.5px] font-semibold text-tinta-700 transition hover:bg-tinta-50 lg:min-h-0 lg:flex-none lg:rounded-lg lg:py-2 lg:text-sm lg:font-medium"
               >
                 <FileDown size={16} />
-                PDF
+                Ver PDF
               </a>
               <button
                 type="button"
                 onClick={compartir}
-                className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] bg-haaco-700 px-3 text-[15.5px] font-semibold text-white transition active:bg-haaco-800 lg:min-h-0 lg:flex-none lg:rounded-lg lg:border lg:border-tinta-300 lg:bg-white lg:py-2 lg:text-sm lg:font-medium lg:text-tinta-700 lg:hover:bg-tinta-50"
               >
                 <Share2 size={16} />
                 WhatsApp
@@ -186,7 +186,7 @@ export function EditorCotizacion({
                 type="button"
                 onClick={alDuplicar}
                 disabled={pendiente}
-                className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
+                className="hidden items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 lg:inline-flex"
               >
                 <Copy size={16} />
                 Duplicar
@@ -477,13 +477,14 @@ export function EditorCotizacion({
 
       {/* Barra fija de guardado ------------------------------------------- */}
       {!bloqueado && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur lg:pl-72">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-            <div className="min-w-0">
+        <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur-xl lg:bottom-0 lg:pl-72">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-baseline gap-2 sm:block">
               <p className="text-xs text-tinta-500">Total con IVA</p>
               <p className="truncate text-xl font-semibold tabular-nums text-tinta-900">
                 {pesos(totales.total)}
               </p>
+              {sucio && <span className="text-xs text-amber-600 sm:hidden">Sin guardar</span>}
             </div>
             <div className="flex items-center gap-2">
               {sucio && <span className="hidden text-xs text-amber-600 sm:inline">Sin guardar</span>}
@@ -491,7 +492,7 @@ export function EditorCotizacion({
                 type="button"
                 onClick={alGuardar}
                 disabled={pendiente}
-                className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-4 py-2.5 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
+                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] border border-tinta-300 bg-white px-4 text-sm font-semibold text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 sm:min-h-0 sm:flex-none sm:rounded-lg sm:py-2.5 sm:font-medium"
               >
                 <Save size={16} />
                 {pendiente ? 'Guardando…' : 'Guardar'}
@@ -500,10 +501,11 @@ export function EditorCotizacion({
                 type="button"
                 onClick={alEnviar}
                 disabled={pendiente}
-                className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] bg-haaco-700 px-4 text-sm font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300 sm:min-h-0 sm:flex-none sm:rounded-lg sm:py-2.5"
               >
                 <Send size={16} />
-                Guardar y marcar enviada
+                <span className="sm:hidden">Enviar</span>
+                <span className="hidden sm:inline">Guardar y marcar enviada</span>
               </button>
             </div>
           </div>

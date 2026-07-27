@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { Camera, Plus, X } from 'lucide-react'
 import {
-  Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
+  Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { hoyISO, num } from '@/lib/cotizaciones'
@@ -31,7 +31,7 @@ export function BotonNuevoGasto({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+        className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-[16px] bg-haaco-700 px-4 text-base font-semibold text-white shadow-verde transition active:bg-haaco-800 lg:min-h-0 lg:w-auto lg:rounded-lg lg:py-2 lg:text-sm lg:font-medium lg:shadow-none lg:hover:bg-haaco-800"
       >
         <Plus size={16} />
         Nuevo gasto
@@ -176,7 +176,7 @@ function FormularioGasto({
                   setVista(null)
                   if (entrada.current) entrada.current.value = ''
                 }}
-                className="absolute right-2 top-2 rounded-full bg-tinta-900/70 p-1.5 text-white"
+                className="absolute right-2 top-2 rounded-full bg-tinta-950/70 p-1.5 text-white"
                 aria-label="Quitar ticket"
               >
                 <X size={15} />
@@ -187,9 +187,10 @@ function FormularioGasto({
               type="button"
               onClick={() => entrada.current?.click()}
               data-tap
-              className="flex w-full items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-haaco-300 bg-haaco-50/40 px-4 py-5 text-sm font-semibold text-haaco-800 transition hover:bg-haaco-50"
+              className="flex w-full items-center justify-center gap-2.5 rounded-[20px] border-2 border-dashed border-haaco-300 bg-haaco-50/50 px-4 py-7 text-[17px] font-semibold text-haaco-800 transition hover:bg-haaco-50 lg:rounded-xl lg:py-5 lg:text-sm"
             >
-              <Camera size={20} />
+              <Camera size={24} className="lg:hidden" />
+              <Camera size={20} className="hidden lg:block" />
               Foto del ticket o factura
             </button>
           )}
@@ -208,18 +209,12 @@ function FormularioGasto({
         />
         <Campo
           etiqueta="Categoría"
-          ancho="medio"
           hijo={
-            <Seleccion
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value as CategoriaGasto)}
-            >
-              {Object.entries(CATEGORIA_GASTO).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
+            <Opciones
+              valor={categoria}
+              opciones={Object.entries(CATEGORIA_GASTO) as [CategoriaGasto, string][]}
+              onCambio={setCategoria}
+            />
           }
         />
         <Campo
@@ -274,7 +269,14 @@ function FormularioGasto({
         <Campo
           etiqueta="Monto total"
           ancho="medio"
-          hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0.00" />}
+          hijo={
+            <Numero
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder="0.00"
+              className="text-center text-2xl font-bold -tracking-[0.5px] lg:text-right lg:text-sm lg:font-normal lg:tracking-normal"
+            />
+          }
           ayuda={
             num(piezas) > 1 && num(monto) > 0
               ? `${pesos(num(monto) / num(piezas))} por pieza`
@@ -319,16 +321,12 @@ function FormularioGasto({
           etiqueta="Condición"
           ancho="medio"
           hijo={
-            <Seleccion
-              value={condicion}
-              onChange={(e) => setCondicion(e.target.value as CondicionCompra)}
-            >
-              {Object.entries(CONDICION).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
+            <Opciones
+              valor={condicion}
+              columnas={2}
+              opciones={Object.entries(CONDICION) as [CondicionCompra, string][]}
+              onCambio={setCondicion}
+            />
           }
           ayuda={
             condicion === 'credito'
@@ -345,7 +343,7 @@ function FormularioGasto({
               type="checkbox"
               checked={crearMaterial}
               onChange={(e) => setCrearMaterial(e.target.checked)}
-              className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+              className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
             />
             Registrar también como material REAL de la obra
           </label>
@@ -358,7 +356,7 @@ function FormularioGasto({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className="min-h-12 rounded-[14px] border border-tinta-300 bg-white px-4 text-base font-semibold text-tinta-700 transition hover:bg-tinta-50 sm:min-h-0 sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium"
         >
           Cancelar
         </button>
@@ -366,7 +364,7 @@ function FormularioGasto({
           type="button"
           onClick={guardar}
           disabled={pendiente || subiendo || !descripcion.trim() || num(monto) <= 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className="min-h-12 rounded-[14px] bg-haaco-700 px-4 text-base font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300 sm:min-h-0 sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium"
         >
           {subiendo ? 'Subiendo ticket…' : pendiente ? 'Guardando…' : 'Registrar gasto'}
         </button>

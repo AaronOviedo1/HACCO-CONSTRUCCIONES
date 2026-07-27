@@ -1,23 +1,30 @@
 import { BarraLateral } from '@/components/admin/barra-lateral'
+import { BarraTabs } from '@/components/movil/tabs'
 import { cerrarSesion } from '@/app/login/acciones'
 import { NOMBRE_ROL, requerirRol } from '@/lib/auth'
-import { seccionesDe } from '@/lib/nav'
+import { pestanasDe, seccionesDe } from '@/lib/nav'
 
+/**
+ * Dos formas de moverse por la misma app: barra lateral completa en escritorio
+ * e iPad horizontal, barra de pestañas en el teléfono. Nunca las dos a la vez.
+ */
 export default async function LayoutAdmin({ children }: { children: React.ReactNode }) {
   const perfil = await requerirRol(['admin', 'administracion', 'contador'])
-  const secciones = seccionesDe(perfil.rol)
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
       <BarraLateral
-        secciones={secciones}
+        secciones={seccionesDe(perfil.rol)}
         nombre={perfil.nombre}
         rol={NOMBRE_ROL[perfil.rol]}
         cerrarSesion={cerrarSesion}
       />
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+
+      <main className="min-w-0 flex-1 px-4 pb-[calc(var(--alto-tabs)+1rem)] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
+
+      <BarraTabs pestanas={pestanasDe(perfil.rol)} />
     </div>
   )
 }

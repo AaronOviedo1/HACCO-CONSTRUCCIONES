@@ -1,3 +1,4 @@
+import { parsearFecha } from '@/lib/format'
 import type { TonoEtiqueta } from '@/components/ui'
 import type {
   CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago,
@@ -108,6 +109,41 @@ export function etiquetaMes(mes: string): string {
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
   return `${meses[m - 1]} de ${anio}`
+}
+
+/**
+ * Lo que vence en las próximas cuatro semanas, contadas desde hoy.
+ * Lo ya vencido se acumula en la primera barra: en la calle eso es «esta
+ * semana», no historia.
+ */
+export function vencimientosPorSemana(
+  cuentas: { vencimiento: string | null; saldo: number }[],
+): { etiqueta: string; monto: number; texto: string }[] {
+  const cortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  return Array.from({ length: 4 }, (_, i) => {
+    const desde = new Date(hoy)
+    desde.setDate(hoy.getDate() + i * 7)
+    const hasta = new Date(desde)
+    hasta.setDate(desde.getDate() + 7)
+
+    const monto = cuentas
+      .filter((c) => {
+        const v = parsearFecha(c.vencimiento)
+        if (!v) return false
+        return i === 0 ? v < hasta : v >= desde && v < hasta
+      })
+      .reduce((s, c) => s + c.saldo, 0)
+
+    return {
+      etiqueta: `${desde.getDate()} ${cortos[desde.getMonth()]}`,
+      monto,
+      texto: monto > 0 ? `$${Math.round(monto / 1000)}k` : '—',
+    }
+  })
 }
 
 /** Tono de la barra de cobranza según lo que falte por cobrar. */

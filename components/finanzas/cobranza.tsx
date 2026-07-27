@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { Paperclip, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import {
-  AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
+  AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta } from '@/components/ui'
 import { crearClienteNavegador } from '@/lib/supabase/client'
@@ -21,23 +21,36 @@ export function AccionesCobranza({
   cobranza,
   pagos,
   obras,
+  variante = 'tabla',
 }: {
   cobranza: VCobranza
   pagos: PagoCobranza[]
   obras: ObraSimple[]
+  /** En el teléfono el pago es la acción principal de la tarjeta, no un icono. */
+  variante?: 'tabla' | 'movil'
 }) {
   const [abierto, setAbierto] = useState(false)
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
-      >
-        <Plus size={14} />
-        Pago
-      </button>
+      {variante === 'movil' ? (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="min-h-11 rounded-[13px] bg-haaco-700 px-4 text-[15px] font-semibold text-white transition active:bg-haaco-800"
+        >
+          Registrar abono
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          <Plus size={14} />
+          Pago
+        </button>
+      )}
 
       {abierto && (
         <DialogoCobranza
@@ -178,32 +191,37 @@ function DialogoCobranza({
 
         <Campo
           etiqueta="Tipo"
-          ancho="medio"
           hijo={
-            <Seleccion value={tipo} onChange={(e) => setTipo(e.target.value as TipoPagoCobranza)}>
-              <option value="anticipo">Anticipo</option>
-              <option value="abono">Abono</option>
-              <option value="liquidacion">Liquidación</option>
-            </Seleccion>
+            <Opciones
+              valor={tipo}
+              columnas={3}
+              opciones={Object.entries(TIPO_PAGO_COBRANZA) as [TipoPagoCobranza, string][]}
+              onCambio={setTipo}
+            />
           }
         />
         <Campo
           etiqueta="Monto"
           ancho="medio"
-          hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus />}
+          hijo={
+            <Numero
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              autoFocus
+              className="text-center text-2xl font-bold -tracking-[0.5px] lg:text-right lg:text-sm lg:font-normal lg:tracking-normal"
+            />
+          }
           ayuda={saldo > 0 ? `Saldo actual ${pesos(saldo)}` : 'Ya está liquidada'}
         />
         <Campo
           etiqueta="Método"
-          ancho="medio"
           hijo={
-            <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
+            <Opciones
+              valor={metodo}
+              columnas={2}
+              opciones={Object.entries(METODO_PAGO) as [MetodoPago, string][]}
+              onCambio={setMetodo}
+            />
           }
         />
         <Campo

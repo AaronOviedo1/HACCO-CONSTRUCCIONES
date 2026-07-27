@@ -6,8 +6,9 @@ import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
 import { CATEGORIA_GASTO, METODO_PAGO } from '@/lib/finanzas'
 
+/* En el teléfono los filtros se acomodan en rejilla; en escritorio, en fila. */
 const CLASE =
-  'rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100'
+  'w-full min-h-11 rounded-[12px] border-[0.5px] border-tinta-300 bg-white px-3 text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200 lg:min-h-0 lg:w-auto lg:rounded-lg lg:py-2 lg:text-sm'
 
 export function FiltrosGastos({
   obras,
@@ -30,8 +31,10 @@ export function FiltrosGastos({
   const hayFiltros = ['obra', 'categoria', 'metodo', 'q'].some((k) => params.get(k))
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <BuscadorTabla marcador="Descripción, folio, proveedor…" />
+    <div className="mb-3.5 grid grid-cols-2 gap-2 lg:mb-4 lg:flex lg:flex-wrap lg:items-center">
+      <div className="col-span-2 lg:contents">
+        <BuscadorTabla marcador="Descripción, folio, proveedor…" />
+      </div>
 
       <input
         type="month"
@@ -41,7 +44,7 @@ export function FiltrosGastos({
         aria-label="Mes"
       />
 
-      <select className={`${CLASE} max-w-52`} value={params.get('obra') ?? ''} onChange={(e) => fijar('obra', e.target.value)}>
+      <select className={`${CLASE} lg:max-w-52`} value={params.get('obra') ?? ''} onChange={(e) => fijar('obra', e.target.value)}>
         <option value="">Todas las obras</option>
         <option value="general">Sólo gasto general</option>
         {obras.map((o) => (
@@ -81,7 +84,7 @@ export function FiltrosGastos({
         <button
           type="button"
           onClick={() => iniciar(() => router.replace(`?mes=${mes}`, { scroll: false }))}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100"
+          className="col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100 lg:col-span-1 lg:min-h-0 lg:py-2"
         >
           <X size={14} />
           Limpiar

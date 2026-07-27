@@ -55,8 +55,8 @@ export default async function PaginaObra({
     <>
       <EncabezadoObra concentrado={datos.concentrado} obra={datos.obra} cobranza={datos.cobranza} />
 
-      <nav className="mb-5 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="flex min-w-max gap-1.5 border-b border-tinta-200 pb-px">
+      <nav className="sin-barra -mx-4 mb-4 overflow-x-auto px-4 lg:mb-5 lg:overflow-visible lg:px-0">
+        <div className="flex min-w-max gap-1.5 lg:border-b lg:border-tinta-200 lg:pb-px">
           {PESTANAS.map((p) => {
             const es = activa === p.clave
             const n = pendientes[p.clave]
@@ -64,10 +64,10 @@ export default async function PaginaObra({
               <Link
                 key={p.clave}
                 href={`/admin/obras/${id}?t=${p.clave}`}
-                className={`relative rounded-t-lg px-3.5 py-2.5 text-sm font-medium transition ${
+                className={`relative flex min-h-9 shrink-0 items-center rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:min-h-0 lg:rounded-none lg:rounded-t-lg lg:border-0 lg:border-b-2 lg:px-3.5 lg:py-2.5 lg:text-sm ${
                   es
-                    ? 'border-b-2 border-haaco-600 text-haaco-800'
-                    : 'border-b-2 border-transparent text-tinta-500 hover:text-tinta-800'
+                    ? 'border-haaco-700 bg-haaco-700 text-white lg:border-haaco-600 lg:bg-transparent lg:text-haaco-800'
+                    : 'border-tinta-200 bg-white text-tinta-600 lg:border-transparent lg:bg-transparent lg:text-tinta-500 lg:hover:text-tinta-800'
                 }`}
               >
                 {p.titulo}
@@ -76,7 +76,9 @@ export default async function PaginaObra({
                     className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                       p.clave === 'cierre'
                         ? 'bg-amber-100 text-amber-700'
-                        : 'bg-tinta-100 text-tinta-500'
+                        : es
+                          ? 'bg-white/20 text-white lg:bg-tinta-100 lg:text-tinta-500'
+                          : 'bg-tinta-100 text-tinta-500'
                     }`}
                   >
                     {n}

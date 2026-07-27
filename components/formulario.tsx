@@ -4,8 +4,9 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
 import { X } from 'lucide-react'
 
+/* En el teléfono los campos son más altos y redondos: se llenan con el pulgar. */
 const CLASE_CAMPO =
-  'w-full rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm text-tinta-900 outline-none transition focus:border-haaco-500 focus:ring-2 focus:ring-haaco-100 disabled:bg-tinta-50 disabled:text-tinta-400'
+  'w-full rounded-[14px] border border-tinta-300 bg-white px-3.5 py-3 text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200 disabled:bg-tinta-50 disabled:text-tinta-400 lg:rounded-lg lg:px-3 lg:py-2 lg:text-sm'
 
 export function Campo({
   etiqueta,
@@ -59,6 +60,48 @@ export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElemen
   return <textarea {...resto} className={`${CLASE_CAMPO} min-h-20 ${className}`} />
 }
 
+/**
+ * Opciones en fila: para listas cortas y muy usadas (categoría de gasto, tipo
+ * de pago, método). Se tocan directo, sin desplegar nada.
+ */
+export function Opciones<T extends string>({
+  valor,
+  opciones,
+  onCambio,
+  columnas,
+}: {
+  valor: T
+  opciones: [T, string][]
+  onCambio: (valor: T) => void
+  /** Rejilla fija en vez de flujo libre: útil para dos o cuatro opciones. */
+  columnas?: 2 | 3
+}) {
+  const rejilla = columnas === 2 ? 'grid grid-cols-2' : columnas === 3 ? 'grid grid-cols-3' : 'flex flex-wrap'
+
+  return (
+    <div className={`${rejilla} gap-2`}>
+      {opciones.map(([clave, texto]) => {
+        const activa = valor === clave
+        return (
+          <button
+            key={clave}
+            type="button"
+            onClick={() => onCambio(clave)}
+            aria-pressed={activa}
+            className={`min-h-11 rounded-[13px] border px-3.5 text-[14.5px] font-semibold transition ${
+              activa
+                ? 'border-haaco-700 bg-haaco-700 text-white'
+                : 'border-tinta-300 bg-white text-tinta-700 hover:border-haaco-300'
+            }`}
+          >
+            {texto}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Casilla({
   etiqueta,
   ...props
@@ -68,7 +111,7 @@ export function Casilla({
       <input
         type="checkbox"
         {...props}
-        className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-500"
+        className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
       />
       {etiqueta}
     </label>
@@ -112,24 +155,29 @@ export function Dialogo({
   const anchos = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' } as const
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta-900/40 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta-950/50 p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0" onClick={onCerrar} aria-hidden />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        className={`relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${anchos[ancho]}`}
+        className={`relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl animate-sube sm:animate-none sm:rounded-2xl ${anchos[ancho]}`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-tinta-100 px-5 py-4">
+        {/* Asa de la hoja: sólo en el teléfono, donde el gesto es arrastrar. */}
+        <span className="mx-auto mt-2.5 h-[5px] w-10 shrink-0 rounded-full bg-tinta-300 sm:hidden" aria-hidden />
+
+        <div className="flex items-start justify-between gap-4 border-b-[0.5px] border-tinta-150 px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-tinta-900">{titulo}</h2>
+            <h2 className="text-lg font-semibold -tracking-[0.3px] text-tinta-900 lg:text-base">
+              {titulo}
+            </h2>
             {descripcion && <p className="mt-0.5 text-sm text-tinta-500">{descripcion}</p>}
           </div>
           <button
             type="button"
             onClick={onCerrar}
-            className="-mr-1.5 rounded-lg p-1.5 text-tinta-400 hover:bg-tinta-100 hover:text-tinta-700"
+            className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tinta-150 text-tinta-600 transition hover:bg-tinta-200 sm:bg-transparent sm:text-tinta-400 sm:hover:bg-tinta-100"
             aria-label="Cerrar"
           >
             <X size={18} />
@@ -143,7 +191,7 @@ export function Dialogo({
 
 export function PieDialogo({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-tinta-100 bg-tinta-50 px-5 py-3">
+    <div className="flex flex-wrap items-center justify-end gap-2 border-t-[0.5px] border-tinta-150 bg-tinta-50 px-5 py-3 pb-seguro [&>*]:flex-1 sm:pb-3 sm:[&>*]:flex-none">
       {children}
     </div>
   )
@@ -165,8 +213,9 @@ export function BotonGuardar({
 }) {
   const { pending } = useFormStatus()
   const variantes = {
-    primario: 'bg-haaco-700 text-white hover:bg-haaco-800 disabled:bg-haaco-300',
-    secundario: 'border border-tinta-300 bg-white text-tinta-700 hover:bg-tinta-50',
+    primario: 'bg-haaco-700 text-white hover:bg-haaco-900 disabled:bg-haaco-300',
+    secundario:
+      'border border-tinta-300 bg-white text-tinta-700 hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800',
     peligro: 'border border-red-200 bg-white text-red-700 hover:bg-red-50',
   } as const
 
@@ -174,7 +223,7 @@ export function BotonGuardar({
     <button
       type="submit"
       disabled={pending}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${variantes[variante]}`}
+      className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-base font-semibold transition disabled:cursor-not-allowed sm:min-h-0 sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium ${variantes[variante]}`}
     >
       {pending ? 'Guardando…' : children}
     </button>

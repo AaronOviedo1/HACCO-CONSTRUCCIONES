@@ -1,10 +1,14 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   HaacoPro · Identidad
-   Verde HAACO PRO sobre papel neutro, membrete minimalista como su recibo.
+   HaacoPro · Identidad HAACO PRO RECUBRIMIENTOS
+   Manual de marca: verde #12341c y negro #070c14.
+   La escala operativa (50–800) es la del prototipo móvil: un verde más vivo
+   que lee bien a pleno sol, con el verde exacto del manual reservado para el
+   chrome (barra lateral, login, membretes) y los documentos.
    ========================================================================== */
 @theme {
+  /* Verde de marca. El 700 es el primario de la app; el 900, el del manual. */
   --color-haaco-50:  #eef7f1;
   --color-haaco-100: #d6ecdf;
   --color-haaco-200: #aedac0;
@@ -14,10 +18,13 @@
   --color-haaco-600: #1b6f42;
   --color-haaco-700: #145836;
   --color-haaco-800: #10462c;
-  --color-haaco-900: #0c3722;
+  --color-haaco-900: #12341c;
+  --color-haaco-950: #0b2113;
 
-  --color-tinta-50:  #f7f8f7;
-  --color-tinta-100: #eef0ee;
+  /* Neutros con la misma temperatura que el verde. El 950 es el del manual. */
+  --color-tinta-50:  #f6f7f6;
+  --color-tinta-100: #f2f4f2;
+  --color-tinta-150: #eef0ee;
   --color-tinta-200: #dfe3df;
   --color-tinta-300: #c3cac4;
   --color-tinta-400: #939e96;
@@ -26,13 +33,65 @@
   --color-tinta-700: #414a44;
   --color-tinta-800: #2c332e;
   --color-tinta-900: #1a1f1c;
+  --color-tinta-950: #070c14;
 
+  /* Circular Std → Figtree para el cuerpo (ver app/layout.tsx). */
   --font-sans: var(--fuente-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --shadow-tarjeta: 0 1px 3px rgba(16, 70, 44, 0.04);
+  --shadow-verde: 0 6px 16px rgba(20, 88, 54, 0.22);
+
+  --animate-entra: entra 0.28s ease;
+  --animate-sube: sube 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-pulso: pulso 1.6s ease-in-out infinite;
+}
+
+@keyframes entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sube {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes pulso {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/*
+ * Sustituto de Akira Expanded Super Bold: Archivo llevada a su ancho máximo.
+ * El peso se sigue controlando con las utilidades normales (font-extrabold).
+ */
+@utility tipo-display {
+  font-family: var(--fuente-display), ui-sans-serif, system-ui, sans-serif;
+  font-variation-settings: "wdth" 125;
+}
+
+/* Hairline de iOS: el borde de 1px se ve tosco en pantallas retina. */
+@utility borde-fino {
+  border-width: 0.5px;
+}
+
+/* Carruseles de chips: se deslizan con el dedo, sin barra a la vista. */
+@utility sin-barra {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { width: 0; height: 0; }
+}
+
+/* Respiro para la barra de gestos del teléfono. */
+@utility pb-seguro {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 :root {
-  --fondo: #f6f7f6;
+  --fondo: var(--color-tinta-50);
   --texto: var(--color-tinta-900);
+  /* Alto real de la barra de pestañas: lo usan las pantallas para no quedar
+     tapadas por ella. */
+  --alto-tabs: calc(4.25rem + env(safe-area-inset-bottom));
 }
 
 html {
@@ -52,4 +111,5 @@ body {
 /* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */
 @media (pointer: coarse) {
   button, a[role="button"], [data-tap] { min-height: 44px; }
+  button, a { -webkit-tap-highlight-color: transparent; }
 }
