@@ -7,7 +7,7 @@ import {
   AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
   Seleccion,
 } from '@/components/formulario'
-import { FiltroMes } from '@/components/filtro-fechas'
+import { FiltroMes, SelectorFecha } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import {
@@ -183,7 +183,7 @@ function FormularioPagoFijo({
         <Campo
           etiqueta="Quincena"
           ancho="medio"
-          hijo={<Entrada type="date" value={quincena} onChange={(e) => setQuincena(e.target.value)} />}
+          hijo={<SelectorFecha valor={quincena} onCambio={setQuincena} />}
           ayuda={`${etiquetaQuincena(quincena)} · ${fecha(quincena)}`}
         />
         <Campo

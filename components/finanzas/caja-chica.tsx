@@ -6,7 +6,7 @@ import { ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
-import { FiltroRango } from '@/components/filtro-fechas'
+import { FiltroRango, SelectorFecha } from '@/components/filtro-fechas'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { eliminarMovimientoCaja, guardarMovimientoCaja } from '@/app/admin/finanzas-acciones'
 import type { TipoMovimientoCaja } from '@/types/database'
@@ -130,7 +130,7 @@ function FormularioMovimiento({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
+          hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
         />
         {tipo === 'salida' && obras.length > 0 && (
           <Campo

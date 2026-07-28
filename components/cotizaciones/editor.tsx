@@ -5,8 +5,12 @@ import { useMemo, useState, useTransition } from 'react'
 import {
   Check, Copy, FileDown, GripVertical, Plus, Save, Send, Share2, Trash2, X,
 } from 'lucide-react'
-import { AreaTexto, Campo, Casilla, Entrada, Numero, Seleccion } from '@/components/formulario'
+import {
+  AreaTexto, Campo, Casilla, Entrada, Numero, NumeroCorto, Seleccion,
+} from '@/components/formulario'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
+import { SelectorFecha } from '@/components/filtro-fechas'
+import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, Tarjeta } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
@@ -286,57 +290,46 @@ export function EditorCotizacion({
               <Campo
                 etiqueta="Fecha"
                 hijo={
-                  <Entrada
-                    type="date"
-                    value={doc.fecha}
-                    onChange={(e) => cambiar('fecha', e.target.value)}
+                  <SelectorFecha
+                    valor={doc.fecha}
+                    onCambio={(v) => cambiar('fecha', v)}
                     disabled={bloqueado}
+                    titulo="Fecha de la cotización"
                   />
                 }
               />
               <Campo
                 etiqueta="Domicilio de la obra"
-                ancho="medio"
                 hijo={
-                  <AreaTexto
-                    rows={2}
-                    value={doc.domicilio_obra}
-                    onChange={(e) => cambiar('domicilio_obra', e.target.value)}
+                  <CampoDomicilio
+                    valor={doc.domicilio_obra}
+                    onCambio={(v) => cambiar('domicilio_obra', v)}
                     placeholder={cliente?.domicilio ?? 'Calle, número, colonia'}
                     disabled={bloqueado}
                   />
                 }
               />
-              <div className="grid gap-4 sm:grid-cols-3 sm:col-span-2">
-                <Campo
-                  etiqueta="Anticipo %"
-                  hijo={
-                    <Numero
-                      value={doc.anticipo_pct}
-                      onChange={(e) => cambiar('anticipo_pct', e.target.value)}
-                      disabled={bloqueado}
-                    />
-                  }
+              <div className="flex flex-wrap gap-x-8 gap-y-4 sm:col-span-2">
+                <NumeroCorto
+                  etiqueta="Anticipo"
+                  sufijo="%"
+                  value={doc.anticipo_pct}
+                  onChange={(e) => cambiar('anticipo_pct', e.target.value)}
+                  disabled={bloqueado}
                 />
-                <Campo
-                  etiqueta="IVA %"
-                  hijo={
-                    <Numero
-                      value={doc.iva_pct}
-                      onChange={(e) => cambiar('iva_pct', e.target.value)}
-                      disabled={bloqueado}
-                    />
-                  }
+                <NumeroCorto
+                  etiqueta="IVA"
+                  sufijo="%"
+                  value={doc.iva_pct}
+                  onChange={(e) => cambiar('iva_pct', e.target.value)}
+                  disabled={bloqueado}
                 />
-                <Campo
-                  etiqueta="Vigencia (días)"
-                  hijo={
-                    <Numero
-                      value={doc.vigencia_dias}
-                      onChange={(e) => cambiar('vigencia_dias', e.target.value)}
-                      disabled={bloqueado}
-                    />
-                  }
+                <NumeroCorto
+                  etiqueta="Vigencia"
+                  sufijo="días"
+                  value={doc.vigencia_dias}
+                  onChange={(e) => cambiar('vigencia_dias', e.target.value)}
+                  disabled={bloqueado}
                 />
               </div>
               <Casilla

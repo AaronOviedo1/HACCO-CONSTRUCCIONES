@@ -7,6 +7,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, pesos, porcentaje } from '@/lib/format'
 import { num, redondear } from '@/lib/cotizaciones'
 import { GRUPOS_TRABAJOS, leerReparaciones, resumirTrabajos } from '@/lib/obras'
@@ -529,11 +530,11 @@ function FormularioContrato({
         <div className="grid grid-cols-2 gap-4 sm:col-span-1">
           <Campo
             etiqueta="Inicia"
-            hijo={<Entrada type="date" value={inicia} onChange={(e) => setInicia(e.target.value)} />}
+            hijo={<SelectorFecha valor={inicia} onCambio={setInicia} />}
           />
           <Campo
             etiqueta="Finaliza"
-            hijo={<Entrada type="date" value={finaliza} onChange={(e) => setFinaliza(e.target.value)} />}
+            hijo={<SelectorFecha valor={finaliza} onCambio={setFinaliza} />}
           />
         </div>
 

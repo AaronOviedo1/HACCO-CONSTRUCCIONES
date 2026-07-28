@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Check, Plus, X } from 'lucide-react'
 import { Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo } from '@/components/formulario'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { pesos } from '@/lib/format'
 import { num, redondear } from '@/lib/cotizaciones'
 import { aprobarCotizacion } from '@/app/admin/cotizaciones/acciones'
@@ -163,12 +164,12 @@ export function DialogoAprobar({
                   />
                 </div>
                 <div className="col-span-3">
-                  <Entrada
-                    type="date"
-                    value={orden.fecha_estimada_entrega}
-                    onChange={(e) =>
+                  <SelectorFecha
+                    valor={orden.fecha_estimada_entrega}
+                    titulo="Entrega estimada"
+                    onCambio={(v) =>
                       setOrdenes((l) =>
-                        l.map((o, j) => (j === i ? { ...o, fecha_estimada_entrega: e.target.value } : o)),
+                        l.map((o, j) => (j === i ? { ...o, fecha_estimada_entrega: v } : o)),
                       )
                     }
                   />

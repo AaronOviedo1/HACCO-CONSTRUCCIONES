@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
 import { Paperclip, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import {
-  AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo,
+  AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, Opciones, PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { fecha, montoEnLetra, pesos } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
@@ -227,7 +228,7 @@ function DialogoCobranza({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} />}
+          hijo={<SelectorFecha valor={fechaPago} onCambio={setFechaPago} />}
         />
 
         <div className="sm:col-span-2">

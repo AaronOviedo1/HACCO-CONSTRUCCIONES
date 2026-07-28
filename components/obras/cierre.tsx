@@ -7,6 +7,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta, Tarjeta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, pesos } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { REGLAS } from '@/lib/empresa'
@@ -454,7 +455,7 @@ function FormularioPoliza({
         <Campo
           etiqueta="Fecha de conclusión"
           ancho="medio"
-          hijo={<Entrada type="date" value={conclusion} onChange={(e) => setConclusion(e.target.value)} />}
+          hijo={<SelectorFecha valor={conclusion} onCambio={setConclusion} />}
           ayuda="La vigencia se cuenta desde aquí."
         />
         <Campo

@@ -46,6 +46,34 @@ export function Numero(props: React.InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
+/**
+ * Número de dos o tres dígitos con su unidad al lado (porcentajes, días).
+ * Un campo de ancho completo para escribir «16» se ve desproporcionado.
+ */
+export function NumeroCorto({
+  etiqueta,
+  sufijo,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { etiqueta: string; sufijo: string }) {
+  const { className = '', ...resto } = props
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-tinta-700">{etiqueta}</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          size={4}
+          {...resto}
+          className={`w-16 rounded-[14px] border border-tinta-300 bg-white px-2 py-3 text-center tabular-nums text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200 disabled:bg-tinta-50 disabled:text-tinta-400 lg:rounded-lg lg:py-2 lg:text-sm ${className}`}
+        />
+        <span className="text-sm text-tinta-500">{sufijo}</span>
+      </span>
+    </label>
+  )
+}
+
 export function Seleccion(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   const { className = '', children, ...resto } = props
   return (

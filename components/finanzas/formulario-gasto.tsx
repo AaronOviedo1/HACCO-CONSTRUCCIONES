@@ -6,6 +6,7 @@ import { Camera, Plus, X } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
@@ -220,7 +221,7 @@ function FormularioGasto({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
+          hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
         />
 
         <Campo

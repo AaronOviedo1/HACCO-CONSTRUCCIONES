@@ -7,6 +7,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, montoEnLetra, pesos } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { registrarPago } from '@/app/admin/obras/acciones'
@@ -385,7 +386,7 @@ function DialogoPago({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} />}
+          hijo={<SelectorFecha valor={fechaPago} onCambio={setFechaPago} />}
         />
 
         <div className="rounded-lg bg-tinta-50 px-3 py-2.5 text-sm sm:col-span-2">
@@ -430,12 +431,12 @@ function DialogoPago({
             <Campo
               etiqueta="Fecha de inicio"
               ancho="medio"
-              hijo={<Entrada type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />}
+              hijo={<SelectorFecha valor={inicio} onCambio={setInicio} />}
             />
             <Campo
               etiqueta="Entrega estimada"
               ancho="medio"
-              hijo={<Entrada type="date" value={entrega} onChange={(e) => setEntrega(e.target.value)} />}
+              hijo={<SelectorFecha valor={entrega} onCambio={setEntrega} />}
             />
             <Campo
               etiqueta="Datos bancarios"

@@ -6,6 +6,7 @@ import {
   AreaTexto, BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
   PieDialogo, Seleccion,
 } from '@/components/formulario'
+import { CampoDomicilio } from '@/components/campo-domicilio'
 import { eliminarCliente, guardarCliente, type EstadoAccion } from '@/app/admin/acciones'
 import type { Cliente } from '@/types/database'
 
@@ -58,6 +59,9 @@ export function FormularioCliente({
 }) {
   const [estado, accion] = useActionState<EstadoAccion, FormData>(guardarCliente, {})
   const [estadoBorrar, accionBorrar] = useActionState<EstadoAccion, FormData>(eliminarCliente, {})
+  // El domicilio se controla aparte porque lo llena Google; viaja al servidor
+  // en un campo oculto para no cambiar la acción.
+  const [domicilio, setDomicilio] = useState(cliente?.domicilio ?? '')
 
   useEffect(() => {
     if (estado.ok) {
@@ -113,7 +117,12 @@ export function FormularioCliente({
           />
           <Campo
             etiqueta="Domicilio"
-            hijo={<AreaTexto name="domicilio" defaultValue={cliente?.domicilio ?? ''} rows={2} />}
+            hijo={
+              <>
+                <CampoDomicilio valor={domicilio} onCambio={setDomicilio} />
+                <input type="hidden" name="domicilio" value={domicilio} />
+              </>
+            }
           />
           <Campo
             etiqueta="Notas"

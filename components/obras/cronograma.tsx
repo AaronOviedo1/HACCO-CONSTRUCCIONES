@@ -7,6 +7,7 @@ import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, fechaHora } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { ESTATUS_TAREA } from '@/lib/obras'
@@ -298,12 +299,12 @@ function FormularioTarea({
         <Campo
           etiqueta="Inicio"
           ancho="medio"
-          hijo={<Entrada type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />}
+          hijo={<SelectorFecha valor={inicio} onCambio={setInicio} />}
         />
         <Campo
           etiqueta="Fin"
           ancho="medio"
-          hijo={<Entrada type="date" value={fin} onChange={(e) => setFin(e.target.value)} />}
+          hijo={<SelectorFecha valor={fin} onCambio={setFin} />}
         />
         <Campo
           etiqueta="Estatus"
@@ -388,7 +389,7 @@ function DialogoRecorrer({ obraId, onCerrar }: { obraId: string; onCerrar: () =>
         <Campo
           etiqueta="A partir de"
           ancho="medio"
-          hijo={<Entrada type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />}
+          hijo={<SelectorFecha valor={desde} onCambio={setDesde} />}
           ayuda="Sólo se mueven las tareas que empiezan en esa fecha o después."
         />
 

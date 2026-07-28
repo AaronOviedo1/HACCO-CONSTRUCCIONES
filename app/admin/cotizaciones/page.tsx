@@ -192,9 +192,14 @@ export default async function PaginaCotizaciones({
             </thead>
             <tbody>
               {filas.map((c) => (
-                <tr key={c.id} className="cursor-pointer hover:bg-tinta-50/60">
+                /* El enlace del folio se estira sobre toda la fila: se puede
+                   dar clic en cualquier parte y sigue siendo un enlace real. */
+                <tr key={c.id} className="relative cursor-pointer hover:bg-tinta-50/60">
                   <Td className="font-medium">
-                    <Link href={`/admin/cotizaciones/${c.id}`} className="text-haaco-700 hover:underline">
+                    <Link
+                      href={`/admin/cotizaciones/${c.id}`}
+                      className="text-haaco-700 after:absolute after:inset-0 hover:underline"
+                    >
                       {c.folio}
                     </Link>
                   </Td>

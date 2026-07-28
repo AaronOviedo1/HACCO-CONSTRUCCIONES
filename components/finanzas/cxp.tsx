@@ -1,5 +1,6 @@
 'use client'
 
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Banknote, Pencil, Plus } from 'lucide-react'
@@ -123,7 +124,7 @@ function DialogoAbono({ cuenta, onCerrar }: { cuenta: VCuentaPorPagar; onCerrar:
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} />}
+          hijo={<SelectorFecha valor={fechaPago} onCambio={setFechaPago} />}
         />
 
         {num(monto) > 0 && (
@@ -258,7 +259,7 @@ function FormularioCxp({
           etiqueta="Fecha de factura"
           ancho="medio"
           hijo={
-            <Entrada type="date" value={fechaFactura} onChange={(e) => setFechaFactura(e.target.value)} />
+            <SelectorFecha valor={fechaFactura} onCambio={setFechaFactura} />
           }
         />
         <Campo

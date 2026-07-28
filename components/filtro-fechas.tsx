@@ -367,6 +367,117 @@ function Mes({
 }
 
 // ---------------------------------------------------------------------------
+// Un día suelto, para los formularios
+// ---------------------------------------------------------------------------
+
+/**
+ * Reemplaza al `<input type="date">` del navegador en los formularios de
+ * captura: mismo calendario que el filtro, en español y con el mismo aspecto
+ * en cualquier navegador.
+ */
+export function SelectorFecha({
+  valor,
+  onCambio,
+  disabled,
+  titulo = 'Fecha',
+  id,
+}: {
+  /** Fecha en formato aaaa-mm-dd, como la guarda Postgres. */
+  valor: string
+  onCambio: (valor: string) => void
+  disabled?: boolean
+  titulo?: string
+  id?: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const elegida = leer(valor)
+  const [ancla, setAncla] = useState<Date>(primeroDe(elegida ?? new Date()))
+
+  const hoy = new Date()
+  const etiqueta = elegida
+    ? `${elegida.getDate()} de ${MESES[elegida.getMonth()]} de ${elegida.getFullYear()}`
+    : 'Elegir fecha'
+
+  if (disabled) {
+    return (
+      <span className="inline-flex min-h-11 items-center gap-2 rounded-[12px] border border-tinta-300 bg-tinta-50 px-3.5 text-[15px] text-tinta-400 lg:min-h-0 lg:rounded-lg lg:py-2 lg:text-sm">
+        <CalendarDays size={16} />
+        {etiqueta}
+      </span>
+    )
+  }
+
+  return (
+    <span id={id} className="inline-block">
+      <Desplegable
+        titulo={titulo}
+        etiqueta={etiqueta}
+        activo={Boolean(elegida)}
+        abierto={abierto}
+        onAbrir={() => {
+          setAncla(primeroDe(leer(valor) ?? new Date()))
+          setAbierto(true)
+        }}
+        onCerrar={() => setAbierto(false)}
+      >
+        <div className="mb-3 flex gap-1.5">
+          <BotonAtajo
+            onClick={() => {
+              onCambio(iso(hoy))
+              setAbierto(false)
+            }}
+          >
+            Hoy
+          </BotonAtajo>
+          <BotonAtajo
+            onClick={() => {
+              const ayer = new Date(hoy)
+              ayer.setDate(ayer.getDate() - 1)
+              onCambio(iso(ayer))
+              setAbierto(false)
+            }}
+          >
+            Ayer
+          </BotonAtajo>
+        </div>
+
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setAncla(new Date(ancla.getFullYear(), ancla.getMonth() - 1, 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-tinta-500 transition hover:bg-tinta-100"
+            aria-label="Mes anterior"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-sm font-semibold capitalize">
+            {MESES[ancla.getMonth()]} {ancla.getFullYear()}
+          </span>
+          <button
+            type="button"
+            onClick={() => setAncla(new Date(ancla.getFullYear(), ancla.getMonth() + 1, 1))}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-tinta-500 transition hover:bg-tinta-100"
+            aria-label="Mes siguiente"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <Mes
+          ancla={ancla}
+          desde={elegida}
+          hasta={elegida}
+          onTocar={(d) => {
+            onCambio(iso(d))
+            setAbierto(false)
+          }}
+        />
+      </Desplegable>
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Mes suelto (cortes mensuales)
 // ---------------------------------------------------------------------------
 export function FiltroMes({

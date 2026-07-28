@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { HandCoins, Wallet } from 'lucide-react'
 import {
-  AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
+  AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { Etiqueta } from '@/components/ui'
+import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { METODO_PAGO, TIPO_DEDUCCION } from '@/lib/finanzas'
@@ -159,7 +160,7 @@ function DialogoPago({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
+          hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
         />
         <Campo
           etiqueta="Método"
@@ -394,7 +395,7 @@ function DialogoPrestamo({
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<Entrada type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />}
+          hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
         />
         <Campo
           etiqueta="Notas"
