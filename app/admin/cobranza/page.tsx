@@ -6,7 +6,7 @@ import { TIPO_PAGO_COBRANZA, tonoCobranza } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { AccionesCobranza } from '@/components/finanzas/cobranza'
+import { AccionesCobranza, FilaCobranza } from '@/components/finanzas/cobranza'
 import type { PagoCobranza } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -209,12 +209,16 @@ export default async function PaginaCobranza({
                 const pct = Number(c.pct_pendiente)
 
                 return (
-                  <tr key={c.cotizacion_id} className="hover:bg-tinta-50/60">
-                    <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                  <FilaCobranza
+                    key={c.cotizacion_id}
+                    cobranza={c}
+                    pagos={suyos}
+                    obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
+                  >
                     <Td>
                       <Link
                         href={`/admin/cotizaciones/${c.cotizacion_id}`}
-                        className="font-mono text-xs text-haaco-700 hover:underline"
+                        className="relative font-mono text-xs text-haaco-700 hover:underline"
                       >
                         {c.folio}
                       </Link>
@@ -247,14 +251,7 @@ export default async function PaginaCobranza({
                         </span>
                       </span>
                     </Td>
-                    <Td>
-                      <AccionesCobranza
-                        cobranza={c}
-                        pagos={suyos}
-                        obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
-                      />
-                    </Td>
-                  </tr>
+                  </FilaCobranza>
                 )
               })}
             </tbody>
@@ -281,9 +278,17 @@ export default async function PaginaCobranza({
             </thead>
             <tbody>
               {conSaldo.map((c) => (
-                <tr key={c.cotizacion_id} className="hover:bg-tinta-50/60">
+                <tr key={c.cotizacion_id} className="relative cursor-pointer hover:bg-tinta-50/60">
                   <Td className="font-medium text-tinta-900">{c.cliente}</Td>
-                  <Td className="font-mono text-xs">{c.folio}</Td>
+                  <Td>
+                    {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
+                    <Link
+                      href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                      className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                    >
+                      {c.folio}
+                    </Link>
+                  </Td>
                   <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
                   <Td>
                     <Etiqueta tono={c.requiere_factura ? 'azul' : 'gris'}>

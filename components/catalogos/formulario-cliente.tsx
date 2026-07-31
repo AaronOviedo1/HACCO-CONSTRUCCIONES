@@ -1,12 +1,13 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useState, type ReactNode } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   AreaTexto, BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
   PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { CampoDomicilio } from '@/components/campo-domicilio'
+import { Etiqueta, Td } from '@/components/ui'
 import { eliminarCliente, guardarCliente, type EstadoAccion } from '@/app/admin/acciones'
 import type { Cliente } from '@/types/database'
 
@@ -43,6 +44,48 @@ export function BotonEditarCliente({ cliente }: { cliente: Cliente }) {
       </button>
       <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
     </>
+  )
+}
+
+/**
+ * Un renglón de la tabla de clientes.
+ *
+ * El cliente no tiene pantalla propia: su ficha es este formulario, así que
+ * tocar cualquier parte del renglón lo abre. El nombre es un botón de verdad
+ * —se llega con el tabulador— y su área invisible cubre toda la fila; el lápiz
+ * se queda para que se vea que el renglón hace algo.
+ */
+export function FilaCliente({ cliente, children }: { cliente: Cliente; children: ReactNode }) {
+  const [abierto, setAbierto] = useState(false)
+
+  return (
+    <tr className="relative cursor-pointer hover:bg-tinta-50/60">
+      <Td className="font-medium text-tinta-900">
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="flex items-center gap-2 text-left after:absolute after:inset-0"
+        >
+          {cliente.titulo_cortesia ? `${cliente.titulo_cortesia} ` : ''}
+          {cliente.nombre}
+          {!cliente.activo && <Etiqueta tono="gris">Inactivo</Etiqueta>}
+        </button>
+      </Td>
+
+      {children}
+
+      <Td className="w-10">
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="relative rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
+          aria-label={`Editar ${cliente.nombre}`}
+        >
+          <Pencil size={15} />
+        </button>
+        <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
+      </Td>
+    </tr>
   )
 }
 

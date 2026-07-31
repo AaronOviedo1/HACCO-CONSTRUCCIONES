@@ -64,6 +64,101 @@ export function BotonEditar({
 }
 
 // ---------------------------------------------------------------------------
+// Disparadores autocontenidos: botón + diálogo en el mismo componente cliente.
+// Las páginas de servidor deben usar ESTOS (solo reciben datos serializables);
+// pasar una función como children desde el servidor rompe el render.
+// ---------------------------------------------------------------------------
+export function BotonNuevaHerramienta({ etiqueta = 'Nueva herramienta' }: { etiqueta?: string }) {
+  return (
+    <BotonNuevo etiqueta={etiqueta}>
+      {(abierto, cerrar) => <FormularioHerramienta abierto={abierto} onCerrar={cerrar} />}
+    </BotonNuevo>
+  )
+}
+
+export function BotonEditarHerramienta({ herramienta }: { herramienta: Herramienta }) {
+  return (
+    <BotonEditar titulo={`Editar ${herramienta.codigo}`}>
+      {(abierto, cerrar) => (
+        <FormularioHerramienta herramienta={herramienta} abierto={abierto} onCerrar={cerrar} />
+      )}
+    </BotonEditar>
+  )
+}
+
+export function BotonNuevoProveedor({ etiqueta = 'Nuevo proveedor' }: { etiqueta?: string }) {
+  return (
+    <BotonNuevo etiqueta={etiqueta}>
+      {(abierto, cerrar) => <FormularioProveedor abierto={abierto} onCerrar={cerrar} />}
+    </BotonNuevo>
+  )
+}
+
+export function BotonEditarProveedor({ proveedor }: { proveedor: Proveedor }) {
+  return (
+    <BotonEditar titulo={`Editar ${proveedor.nombre}`}>
+      {(abierto, cerrar) => <FormularioProveedor proveedor={proveedor} abierto={abierto} onCerrar={cerrar} />}
+    </BotonEditar>
+  )
+}
+
+export function BotonNuevoTexto({ etiqueta = 'Nuevo texto' }: { etiqueta?: string }) {
+  return (
+    <BotonNuevo etiqueta={etiqueta}>
+      {(abierto, cerrar) => <FormularioTexto abierto={abierto} onCerrar={cerrar} />}
+    </BotonNuevo>
+  )
+}
+
+export function BotonEditarTexto({ texto }: { texto: TextoProceso }) {
+  return (
+    <BotonEditar titulo={`Editar ${texto.titulo}`}>
+      {(abierto, cerrar) => <FormularioTexto texto={texto} abierto={abierto} onCerrar={cerrar} />}
+    </BotonEditar>
+  )
+}
+
+export function BotonNuevoProducto({
+  proveedores,
+  esInsumo = false,
+}: {
+  proveedores: Pick<Proveedor, 'id' | 'nombre'>[]
+  esInsumo?: boolean
+}) {
+  return (
+    <BotonNuevo etiqueta={esInsumo ? 'Nuevo insumo' : 'Nuevo producto'}>
+      {(abierto, cerrar) => (
+        <FormularioProducto proveedores={proveedores} esInsumo={esInsumo} abierto={abierto} onCerrar={cerrar} />
+      )}
+    </BotonNuevo>
+  )
+}
+
+export function BotonEditarProducto({
+  producto,
+  proveedores,
+  esInsumo = false,
+}: {
+  producto: Producto
+  proveedores: Pick<Proveedor, 'id' | 'nombre'>[]
+  esInsumo?: boolean
+}) {
+  return (
+    <BotonEditar titulo={`Editar ${producto.nombre}`}>
+      {(abierto, cerrar) => (
+        <FormularioProducto
+          producto={producto}
+          proveedores={proveedores}
+          esInsumo={esInsumo}
+          abierto={abierto}
+          onCerrar={cerrar}
+        />
+      )}
+    </BotonEditar>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Envoltura común: form + pie con eliminar/cancelar/guardar
 // ---------------------------------------------------------------------------
 function Formulario({

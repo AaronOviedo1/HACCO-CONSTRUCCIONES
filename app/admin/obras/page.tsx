@@ -170,20 +170,21 @@ export default async function PaginaObras({
                   Number(o.cotizado) > 0 ? (Number(o.utilidad) / Number(o.cotizado)) * 100 : 0
 
                 return (
-                  <tr key={o.obra_id} className="hover:bg-tinta-50/60">
+                  <tr key={o.obra_id} className="relative cursor-pointer hover:bg-tinta-50/60">
                     <Td className="font-medium">
-                      <Link href={`/admin/obras/${o.obra_id}`} className="font-mono text-xs text-haaco-700 hover:underline">
+                      {/* El enlace se estira sobre la fila: se puede dar clic en
+                          cualquier celda y sigue siendo un enlace de verdad. */}
+                      <Link
+                        href={`/admin/obras/${o.obra_id}`}
+                        className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                      >
                         {o.ot_numero}
                       </Link>
                       <span className="mt-0.5 block font-mono text-[10px] text-tinta-400">
                         {o.cotizacion_folio}
                       </span>
                     </Td>
-                    <Td>
-                      <Link href={`/admin/obras/${o.obra_id}`} className="hover:underline">
-                        {o.nombre}
-                      </Link>
-                    </Td>
+                    <Td>{o.nombre}</Td>
                     <Td className="text-tinta-500">{o.cliente}</Td>
                     <Td>
                       <Etiqueta tono={ESTATUS_OBRA[o.estatus as EstatusObra].tono}>

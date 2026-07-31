@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
-import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
+import { EncabezadoPagina, EstadoVacio, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
-import { BotonEditarCliente, BotonNuevoCliente } from '@/components/catalogos/formulario-cliente'
+import { BotonNuevoCliente, FilaCliente } from '@/components/catalogos/formulario-cliente'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,14 +74,7 @@ export default async function PaginaClientes({
               {filas.map((c) => {
                 const datos = resumen.get(c.id) ?? { n: 0, monto: 0 }
                 return (
-                  <tr key={c.id} className="hover:bg-tinta-50/60">
-                    <Td className="font-medium text-tinta-900">
-                      <span className="flex items-center gap-2">
-                        {c.titulo_cortesia ? `${c.titulo_cortesia} ` : ''}
-                        {c.nombre}
-                        {!c.activo && <Etiqueta tono="gris">Inactivo</Etiqueta>}
-                      </span>
-                    </Td>
+                  <FilaCliente key={c.id} cliente={c}>
                     <Td className="text-tinta-500">{c.telefono ?? '—'}</Td>
                     <Td className="text-tinta-500">{c.correo ?? '—'}</Td>
                     <Td className="text-tinta-500">{c.domicilio ?? '—'}</Td>
@@ -89,7 +82,7 @@ export default async function PaginaClientes({
                       {datos.n > 0 ? (
                         <Link
                           href={`/admin/cotizaciones?cliente=${c.id}`}
-                          className="font-medium text-haaco-700 hover:underline"
+                          className="relative font-medium text-haaco-700 hover:underline"
                         >
                           {datos.n}
                         </Link>
@@ -100,10 +93,7 @@ export default async function PaginaClientes({
                     <Td numerico className="text-tinta-500">
                       {datos.monto > 0 ? pesos(datos.monto) : '—'}
                     </Td>
-                    <Td className="w-10">
-                      <BotonEditarCliente cliente={c} />
-                    </Td>
-                  </tr>
+                  </FilaCliente>
                 )
               })}
             </tbody>

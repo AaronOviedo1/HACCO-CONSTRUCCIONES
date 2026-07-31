@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,66 @@ export function Tarjeta({
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * Tarjeta que se pliega.
+ *
+ * Para pantallas largas donde lo que se trabaja es una sola sección y el resto
+ * son datos que ya quedaron: se cierran y dejan a la vista un resumen de una
+ * línea, para no tener que abrirlas sólo para comprobar un dato.
+ *
+ * Es un `<details>` de HTML: no necesita JavaScript, funciona con el teclado y
+ * lo que está adentro sigue montado —un campo a medio llenar no se pierde al
+ * cerrar la tarjeta—.
+ */
+export function TarjetaPlegable({
+  titulo,
+  resumen,
+  pie,
+  abierta = false,
+  children,
+  className = '',
+}: {
+  titulo: ReactNode
+  /** Lo que se alcanza a leer con la tarjeta cerrada. */
+  resumen?: ReactNode
+  pie?: ReactNode
+  abierta?: boolean
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <details
+      open={abierta}
+      className={`group overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta lg:rounded-xl ${className}`}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 transition select-none hover:bg-tinta-50/70 sm:px-5 [&::-webkit-details-marker]:hidden">
+        {/* El título nunca se parte en dos renglones: lo que cede es el resumen. */}
+        <span className="shrink-0 text-[14.5px] font-semibold text-tinta-900 lg:text-sm lg:text-tinta-800">
+          {titulo}
+        </span>
+        {resumen && (
+          <span className="ml-auto min-w-0 truncate text-xs text-tinta-500 group-open:hidden">
+            {resumen}
+          </span>
+        )}
+        <ChevronDown
+          size={17}
+          className={`shrink-0 text-tinta-400 transition-transform group-open:rotate-180 ${
+            resumen ? '' : 'ml-auto'
+          }`}
+          aria-hidden
+        />
+      </summary>
+      <div className="border-t-[0.5px] border-tinta-150">{children}</div>
+      {pie && (
+        <div className="border-t-[0.5px] border-tinta-150 bg-tinta-50 px-4 py-2 text-xs text-tinta-500 sm:px-5">
+          {pie}
+        </div>
+      )}
+    </details>
   )
 }
 

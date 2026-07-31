@@ -11,7 +11,7 @@ import {
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { CampoDomicilio } from '@/components/campo-domicilio'
-import { Etiqueta, Tarjeta } from '@/components/ui'
+import { Etiqueta, Tarjeta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
 import {
@@ -49,6 +49,9 @@ export function EditorCotizacion({
 
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
   const bloqueado = estatus === 'aprobada' || estatus === 'terminada'
+  // Al capturar una cotización nueva se necesita todo a la vista; al volver a
+  // una que ya existe lo que se toca son las partidas, y lo demás estorba.
+  const nueva = !cotizacionId
   const muestraPintura = doc.tipo === 'pintura' || doc.tipo === 'mixta'
   const muestraHerreria = doc.tipo === 'herreria' || doc.tipo === 'mixta'
 
@@ -225,7 +228,11 @@ export function EditorCotizacion({
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           {/* Datos generales ---------------------------------------------- */}
-          <Tarjeta titulo="Datos de la cotización">
+          <TarjetaPlegable
+            titulo="Datos de la cotización"
+            abierta={nueva}
+            resumen={`Anticipo ${num(doc.anticipo_pct)}% · IVA ${num(doc.iva_pct)}% · vigencia ${num(doc.vigencia_dias)} días${doc.requiere_factura ? ' · con factura' : ''}`}
+          >
             <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
               <Campo
                 etiqueta="Cliente"
@@ -339,7 +346,7 @@ export function EditorCotizacion({
                 disabled={bloqueado}
               />
             </div>
-          </Tarjeta>
+          </TarjetaPlegable>
 
           {/* Bullets del proceso ------------------------------------------ */}
           <BloqueProcesos
@@ -349,6 +356,7 @@ export function EditorCotizacion({
             textos={textos}
             productos={productos}
             bloqueado={bloqueado}
+            abierta={nueva}
           />
 
           {/* Partidas de pintura ------------------------------------------ */}
@@ -362,10 +370,20 @@ export function EditorCotizacion({
           )}
 
           {/* Materiales presupuestados ------------------------------------ */}
-          <BloqueMateriales doc={doc} setDoc={setDoc} setSucio={setSucio} bloqueado={bloqueado} />
+          <BloqueMateriales
+            doc={doc}
+            setDoc={setDoc}
+            setSucio={setSucio}
+            bloqueado={bloqueado}
+            abierta={nueva}
+          />
 
           {/* Notas -------------------------------------------------------- */}
-          <Tarjeta titulo="Notas al pie">
+          <TarjetaPlegable
+            titulo="Notas al pie"
+            abierta={nueva}
+            resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias)).length} notas en el PDF${doc.notas.trim() ? ' · con notas internas' : ''}`}
+          >
             <div className="px-5 py-5">
               <ul className="mb-4 space-y-1 text-sm text-tinta-600">
                 {notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias)).map((n) => (
@@ -397,7 +415,7 @@ export function EditorCotizacion({
                 />
               </div>
             </div>
-          </Tarjeta>
+          </TarjetaPlegable>
         </div>
 
         {/* Resumen ---------------------------------------------------------- */}
@@ -576,8 +594,8 @@ type BloqueProps = {
 }
 
 function BloqueProcesos({
-  doc, setDoc, setSucio, textos, productos, bloqueado,
-}: BloqueProps & { textos: TextoProceso[]; productos: Producto[] }) {
+  doc, setDoc, setSucio, textos, productos, bloqueado, abierta,
+}: BloqueProps & { textos: TextoProceso[]; productos: Producto[]; abierta: boolean }) {
   const usados = new Set(doc.procesos.map((p) => p.texto_proceso_id).filter(Boolean))
 
   const agregar = (texto: TextoProceso) => {
@@ -589,8 +607,14 @@ function BloqueProcesos({
   }
 
   return (
-    <Tarjeta
+    <TarjetaPlegable
       titulo="Descripción del trabajo"
+      abierta={abierta}
+      resumen={
+        doc.procesos.length === 0
+          ? 'Sin bullets'
+          : `${doc.procesos.length} ${doc.procesos.length === 1 ? 'bullet' : 'bullets'}`
+      }
       pie="Cada renglón sale como bullet en el PDF. Puedes editarlo sin tocar la biblioteca."
     >
       <div className="px-5 py-5">
@@ -675,7 +699,7 @@ function BloqueProcesos({
           </>
         )}
       </div>
-    </Tarjeta>
+    </TarjetaPlegable>
   )
 }
 
@@ -1057,7 +1081,9 @@ function Mini({ etiqueta, valor, destacado }: { etiqueta: string; valor: string;
   )
 }
 
-function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
+function BloqueMateriales({
+  doc, setDoc, setSucio, bloqueado, abierta,
+}: BloqueProps & { abierta: boolean }) {
   const sueltos = doc.materiales
   const total = sumaMateriales(sueltos)
 
@@ -1070,8 +1096,14 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
   }
 
   return (
-    <Tarjeta
+    <TarjetaPlegable
       titulo="Material presupuestado"
+      abierta={abierta}
+      resumen={
+        sueltos.length === 0
+          ? 'Sin material'
+          : `${pesos(total)} · ${sueltos.length} ${sueltos.length === 1 ? 'material' : 'materiales'}`
+      }
       pie={`${pesos(total)} · al aprobar se copia a la orden de trabajo como material COTIZADO, para compararlo después contra lo que realmente se gastó.`}
     >
       <div className="px-5 py-5">
@@ -1153,6 +1185,6 @@ function BloqueMateriales({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
           </button>
         )}
       </div>
-    </Tarjeta>
+    </TarjetaPlegable>
   )
 }

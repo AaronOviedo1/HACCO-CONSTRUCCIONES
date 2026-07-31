@@ -4,8 +4,8 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import {
-  BotonEditar, BotonMovimiento, BotonNuevo, FormularioProducto, FormularioProveedor,
-  FormularioTexto,
+  BotonEditarProducto, BotonEditarProveedor, BotonEditarTexto, BotonMovimiento,
+  BotonNuevoProducto, BotonNuevoProveedor, BotonNuevoTexto,
 } from '@/components/catalogos/formularios-catalogo'
 import type { Proveedor } from '@/types/database'
 
@@ -70,32 +70,9 @@ export default async function PaginaCatalogo({
 }
 
 function AccionDePestana({ pestana, proveedores }: { pestana: Pestana; proveedores: Proveedor[] }) {
-  if (pestana === 'proveedores') {
-    return (
-      <BotonNuevo etiqueta="Nuevo proveedor">
-        {(abierto, cerrar) => <FormularioProveedor abierto={abierto} onCerrar={cerrar} />}
-      </BotonNuevo>
-    )
-  }
-  if (pestana === 'textos') {
-    return (
-      <BotonNuevo etiqueta="Nuevo texto">
-        {(abierto, cerrar) => <FormularioTexto abierto={abierto} onCerrar={cerrar} />}
-      </BotonNuevo>
-    )
-  }
-  return (
-    <BotonNuevo etiqueta={pestana === 'insumos' ? 'Nuevo insumo' : 'Nuevo producto'}>
-      {(abierto, cerrar) => (
-        <FormularioProducto
-          proveedores={proveedores}
-          esInsumo={pestana === 'insumos'}
-          abierto={abierto}
-          onCerrar={cerrar}
-        />
-      )}
-    </BotonNuevo>
-  )
+  if (pestana === 'proveedores') return <BotonNuevoProveedor />
+  if (pestana === 'textos') return <BotonNuevoTexto />
+  return <BotonNuevoProducto proveedores={proveedores} esInsumo={pestana === 'insumos'} />
 }
 
 // ---------------------------------------------------------------------------
@@ -149,16 +126,7 @@ async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
                   {(p.proveedor_id && nombreProveedor.get(p.proveedor_id)) || '—'}
                 </Td>
                 <Td className="w-10">
-                  <BotonEditar titulo={`Editar ${p.nombre}`}>
-                    {(abierto, cerrar) => (
-                      <FormularioProducto
-                        producto={p}
-                        proveedores={proveedores}
-                        abierto={abierto}
-                        onCerrar={cerrar}
-                      />
-                    )}
-                  </BotonEditar>
+                  <BotonEditarProducto producto={p} proveedores={proveedores} />
                 </Td>
               </tr>
             ))}
@@ -224,17 +192,7 @@ async function TablaInsumos({ proveedores }: { proveedores: Proveedor[] }) {
                         tipo="salida"
                       />
                       {producto && (
-                        <BotonEditar titulo={`Editar ${i.nombre}`}>
-                          {(abierto, cerrar) => (
-                            <FormularioProducto
-                              producto={producto}
-                              proveedores={proveedores}
-                              esInsumo
-                              abierto={abierto}
-                              onCerrar={cerrar}
-                            />
-                          )}
-                        </BotonEditar>
+                        <BotonEditarProducto producto={producto} proveedores={proveedores} esInsumo />
                       )}
                     </div>
                   </Td>
@@ -280,11 +238,7 @@ function TablaProveedores({ proveedores }: { proveedores: Proveedor[] }) {
                 <Td className="text-tinta-500">{p.contacto ?? p.telefono ?? '—'}</Td>
                 <Td className="text-tinta-500">{p.notas ?? '—'}</Td>
                 <Td className="w-10">
-                  <BotonEditar titulo={`Editar ${p.nombre}`}>
-                    {(abierto, cerrar) => (
-                      <FormularioProveedor proveedor={p} abierto={abierto} onCerrar={cerrar} />
-                    )}
-                  </BotonEditar>
+                  <BotonEditarProveedor proveedor={p} />
                 </Td>
               </tr>
             ))}
@@ -316,9 +270,7 @@ async function TablaTextos() {
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-tinta-600">{t.contenido}</p>
               </div>
-              <BotonEditar titulo={`Editar ${t.titulo}`}>
-                {(abierto, cerrar) => <FormularioTexto texto={t} abierto={abierto} onCerrar={cerrar} />}
-              </BotonEditar>
+              <BotonEditarTexto texto={t} />
             </li>
           ))}
         </ul>

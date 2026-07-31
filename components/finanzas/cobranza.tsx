@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition, type ReactNode } from 'react'
 import { Paperclip, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, Opciones, PieDialogo,
 } from '@/components/formulario'
-import { Etiqueta } from '@/components/ui'
+import { Etiqueta, Td } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { fecha, montoEnLetra, pesos } from '@/lib/format'
@@ -62,6 +62,63 @@ export function AccionesCobranza({
         />
       )}
     </>
+  )
+}
+
+/**
+ * Un renglón del registro de cobranza.
+ *
+ * Lo que se hace aquí es cobrar, así que tocar el renglón —en cualquier
+ * celda— abre el estado de cuenta de esa cotización con el alta de pago.
+ * El nombre del cliente es el botón, y su área invisible cubre la fila; el
+ * botón «Pago» se queda a la derecha para que la acción siga siendo visible.
+ */
+export function FilaCobranza({
+  cobranza,
+  pagos,
+  obras,
+  children,
+}: {
+  cobranza: VCobranza
+  pagos: PagoCobranza[]
+  obras: ObraSimple[]
+  children: ReactNode
+}) {
+  const [abierto, setAbierto] = useState(false)
+
+  return (
+    <tr className="relative cursor-pointer hover:bg-tinta-50/60">
+      <Td className="font-medium text-tinta-900">
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="text-left after:absolute after:inset-0"
+        >
+          {cobranza.cliente}
+        </button>
+      </Td>
+
+      {children}
+
+      <Td>
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="relative inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          <Plus size={14} />
+          Pago
+        </button>
+        {abierto && (
+          <DialogoCobranza
+            cobranza={cobranza}
+            pagos={pagos}
+            obras={obras}
+            onCerrar={() => setAbierto(false)}
+          />
+        )}
+      </Td>
+    </tr>
   )
 }
 

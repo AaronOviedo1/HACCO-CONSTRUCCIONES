@@ -7,7 +7,7 @@ import {
   type TonoEtiqueta,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
-import { BotonEditar, BotonNuevo, FormularioHerramienta } from '@/components/catalogos/formularios-catalogo'
+import { BotonEditarHerramienta, BotonNuevaHerramienta } from '@/components/catalogos/formularios-catalogo'
 import type { EstadoHerramienta } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -55,11 +55,7 @@ export default async function PaginaHerramientas({
       <EncabezadoPagina
         titulo="Herramientas"
         descripcion="Inventario que alimenta los pagarés. Al prestar una herramienta pasa a «En obra» con el oficial; al devolverla regresa al taller."
-        acciones={
-          <BotonNuevo etiqueta="Nueva herramienta">
-            {(abierto, cerrar) => <FormularioHerramienta abierto={abierto} onCerrar={cerrar} />}
-          </BotonNuevo>
-        }
+        acciones={<BotonNuevaHerramienta />}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -138,11 +134,7 @@ export default async function PaginaHerramientas({
                   </Td>
                   <Td className="text-tinta-500">{h.ubicacion}</Td>
                   <Td className="w-10">
-                    <BotonEditar titulo={`Editar ${h.codigo}`}>
-                      {(abierto, cerrar) => (
-                        <FormularioHerramienta herramienta={h} abierto={abierto} onCerrar={cerrar} />
-                      )}
-                    </BotonEditar>
+                    <BotonEditarHerramienta herramienta={h} />
                   </Td>
                 </tr>
               ))}
