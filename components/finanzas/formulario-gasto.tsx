@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
-import { Camera, Plus, X } from 'lucide-react'
+import { Camera, Loader2, Plus, Sparkles, TriangleAlert, X } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -11,6 +11,7 @@ import { crearClienteNavegador } from '@/lib/supabase/client'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
+import { prepararTicket, type LecturaTicket } from '@/lib/ticket'
 import { registrarGasto } from '@/app/admin/finanzas-acciones'
 import type {
   CategoriaGasto, CondicionCompra, MetodoPago, ObraConcepto, Proveedor,
@@ -80,6 +81,13 @@ function FormularioGasto({
   const [fecha, setFecha] = useState(hoyISO())
   const [crearMaterial, setCrearMaterial] = useState(true)
 
+  // Lectura del ticket: lo que ya tecleó quien captura manda sobre lo que lea
+  // la foto, aunque la foto llegue después.
+  const tocado = useRef(new Set<string>())
+  const [leyendo, setLeyendo] = useState(false)
+  const [llenados, setLlenados] = useState<string[] | null>(null)
+  const [avisoTicket, setAvisoTicket] = useState<string | null>(null)
+
   const proveedor = proveedores.find((p) => p.id === proveedorId)
   const conceptosDeObra = conceptos.filter(() => Boolean(obraId))
   const esMaterialDeObra = categoria === 'material' && Boolean(obraId)
@@ -93,7 +101,60 @@ function FormularioGasto({
     setError(null)
     setArchivo(f)
     setVista(URL.createObjectURL(f))
+    leer(f)
   }
+
+  const leer = async (f: File) => {
+    setLeyendo(true)
+    setLlenados(null)
+    setAvisoTicket(null)
+    try {
+      const cuerpo = new FormData()
+      cuerpo.append('archivo', await prepararTicket(f), f.name)
+      cuerpo.append(
+        'proveedores',
+        JSON.stringify(proveedores.map(({ id, nombre }) => ({ id, nombre }))),
+      )
+
+      const r = await fetch('/api/ticket', { method: 'POST', body: cuerpo })
+      const datos = await r.json()
+      if (!r.ok || !datos.lectura) {
+        setAvisoTicket(datos.error ?? 'No se pudo leer el ticket; captúralo a mano.')
+        return
+      }
+      aplicar(datos.lectura as LecturaTicket)
+    } catch {
+      setAvisoTicket('No se pudo leer el ticket; captúralo a mano.')
+    } finally {
+      setLeyendo(false)
+    }
+  }
+
+  const aplicar = (l: LecturaTicket) => {
+    const puestos: string[] = []
+    const poner = <T,>(campo: string, valor: T | null, guardar: (v: T) => void) => {
+      if (valor === null || tocado.current.has(campo)) return
+      guardar(valor)
+      puestos.push(campo)
+    }
+
+    poner('descripción', l.descripcion, setDescripcion)
+    poner('piezas', l.piezas === null ? null : String(l.piezas), setPiezas)
+    poner('monto', l.monto === null ? null : String(l.monto), setMonto)
+    poner('método', l.metodo, setMetodo)
+    poner('categoría', l.categoria, setCategoria)
+    poner('folio', l.folio, setFolio)
+    poner('fecha', l.fecha, setFecha)
+    poner('proveedor', l.proveedor_id, setProveedorId)
+
+    // Si no salió nada y además hay algo que decir —la foto no era un
+    // comprobante—, basta con el aviso.
+    setLlenados(puestos.length === 0 && l.aviso ? null : puestos)
+    setAvisoTicket(l.aviso)
+  }
+
+  /** Marca un campo como escrito a mano para que la foto ya no lo pise. */
+  const mio = (campo: string) => tocado.current.add(campo)
 
   const guardar = () =>
     iniciar(async () => {
@@ -146,7 +207,7 @@ function FormularioGasto({
       onCerrar={onCerrar}
       ancho="lg"
       titulo="Nuevo gasto"
-      descripcion="Toma la foto del ticket y captura lo mínimo: lo demás se acomoda solo."
+      descripcion="Toma la foto del ticket: se lee sola y tú nada más revisas."
     >
       <CuerpoDialogo>
         <input
@@ -175,6 +236,8 @@ function FormularioGasto({
                   URL.revokeObjectURL(vista)
                   setArchivo(null)
                   setVista(null)
+                  setLlenados(null)
+                  setAvisoTicket(null)
                   if (entrada.current) entrada.current.value = ''
                 }}
                 className="absolute right-2 top-2 rounded-full bg-tinta-950/70 p-1.5 text-white"
@@ -195,6 +258,46 @@ function FormularioGasto({
               Foto del ticket o factura
             </button>
           )}
+
+          {/* Lo que la foto alcanzó a llenar: siempre a la vista y corregible. */}
+          {leyendo && (
+            <p className="mt-2 flex items-center gap-2 rounded-xl bg-haaco-50 px-3 py-2.5 text-sm font-medium text-haaco-800">
+              <Loader2 size={15} className="animate-spin" />
+              Leyendo el ticket…
+            </p>
+          )}
+
+          {!leyendo && llenados !== null && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-haaco-50 px-3 py-2.5 text-sm text-haaco-900">
+              <span className="flex items-start gap-2">
+                <Sparkles size={15} className="mt-0.5 shrink-0 text-haaco-700" />
+                {llenados.length > 0 ? (
+                  <span>
+                    Del ticket: <strong className="font-semibold">{lista(llenados)}</strong>. Revisa
+                    antes de guardar.
+                  </span>
+                ) : (
+                  <span>El ticket no agregó nada que no estuviera ya capturado.</span>
+                )}
+              </span>
+              {archivo && (
+                <button
+                  type="button"
+                  onClick={() => leer(archivo)}
+                  className="shrink-0 text-xs font-semibold text-haaco-700 underline-offset-2 hover:underline"
+                >
+                  Volver a leer
+                </button>
+              )}
+            </div>
+          )}
+
+          {!leyendo && avisoTicket && (
+            <p className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+              <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+              {avisoTicket}
+            </p>
+          )}
         </div>
 
         <Campo
@@ -202,7 +305,10 @@ function FormularioGasto({
           hijo={
             <Entrada
               value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
+              onChange={(e) => {
+                mio('descripción')
+                setDescripcion(e.target.value)
+              }}
               placeholder="Cubetas Rivinol 7 blanco"
               autoFocus
             />
@@ -214,14 +320,25 @@ function FormularioGasto({
             <Opciones
               valor={categoria}
               opciones={Object.entries(CATEGORIA_GASTO) as [CategoriaGasto, string][]}
-              onCambio={setCategoria}
+              onCambio={(v) => {
+                mio('categoría')
+                setCategoria(v)
+              }}
             />
           }
         />
         <Campo
           etiqueta="Fecha"
           ancho="medio"
-          hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
+          hijo={
+            <SelectorFecha
+              valor={fecha}
+              onCambio={(v) => {
+                mio('fecha')
+                setFecha(v)
+              }}
+            />
+          }
         />
 
         <Campo
@@ -265,7 +382,15 @@ function FormularioGasto({
         <Campo
           etiqueta="Piezas"
           ancho="medio"
-          hijo={<Numero value={piezas} onChange={(e) => setPiezas(e.target.value)} />}
+          hijo={
+            <Numero
+              value={piezas}
+              onChange={(e) => {
+                mio('piezas')
+                setPiezas(e.target.value)
+              }}
+            />
+          }
         />
         <Campo
           etiqueta="Monto total"
@@ -273,7 +398,10 @@ function FormularioGasto({
           hijo={
             <Numero
               value={monto}
-              onChange={(e) => setMonto(e.target.value)}
+              onChange={(e) => {
+                mio('monto')
+                setMonto(e.target.value)
+              }}
               placeholder="0.00"
               className="text-center text-2xl font-bold -tracking-[0.5px] lg:text-right lg:text-sm lg:font-normal lg:tracking-normal"
             />
@@ -289,7 +417,13 @@ function FormularioGasto({
           etiqueta="Proveedor"
           ancho="medio"
           hijo={
-            <Seleccion value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+            <Seleccion
+              value={proveedorId}
+              onChange={(e) => {
+                mio('proveedor')
+                setProveedorId(e.target.value)
+              }}
+            >
               <option value="">Sin proveedor</option>
               {proveedores.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -302,14 +436,29 @@ function FormularioGasto({
         <Campo
           etiqueta="Folio de factura"
           ancho="medio"
-          hijo={<Entrada value={folio} onChange={(e) => setFolio(e.target.value)} placeholder="PN14741" />}
+          hijo={
+            <Entrada
+              value={folio}
+              onChange={(e) => {
+                mio('folio')
+                setFolio(e.target.value)
+              }}
+              placeholder="PN14741"
+            />
+          }
         />
 
         <Campo
           etiqueta="Método"
           ancho="medio"
           hijo={
-            <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
+            <Seleccion
+              value={metodo}
+              onChange={(e) => {
+                mio('método')
+                setMetodo(e.target.value as MetodoPago)
+              }}
+            >
               {Object.entries(METODO_PAGO).map(([valor, texto]) => (
                 <option key={valor} value={valor}>
                   {texto}
@@ -372,6 +521,12 @@ function FormularioGasto({
       </PieDialogo>
     </Dialogo>
   )
+}
+
+/** «descripción, monto y folio»: lo que llenó la foto, dicho de corrido. */
+function lista(palabras: string[]) {
+  if (palabras.length === 1) return palabras[0]
+  return `${palabras.slice(0, -1).join(', ')} y ${palabras[palabras.length - 1]}`
 }
 
 /** Notas rápidas para el detalle del gasto en la tabla. */
