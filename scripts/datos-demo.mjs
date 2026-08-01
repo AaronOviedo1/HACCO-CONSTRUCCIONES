@@ -61,13 +61,15 @@ try {
   // -------------------------------------------------------------------------
   // Gente y catálogos que ya existen
   // -------------------------------------------------------------------------
-  const perfiles = await todos('select id, nombre, rol, oficio from public.profiles')
+  const perfiles = await todos('select id, nombre, correo, rol, oficio from public.profiles')
   const porRol = (rol, oficio) =>
     perfiles.find((p) => p.rol === rol && (!oficio || p.oficio === oficio)) ??
     perfiles.find((p) => p.rol === rol)
 
-  const luis = porRol('admin')
-  const pati = porRol('administracion') ?? luis
+  // Luis y Pati son ambos admin, así que se identifican por correo.
+  const porCorreo = (correo) => perfiles.find((p) => p.correo === correo)
+  const luis = porCorreo('luis@haacopro.mx') ?? porRol('admin')
+  const pati = porCorreo('pati@haacopro.mx') ?? luis
   const pintor = porRol('cuadrilla', 'pintor')
   const herrero = porRol('cuadrilla', 'herrero') ?? pintor
 

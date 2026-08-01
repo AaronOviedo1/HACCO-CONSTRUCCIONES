@@ -79,7 +79,7 @@ Genera una cuenta por rol con la contraseña `HaacoPro2026!`:
 | Correo | Rol | Entra a |
 |---|---|---|
 | `luis@haacopro.mx` | Dirección (admin) | `/admin` |
-| `pati@haacopro.mx` | Administración | `/admin` |
+| `pati@haacopro.mx` | Dirección (admin) | `/admin` |
 | `jorge@haacopro.mx` | Cuadrilla · pintor | `/obra` |
 | `alejandro@haacopro.mx` | Cuadrilla · herrero | `/obra` |
 | `contador@haacopro.mx` | Contador | `/admin/reportes` |
@@ -141,8 +141,8 @@ dominio de Vercel a *Site URL* y a *Redirect URLs*.
 
 | Rol | Entra a | Qué ve |
 |---|---|---|
-| **admin** (Luis) | `/admin` | Todo, incluida la gestión de usuarios |
-| **administracion** (Pati) | `/admin` | Todo lo operativo y administrativo, sin usuarios |
+| **admin** (Luis, Pati) | `/admin` | Todo, incluida la gestión de usuarios |
+| **administracion** | `/admin` | Todo lo operativo y administrativo, sin usuarios |
 | **cuadrilla** (pintor/herrero) | `/obra` | Sólo sus obras: avances, materiales, su contrato, su pagaré y su cronograma. Nunca dinero ajeno |
 | **contador** | `/admin/reportes` | Sólo lectura de reportes y exportación a Excel |
 

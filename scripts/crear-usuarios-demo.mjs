@@ -20,7 +20,7 @@ const CONTRASENA = process.env.CONTRASENA_DEMO ?? 'HaacoPro2026!'
 
 const USUARIOS = [
   { correo: 'luis@haacopro.mx',     nombre: 'Luis Enrique Inda Franco', rol: 'admin' },
-  { correo: 'pati@haacopro.mx',     nombre: 'Pati',                     rol: 'administracion' },
+  { correo: 'pati@haacopro.mx',     nombre: 'Pati',                     rol: 'admin' },
   { correo: 'jorge@haacopro.mx',    nombre: 'Jorge',                    rol: 'cuadrilla', oficio: 'pintor' },
   { correo: 'alejandro@haacopro.mx',nombre: 'Alejandro',                rol: 'cuadrilla', oficio: 'herrero' },
   { correo: 'contador@haacopro.mx', nombre: 'Contador externo',         rol: 'contador',  es_externo: true },

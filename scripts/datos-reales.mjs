@@ -62,14 +62,16 @@ try {
   }
 
   // Gente (fuera de la transacción: solo lectura)
-  const perfiles = await todos('select id, nombre, rol, oficio, es_externo from public.profiles')
+  const perfiles = await todos('select id, nombre, correo, rol, oficio, es_externo from public.profiles')
   const porNombre = (nombre) => {
     const p = perfiles.find((x) => x.nombre === nombre)
     if (!p) throw new Error(`Falta el perfil «${nombre}». Corre antes: npm run usuarios:reales`)
     return p
   }
-  const luis = perfiles.find((p) => p.rol === 'admin')
-  const pati = perfiles.find((p) => p.rol === 'administracion') ?? luis
+  // Luis y Pati son ambos admin, así que se identifican por correo.
+  const porCorreo = (correo) => perfiles.find((p) => p.correo === correo)
+  const luis = porCorreo('luis@haacopro.mx')
+  const pati = porCorreo('pati@haacopro.mx') ?? luis
   if (!luis) throw new Error('Falta el usuario admin (Luis). Corre antes: npm run usuarios:demo')
 
   const T = {
