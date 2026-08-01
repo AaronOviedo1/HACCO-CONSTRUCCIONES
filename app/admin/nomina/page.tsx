@@ -382,7 +382,7 @@ export default async function PaginaNomina({
                     )}
                     <span className="font-medium tabular-nums text-tinta-900">{pesos(r.total)}</span>
                     <a
-                      href={`/api/recibos-nomina/${r.id}/pdf?descargar=1`}
+                      href={`/api/recibos-nomina/${r.id}/pdf`}
                       target="_blank"
                       rel="noopener"
                       className="rounded-lg border border-tinta-300 bg-white px-2.5 py-1 text-xs font-medium text-tinta-700 hover:bg-tinta-50"

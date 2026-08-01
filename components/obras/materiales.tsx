@@ -6,6 +6,7 @@ import { PackageOpen, Plus, Trash2 } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
+import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { EstadoVacio, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
 import { pesos, porcentaje } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
@@ -167,6 +168,7 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
           obraId={datos.obra.id}
           origen={nuevo}
           conceptos={datos.conceptos}
+          sugerencias={datos.sugerenciasMateriales}
           onCerrar={() => setNuevo(null)}
         />
       )}
@@ -299,11 +301,12 @@ function TablaMateriales({
 
 // ---------------------------------------------------------------------------
 function FormularioMaterial({
-  obraId, origen, conceptos, onCerrar,
+  obraId, origen, conceptos, sugerencias, onCerrar,
 }: {
   obraId: string
   origen: OrigenMaterial
   conceptos: DatosObra['conceptos']
+  sugerencias: DatosObra['sugerenciasMateriales']
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -347,9 +350,14 @@ function FormularioMaterial({
         <Campo
           etiqueta="Material"
           hijo={
-            <Entrada
-              value={material}
-              onChange={(e) => setMaterial(e.target.value)}
+            <EntradaSugerencias
+              valor={material}
+              onCambio={setMaterial}
+              onElegir={(s) => {
+                setMaterial(s.texto)
+                if (s.monto) setCosto(String(s.monto))
+              }}
+              sugerencias={sugerencias}
               placeholder="Cubeta Rivinol 7 blanco"
               autoFocus
             />

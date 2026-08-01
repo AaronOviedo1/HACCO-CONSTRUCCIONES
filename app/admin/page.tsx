@@ -8,8 +8,10 @@ import { CATEGORIA_GASTO, etiquetaMes, mesActual, rangoMes } from '@/lib/finanza
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { Anillo, Donut, FilaLista, PieTarjeta } from '@/components/movil/piezas'
+import { Anillo, FilaLista, PieTarjeta } from '@/components/movil/piezas'
 import { GraficaMeses } from '@/components/movil/grafica-meses'
+import { GraficaFlujo } from '@/components/admin/grafica-flujo'
+import { GraficaGastos } from '@/components/admin/grafica-gastos'
 import { TileResumen } from '@/components/admin/tile-resumen'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
@@ -50,21 +52,24 @@ export default async function Dashboard() {
   const ventana = ultimosSeisMeses()
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
 
-  const [historico, obras, cobranza, cxp, gastosMes, prenomina, recientes] = await Promise.all([
-    supabase
-      .from('v_cotizaciones')
-      .select('id, folio, cliente, nombre_obra, fecha, estatus, total')
-      .gte('fecha', desdeSeis),
-    supabase.from('obras').select('id, ot_numero, nombre, estatus, avance_pct'),
-    supabase.from('v_cobranza').select('saldo, cobrado, estatus, anticipo_esperado, anticipo'),
-    supabase
-      .from('v_cuentas_por_pagar')
-      .select('saldo, estado, proveedor, vencimiento, folio_factura, dias_restantes')
-      .order('vencimiento'),
-    supabase.from('v_gastos').select('categoria, monto').gte('fecha', desde).lt('fecha', hasta),
-    supabase.from('v_prenomina').select('*').order('disponible', { ascending: false }),
-    supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
-  ])
+  const [historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina, recientes] =
+    await Promise.all([
+      supabase
+        .from('v_cotizaciones')
+        .select('id, folio, cliente, nombre_obra, fecha, estatus, total')
+        .gte('fecha', desdeSeis),
+      supabase.from('obras').select('id, ot_numero, nombre, estatus, avance_pct'),
+      supabase.from('v_cobranza').select('saldo, cobrado, estatus, anticipo_esperado, anticipo'),
+      supabase
+        .from('v_cuentas_por_pagar')
+        .select('saldo, estado, proveedor, vencimiento, folio_factura, dias_restantes')
+        .order('vencimiento'),
+      supabase.from('v_gastos').select('categoria, monto, fecha').gte('fecha', desdeSeis),
+      supabase.from('pagos_cobranza').select('monto, fecha').gte('fecha', desdeSeis),
+      supabase.from('nomina_pagos').select('monto, fecha').gte('fecha', desdeSeis),
+      supabase.from('v_prenomina').select('*').order('disponible', { ascending: false }),
+      supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
+    ])
 
   const bdLista = !historico.error && !obras.error
 
@@ -137,16 +142,35 @@ export default async function Dashboard() {
     0,
   )
 
-  const gastos = gastosMes.data ?? []
-  const totalGastos = gastos.reduce((s, g) => s + Number(g.monto), 0)
-  const porCategoria = new Map<CategoriaGasto, number>()
-  for (const g of gastos) {
-    porCategoria.set(g.categoria, (porCategoria.get(g.categoria) ?? 0) + Number(g.monto))
-  }
-  const categorias = [...porCategoria.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([categoria, monto]) => ({ n: CATEGORIA_GASTO[categoria], v: monto }))
+  // ---- gastos por mes y flujo de dinero -----------------------------------
+  const gastos = gastosSeis.data ?? []
+  const pagos = pagosSeis.data ?? []
+  const nominaPagada = nominaSeis.data ?? []
+  const sumaDelMes = (filas: { fecha: string; monto: number }[], clave: string) =>
+    filas.filter((f) => String(f.fecha).startsWith(clave)).reduce((s, f) => s + Number(f.monto), 0)
+
+  const flujo = ventana.map((v) => ({
+    m: v.m,
+    entra: sumaDelMes(pagos, v.clave),
+    sale: sumaDelMes(gastos, v.clave) + sumaDelMes(nominaPagada, v.clave),
+  }))
+
+  const mesesGastos = ventana.map((v) => {
+    const porCategoria = new Map<CategoriaGasto, number>()
+    for (const g of gastos.filter((x) => String(x.fecha).startsWith(v.clave))) {
+      porCategoria.set(g.categoria, (porCategoria.get(g.categoria) ?? 0) + Number(g.monto))
+    }
+    const ordenadas = [...porCategoria.entries()].sort((a, b) => b[1] - a[1])
+    const cola = ordenadas.slice(6).reduce((s, [, monto]) => s + monto, 0)
+    return {
+      clave: v.clave,
+      etiqueta: etiquetaMes(v.clave),
+      categorias: [
+        ...ordenadas.slice(0, 6).map(([categoria, monto]) => ({ n: CATEGORIA_GASTO[categoria], v: monto })),
+        ...(cola > 0 ? [{ n: 'Otros', v: cola }] : []),
+      ],
+    }
+  })
 
   return (
     <>
@@ -427,7 +451,7 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-3">
+      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-2">
         {/* Cotizado contra aprobado ------------------------------------------ */}
         <Tarjeta>
           <div className="px-3.5 py-4">
@@ -439,15 +463,24 @@ export default async function Dashboard() {
           </div>
         </Tarjeta>
 
-        {/* Gastos del mes ----------------------------------------------------- */}
+        {/* Dinero que entra contra el que sale ------------------------------- */}
         <Tarjeta>
           <div className="px-3.5 py-4">
-            <h2 className="mb-3.5 text-[14.5px] font-semibold">Gastos del mes por categoría</h2>
-            {categorias.length === 0 ? (
-              <p className="py-6 text-center text-sm text-tinta-500">Sin gastos este mes.</p>
-            ) : (
-              <Donut partes={categorias} centro={pesosCortos(totalGastos)} pie={MESES[new Date().getMonth()]} />
-            )}
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[14.5px] font-semibold">Ingresos vs egresos</h2>
+              <span className="text-[11px] text-tinta-400">cobranza · gastos + nómina</span>
+            </div>
+            <GraficaFlujo meses={flujo} />
+          </div>
+        </Tarjeta>
+      </div>
+
+      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-3">
+        {/* Gastos por categoría, con el mes a elección ------------------------- */}
+        <Tarjeta className="lg:col-span-2">
+          <div className="px-3.5 py-4">
+            <h2 className="mb-3 text-[14.5px] font-semibold">Gastos por categoría</h2>
+            <GraficaGastos meses={mesesGastos} />
           </div>
         </Tarjeta>
 

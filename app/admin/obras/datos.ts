@@ -1,6 +1,7 @@
 import 'server-only'
 import { notFound } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/server'
+import { conCatalogo, masComunes } from '@/lib/sugerencias'
 
 /** Todo lo que necesita el detalle de la OT, en una sola pasada. */
 export async function cargarObra(id: string) {
@@ -41,7 +42,7 @@ export async function cargarObra(id: string) {
   const idsContrato = new Set((contratos.data ?? []).map((c) => c.id))
   const pagaresDeLaObra = (pagares.data ?? []).filter((p) => idsContrato.has(p.contrato_id))
 
-  const [items, herramientas, nomina] = await Promise.all([
+  const [items, herramientas, nomina, materialesPrevios, productos] = await Promise.all([
     pagaresDeLaObra.length > 0
       ? supabase
           .from('pagare_items')
@@ -50,7 +51,44 @@ export async function cargarObra(id: string) {
       : Promise.resolve({ data: [] as never[] }),
     supabase.from('herramientas').select('*').order('codigo'),
     supabase.from('v_nomina_contratos').select('*').eq('obra_id', id),
+    // Para el autocompletado de material: lo ya capturado en cualquier obra
+    // o cotización, más el catálogo de productos con su costo.
+    supabase.from('obra_materiales').select('material, costo').limit(2000),
+    supabase.from('productos').select('nombre, costo').eq('activo', true).neq('tipo', 'insumo_taller'),
   ])
+
+  const [materialesCotizados, partidasCotizacion, conceptosPrevios] = await Promise.all([
+    supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
+    // Las partidas de la cotización de esta obra: sirven como áreas de la póliza.
+    supabase
+      .from('cotizacion_items')
+      .select('descripcion, orden')
+      .eq('cotizacion_id', concentrado.cotizacion_id)
+      .order('orden'),
+    // Los conceptos ya usados en cualquier obra: los nombres se repiten.
+    supabase.from('obra_conceptos').select('nombre, presupuesto').limit(2000),
+  ])
+
+  const sugerenciasConceptos = masComunes(
+    (conceptosPrevios.data ?? []).map((c) => ({ texto: c.nombre, monto: c.presupuesto })),
+    20,
+  )
+
+  const sugerenciasAreas = masComunes(
+    (partidasCotizacion.data ?? []).map((p) => ({ texto: p.descripcion, monto: null })),
+    20,
+  )
+
+  const sugerenciasMateriales = conCatalogo(
+    masComunes(
+      [...(materialesPrevios.data ?? []), ...(materialesCotizados.data ?? [])].map((m) => ({
+        texto: m.material,
+        monto: m.costo,
+      })),
+      30,
+    ),
+    productos.data ?? [],
+  )
 
   return {
     concentrado,
@@ -72,6 +110,9 @@ export async function cargarObra(id: string) {
     pagareItems: items.data ?? [],
     herramientas: herramientas.data ?? [],
     nomina: nomina.data ?? [],
+    sugerenciasMateriales,
+    sugerenciasAreas,
+    sugerenciasConceptos,
   }
 }
 

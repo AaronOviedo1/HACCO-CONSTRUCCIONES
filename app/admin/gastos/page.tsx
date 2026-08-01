@@ -6,7 +6,7 @@ import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, rangoDeUrl } from '@/lib/finan
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
+import { BotonEliminarGasto, BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
 import { FilaLista } from '@/components/movil/piezas'
 import type { CategoriaGasto } from '@/types/database'
@@ -153,6 +153,7 @@ export default async function PaginaGastos({
                     <Th numerico>Monto</Th>
                     <Th>Método</Th>
                     <Th>Folio</Th>
+                    <Th> </Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -186,6 +187,9 @@ export default async function PaginaGastos({
                         </span>
                       </Td>
                       <Td className="font-mono text-xs text-tinta-500">{g.folio_factura ?? '—'}</Td>
+                      <Td className="w-8">
+                        <BotonEliminarGasto id={g.id} descripcion={g.descripcion} />
+                      </Td>
                     </tr>
                   ))}
                 </tbody>

@@ -310,7 +310,7 @@ export function CotizadorRapido({
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-tinta-500">
-                  Total con IVA {num(doc.iva_pct)}%
+                  {num(doc.iva_pct) > 0 ? `Total con IVA ${num(doc.iva_pct)}%` : 'Total sin IVA'}
                 </p>
                 <p className="text-4xl font-bold tabular-nums leading-none text-haaco-700">
                   {pesos(totales.total)}

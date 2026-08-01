@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo } from '@/components/formulario'
+import { Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, PieDialogo } from '@/components/formulario'
+import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { pesos, porcentaje } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
@@ -170,6 +171,7 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
         <FormularioConcepto
           obraId={datos.obra.id}
           concepto={editando === 'nuevo' ? undefined : editando}
+          sugerencias={datos.sugerenciasConceptos}
           onCerrar={() => setEditando(null)}
         />
       )}
@@ -178,10 +180,11 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
 }
 
 function FormularioConcepto({
-  obraId, concepto, onCerrar,
+  obraId, concepto, sugerencias, onCerrar,
 }: {
   obraId: string
   concepto?: ObraConcepto
+  sugerencias: DatosObra['sugerenciasConceptos']
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -214,9 +217,11 @@ function FormularioConcepto({
         <Campo
           etiqueta="Nombre"
           hijo={
-            <Entrada
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+            <EntradaSugerencias
+              valor={nombre}
+              onCambio={setNombre}
+              onElegir={(s) => setNombre(s.texto)}
+              sugerencias={sugerencias}
               placeholder="Macetero #2"
               autoFocus
             />

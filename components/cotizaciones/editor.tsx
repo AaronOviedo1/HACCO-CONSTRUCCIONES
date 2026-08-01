@@ -1,28 +1,34 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import {
-  Check, Copy, FileDown, GripVertical, Plus, Save, Send, Share2, Trash2, X,
+  ArrowUpRight, Check, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2, Trash2, X,
 } from 'lucide-react'
 import {
-  AreaTexto, Campo, Casilla, Entrada, Numero, NumeroCorto, Seleccion,
+  AreaTexto, Campo, Casilla, Entrada, Numero, NumeroCorto, Opciones, Seleccion,
 } from '@/components/formulario'
+import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, Tarjeta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
+import { REGLAS } from '@/lib/empresa'
 import {
   ESTATUS_COTIZACION, TIPO_COTIZACION, conceptoVacio, costoConcepto, importePartida,
-  notasCotizacion, num, precioConcepto, sumaMateriales, totalMaterial, totalesCotizacion,
+  notasCotizacion, num, precioConcepto, redondear, sumaMateriales, totalMaterial, totalesCotizacion,
   type BorradorCotizacion, type ConceptoBorrador, type MaterialBorrador,
+  type Sugerencia, type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
 } from '@/app/admin/cotizaciones/acciones'
-import type { Cliente, EstatusCotizacion, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
+import type { Cliente, EstatusCotizacion, Obra, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
+
+type ObraLigada = Pick<Obra, 'id' | 'ot_numero' | 'nombre' | 'estatus'>
 
 type Props = {
   cotizacionId: string | null
@@ -32,11 +38,12 @@ type Props = {
   clientes: Cliente[]
   textos: TextoProceso[]
   productos: Producto[]
-  obras: number
+  obras: ObraLigada[]
+  sugerencias: SugerenciasCotizacion
 }
 
 export function EditorCotizacion({
-  cotizacionId, folio, estatus, inicial, clientes, textos, productos, obras,
+  cotizacionId, folio, estatus, inicial, clientes, textos, productos, obras, sugerencias,
 }: Props) {
   const router = useRouter()
   const [doc, setDoc] = useState<BorradorCotizacion>(inicial)
@@ -48,6 +55,18 @@ export function EditorCotizacion({
   const [pendiente, iniciar] = useTransition()
 
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
+  // Materiales conocidos: los del catálogo de productos más los ya cotizados.
+  const materialesSugeridos = useMemo(() => {
+    const mapa = new Map<string, Sugerencia>()
+    for (const s of sugerencias.materiales) mapa.set(s.texto.toLowerCase(), { ...s })
+    for (const p of productos) {
+      const clave = p.nombre.toLowerCase()
+      const previa = mapa.get(clave)
+      if (!previa) mapa.set(clave, { texto: p.nombre, veces: 0, monto: p.costo })
+      else if (!previa.monto) previa.monto = p.costo
+    }
+    return [...mapa.values()]
+  }, [sugerencias.materiales, productos])
   const bloqueado = estatus === 'aprobada' || estatus === 'terminada'
   // Al capturar una cotización nueva se necesita todo a la vista; al volver a
   // una que ya existe lo que se toca son las partidas, y lo demás estorba.
@@ -125,7 +144,11 @@ export function EditorCotizacion({
       const blob = await respuesta.blob()
       const archivo = new File([blob], `Cotizacion ${folio ?? ''}.pdf`, { type: 'application/pdf' })
 
-      if (navigator.canShare?.({ files: [archivo] })) {
+      // Sólo en el teléfono y el iPad: ahí la hoja de compartir manda el PDF
+      // directo al chat. En escritorio la hoja del sistema no trae WhatsApp,
+      // así que se va directo al chat del cliente.
+      const esTactil = navigator.maxTouchPoints > 0
+      if (esTactil && navigator.canShare?.({ files: [archivo] })) {
         await navigator.share({
           files: [archivo],
           title: `Cotización ${folio ?? ''}`,
@@ -133,13 +156,23 @@ export function EditorCotizacion({
         })
         return
       }
-      // Sin API de compartir (escritorio): se descarga y se abre WhatsApp Web.
+      // Sin hoja de compartir (escritorio): se descarga el PDF y se abre el
+      // chat del cliente con el mensaje listo; sólo falta arrastrar el archivo.
       const enlace = document.createElement('a')
       enlace.href = URL.createObjectURL(blob)
       enlace.download = archivo.name
       enlace.click()
       URL.revokeObjectURL(enlace.href)
-      window.open('https://web.whatsapp.com', '_blank')
+
+      const digitos = (cliente?.telefono ?? '').replace(/\D/g, '')
+      const telefono = digitos.length === 10 ? `52${digitos}` : digitos
+      const mensaje = encodeURIComponent(
+        `Buen día${cliente ? ` ${cliente.nombre}` : ''}, le comparto la cotización ${folio ?? ''} de HAACO PRO RECUBRIMIENTOS.`,
+      )
+      window.open(
+        telefono ? `https://wa.me/${telefono}?text=${mensaje}` : 'https://web.whatsapp.com',
+        '_blank',
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo compartir el PDF.')
     }
@@ -170,15 +203,29 @@ export function EditorCotizacion({
           <p className="mt-1 text-sm text-tinta-500">
             {cliente ? cliente.nombre : 'Elige un cliente para empezar'}
             {doc.nombre_obra && ` · ${doc.nombre_obra}`}
-            {obras > 0 && ` · ${obras} ${obras === 1 ? 'OT abierta' : 'OTs abiertas'}`}
           </p>
+          {obras.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {obras.map((o) => (
+                <Link
+                  key={o.id}
+                  href={`/admin/obras/${o.id}`}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full border-[0.5px] border-haaco-200 bg-haaco-50 px-3 text-[13px] font-medium text-haaco-800 transition hover:border-haaco-400 hover:bg-haaco-100 lg:min-h-0 lg:rounded-lg lg:px-2.5 lg:py-1.5 lg:text-xs"
+                >
+                  <Hammer size={13} />
+                  {o.ot_numero ? `OT ${o.ot_numero}` : o.nombre}
+                  <ArrowUpRight size={13} className="text-haaco-600" />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
           {cotizacionId && (
             <>
               <a
-                href={`/api/cotizaciones/${cotizacionId}/pdf?descargar=1`}
+                href={`/api/cotizaciones/${cotizacionId}/pdf`}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] border-[0.5px] border-tinta-300 bg-white px-3 text-[15.5px] font-semibold text-tinta-700 transition hover:bg-tinta-50 lg:min-h-0 lg:flex-none lg:rounded-lg lg:py-2 lg:text-sm lg:font-medium"
@@ -231,7 +278,7 @@ export function EditorCotizacion({
           <TarjetaPlegable
             titulo="Datos de la cotización"
             abierta={nueva}
-            resumen={`Anticipo ${num(doc.anticipo_pct)}% · IVA ${num(doc.iva_pct)}% · vigencia ${num(doc.vigencia_dias)} días${doc.requiere_factura ? ' · con factura' : ''}`}
+            resumen={`Anticipo ${num(doc.anticipo_pct)}% · vigencia ${num(doc.vigencia_dias)} días · ${doc.requiere_factura ? 'con factura (IVA 16%)' : 'sin factura'}`}
           >
             <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
               <Campo
@@ -264,10 +311,16 @@ export function EditorCotizacion({
               <Campo
                 etiqueta="Tipo de trabajo"
                 hijo={
-                  <Seleccion
-                    value={doc.tipo}
-                    onChange={(e) => {
-                      const tipo = e.target.value as TipoCotizacion
+                  <Opciones
+                    valor={doc.tipo}
+                    columnas={3}
+                    deshabilitado={bloqueado}
+                    opciones={[
+                      ['pintura', 'Pintura'],
+                      ['herreria', 'Herrería'],
+                      ['mixta', 'Mixta'],
+                    ]}
+                    onCambio={(tipo: TipoCotizacion) => {
                       setDoc((d) => ({
                         ...d,
                         tipo,
@@ -275,12 +328,7 @@ export function EditorCotizacion({
                       }))
                       setSucio(true)
                     }}
-                    disabled={bloqueado}
-                  >
-                    <option value="pintura">Pintura</option>
-                    <option value="herreria">Herrería</option>
-                    <option value="mixta">Mixta (pintura + herrería)</option>
-                  </Seleccion>
+                  />
                 }
               />
               <Campo
@@ -325,26 +373,43 @@ export function EditorCotizacion({
                   disabled={bloqueado}
                 />
                 <NumeroCorto
-                  etiqueta="IVA"
-                  sufijo="%"
-                  value={doc.iva_pct}
-                  onChange={(e) => cambiar('iva_pct', e.target.value)}
-                  disabled={bloqueado}
-                />
-                <NumeroCorto
                   etiqueta="Vigencia"
                   sufijo="días"
                   value={doc.vigencia_dias}
                   onChange={(e) => cambiar('vigencia_dias', e.target.value)}
                   disabled={bloqueado}
                 />
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-tinta-700">Viáticos</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm text-tinta-500">$</span>
+                    <Numero
+                      value={doc.viaticos}
+                      onChange={(e) => cambiar('viaticos', e.target.value)}
+                      placeholder="0.00"
+                      disabled={bloqueado}
+                      className="!w-28"
+                    />
+                  </span>
+                  <span className="mt-1 block text-xs text-tinta-400">
+                    No sale en el PDF; se compara en la OT.
+                  </span>
+                </label>
               </div>
-              <Casilla
-                etiqueta="El cliente pide factura"
-                checked={doc.requiere_factura}
-                onChange={(e) => cambiar('requiere_factura', e.target.checked)}
-                disabled={bloqueado}
-              />
+              {/* El IVA no se captura: con factura siempre es 16%, sin ella no va. */}
+              <div className="sm:col-span-2">
+                <Casilla
+                  etiqueta="El cliente pide factura (se agrega IVA 16%)"
+                  checked={doc.requiere_factura}
+                  onChange={(e) => {
+                    const pide = e.target.checked
+                    setDoc((d) => ({ ...d, requiere_factura: pide, iva_pct: pide ? String(REGLAS.ivaPct) : '0' }))
+                    setSucio(true)
+                    setAviso(null)
+                  }}
+                  disabled={bloqueado}
+                />
+              </div>
             </div>
           </TarjetaPlegable>
 
@@ -357,16 +422,29 @@ export function EditorCotizacion({
             productos={productos}
             bloqueado={bloqueado}
             abierta={nueva}
+            sugeridos={sugerencias.procesos}
           />
 
           {/* Partidas de pintura ------------------------------------------ */}
           {muestraPintura && (
-            <BloquePartidas doc={doc} setDoc={setDoc} setSucio={setSucio} bloqueado={bloqueado} />
+            <BloquePartidas
+              doc={doc}
+              setDoc={setDoc}
+              setSucio={setSucio}
+              bloqueado={bloqueado}
+              sugerencias={sugerencias.partidas}
+            />
           )}
 
           {/* Conceptos de herrería ---------------------------------------- */}
           {muestraHerreria && (
-            <BloqueHerreria doc={doc} setDoc={setDoc} setSucio={setSucio} bloqueado={bloqueado} />
+            <BloqueHerreria
+              doc={doc}
+              setDoc={setDoc}
+              setSucio={setSucio}
+              bloqueado={bloqueado}
+              sugerencias={materialesSugeridos}
+            />
           )}
 
           {/* Materiales presupuestados ------------------------------------ */}
@@ -376,17 +454,18 @@ export function EditorCotizacion({
             setSucio={setSucio}
             bloqueado={bloqueado}
             abierta={nueva}
+            sugerencias={materialesSugeridos}
           />
 
           {/* Notas -------------------------------------------------------- */}
           <TarjetaPlegable
             titulo="Notas al pie"
             abierta={nueva}
-            resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias)).length} notas en el PDF${doc.notas.trim() ? ' · con notas internas' : ''}`}
+            resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias), doc.requiere_factura).length} notas en el PDF${doc.notas.trim() ? ' · con notas internas' : ''}`}
           >
             <div className="px-5 py-5">
               <ul className="mb-4 space-y-1 text-sm text-tinta-600">
-                {notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias)).map((n) => (
+                {notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias), doc.requiere_factura).map((n) => (
                   <li key={n} className="font-medium">{n}</li>
                 ))}
               </ul>
@@ -429,7 +508,7 @@ export function EditorCotizacion({
                 <Renglon etiqueta="Conceptos de herrería" valor={pesos(totales.conceptos)} />
               )}
               <Renglon etiqueta="Subtotal" valor={pesos(totales.subtotal)} fuerte />
-              <Renglon etiqueta={`IVA ${num(doc.iva_pct)}%`} valor={pesos(totales.iva)} />
+              {totales.iva > 0 && <Renglon etiqueta={`IVA ${num(doc.iva_pct)}%`} valor={pesos(totales.iva)} />}
               <Renglon etiqueta="Total" valor={pesos(totales.total)} destacado />
               <Renglon
                 etiqueta={`Anticipo ${num(doc.anticipo_pct)}%`}
@@ -477,7 +556,7 @@ export function EditorCotizacion({
             </button>
           )}
 
-          {cotizacionId && obras === 0 && (
+          {cotizacionId && obras.length === 0 && (
             <button
               type="button"
               onClick={alEliminar}
@@ -496,7 +575,9 @@ export function EditorCotizacion({
         <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur-xl lg:bottom-0 lg:pl-72">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="flex min-w-0 items-baseline gap-2 sm:block">
-              <p className="text-xs text-tinta-500">Total con IVA</p>
+              <p className="text-xs text-tinta-500">
+                {doc.requiere_factura ? 'Total con IVA' : 'Total sin IVA'}
+              </p>
               <p className="truncate text-xl font-semibold tabular-nums text-tinta-900">
                 {pesos(totales.total)}
               </p>
@@ -594,9 +675,15 @@ type BloqueProps = {
 }
 
 function BloqueProcesos({
-  doc, setDoc, setSucio, textos, productos, bloqueado, abierta,
-}: BloqueProps & { textos: TextoProceso[]; productos: Producto[]; abierta: boolean }) {
+  doc, setDoc, setSucio, textos, productos, bloqueado, abierta, sugeridos,
+}: BloqueProps & {
+  textos: TextoProceso[]
+  productos: Producto[]
+  abierta: boolean
+  sugeridos: string[]
+}) {
   const usados = new Set(doc.procesos.map((p) => p.texto_proceso_id).filter(Boolean))
+  const contenidos = new Set(doc.procesos.map((p) => p.contenido.trim()))
 
   const agregar = (texto: TextoProceso) => {
     setDoc((d) => ({
@@ -674,6 +761,27 @@ function BloqueProcesos({
                     {t.titulo}
                   </button>
                 ))}
+              {/* Bullets escritos a mano en cotizaciones anteriores (Excel migrado). */}
+              {sugeridos
+                .filter((s) => !contenidos.has(s.trim()))
+                .map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    title={s}
+                    onClick={() => {
+                      setDoc((d) => ({
+                        ...d,
+                        procesos: [...d.procesos, { texto_proceso_id: null, contenido: s }],
+                      }))
+                      setSucio(true)
+                    }}
+                    className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border-[0.5px] border-tinta-200 bg-tinta-50 px-3 text-[13px] font-medium text-tinta-500 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800 lg:min-h-0 lg:rounded-lg lg:px-2.5 lg:py-1.5 lg:text-xs"
+                  >
+                    <Plus size={13} className="shrink-0" />
+                    <span className="truncate">{s.length > 48 ? `${s.slice(0, 48)}…` : s}</span>
+                  </button>
+                ))}
               <button
                 type="button"
                 onClick={() => {
@@ -703,7 +811,9 @@ function BloqueProcesos({
   )
 }
 
-function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
+function BloquePartidas({
+  doc, setDoc, setSucio, bloqueado, sugerencias,
+}: BloqueProps & { sugerencias: Sugerencia[] }) {
   const actualizar = (i: number, campo: 'descripcion' | 'm2' | 'precio_unitario', valor: string) => {
     setDoc((d) => ({
       ...d,
@@ -712,8 +822,21 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
     setSucio(true)
   }
 
+  // Al elegir una partida conocida se pone también su último precio unitario.
+  const elegir = (i: number, s: Sugerencia) => {
+    setDoc((d) => ({
+      ...d,
+      items: d.items.map((x, j) =>
+        j === i
+          ? { ...x, descripcion: s.texto, ...(s.monto ? { precio_unitario: String(s.monto) } : {}) }
+          : x,
+      ),
+    }))
+    setSucio(true)
+  }
+
   return (
-    <Tarjeta titulo="Partidas">
+    <Tarjeta titulo="Partidas de pintura">
       {/* Teléfono: una tarjeta por partida, que la tabla no cabe. */}
       <div className="flex flex-col gap-3 px-4 py-4 lg:hidden">
         {doc.items.map((item, i) => (
@@ -722,11 +845,14 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tinta-100 text-xs font-semibold text-tinta-500">
                 {i + 1}
               </span>
-              <Entrada
-                value={item.descripcion}
-                onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
+              <EntradaSugerencias
+                valor={item.descripcion}
+                onCambio={(v) => actualizar(i, 'descripcion', v)}
+                onElegir={(s) => elegir(i, s)}
+                sugerencias={sugerencias}
                 placeholder="Exterior fachada principal"
                 disabled={bloqueado}
+                multilinea
               />
               {!bloqueado && (
                 <button
@@ -783,11 +909,14 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
               <tr key={i}>
                 <td className="border-b border-tinta-100 px-3 py-1.5 text-tinta-400 tabular-nums">{i + 1}</td>
                 <td className="border-b border-tinta-100 px-3 py-1.5">
-                  <Entrada
-                    value={item.descripcion}
-                    onChange={(e) => actualizar(i, 'descripcion', e.target.value)}
+                  <EntradaSugerencias
+                    valor={item.descripcion}
+                    onCambio={(v) => actualizar(i, 'descripcion', v)}
+                    onElegir={(s) => elegir(i, s)}
+                    sugerencias={sugerencias}
                     placeholder="Exterior fachada principal"
                     disabled={bloqueado}
+                    multilinea
                   />
                 </td>
                 <td className="border-b border-tinta-100 px-3 py-1.5">
@@ -852,7 +981,9 @@ function BloquePartidas({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
   )
 }
 
-function BloqueHerreria({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
+function BloqueHerreria({
+  doc, setDoc, setSucio, bloqueado, sugerencias,
+}: BloqueProps & { sugerencias: Sugerencia[] }) {
   const actualizar = (i: number, parche: Partial<ConceptoBorrador>) => {
     setDoc((d) => ({
       ...d,
@@ -880,6 +1011,7 @@ function BloqueHerreria({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
             concepto={concepto}
             indice={i}
             bloqueado={bloqueado}
+            sugerencias={sugerencias}
             onCambio={(parche) => actualizar(i, parche)}
             onQuitar={() => {
               setDoc((d) => ({ ...d, desglose: d.desglose.filter((_, j) => j !== i) }))
@@ -907,13 +1039,14 @@ function BloqueHerreria({ doc, setDoc, setSucio, bloqueado }: BloqueProps) {
 }
 
 function ConceptoHerreria({
-  concepto, indice, bloqueado, onCambio, onQuitar,
+  concepto, indice, bloqueado, onCambio, onQuitar, sugerencias,
 }: {
   concepto: ConceptoBorrador
   indice: number
   bloqueado: boolean
   onCambio: (parche: Partial<ConceptoBorrador>) => void
   onQuitar: () => void
+  sugerencias: Sugerencia[]
 }) {
   const costo = costoConcepto(concepto)
   const precio = precioConcepto(concepto)
@@ -922,6 +1055,10 @@ function ConceptoHerreria({
     onCambio({
       materiales: concepto.materiales.map((m, j) => (j === i ? { ...m, ...parche } : m)),
     })
+
+  // Al elegir un material conocido se pone también su último costo.
+  const elegirMaterial = (i: number, s: Sugerencia) =>
+    cambiarMaterial(i, { material: s.texto, ...(s.monto ? { costo: String(s.monto) } : {}) })
 
   return (
     <div className="rounded-xl border border-tinta-200">
@@ -957,9 +1094,11 @@ function ConceptoHerreria({
               className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12"
             >
               <div className="lg:col-span-5">
-                <Entrada
-                  value={m.material}
-                  onChange={(e) => cambiarMaterial(i, { material: e.target.value })}
+                <EntradaSugerencias
+                  valor={m.material}
+                  onCambio={(v) => cambiarMaterial(i, { material: v })}
+                  onElegir={(s) => elegirMaterial(i, s)}
+                  sugerencias={sugerencias}
                   placeholder="PTR 1x1"
                   disabled={bloqueado}
                 />
@@ -1082,10 +1221,18 @@ function Mini({ etiqueta, valor, destacado }: { etiqueta: string; valor: string;
 }
 
 function BloqueMateriales({
-  doc, setDoc, setSucio, bloqueado, abierta,
-}: BloqueProps & { abierta: boolean }) {
+  doc, setDoc, setSucio, bloqueado, abierta, sugerencias,
+}: BloqueProps & { abierta: boolean; sugerencias: Sugerencia[] }) {
   const sueltos = doc.materiales
-  const total = sumaMateriales(sueltos)
+  // Los materiales capturados en el cotizador de herrería también son parte
+  // del presupuesto: aquí se ven (y suman), pero se editan en su concepto.
+  const deHerreria = doc.desglose.flatMap((c) =>
+    c.materiales
+      .filter((m) => m.material.trim())
+      .map((m) => ({ ...m, concepto: c.concepto.trim() })),
+  )
+  const total = redondear(sumaMateriales(sueltos) + sumaMateriales(deHerreria))
+  const cuantos = sueltos.length + deHerreria.length
 
   const actualizar = (i: number, parche: Partial<MaterialBorrador>) => {
     setDoc((d) => ({
@@ -1095,23 +1242,51 @@ function BloqueMateriales({
     setSucio(true)
   }
 
+  // Al elegir un material conocido se pone también su último costo.
+  const elegir = (i: number, s: Sugerencia) =>
+    actualizar(i, { material: s.texto, ...(s.monto ? { costo: String(s.monto) } : {}) })
+
   return (
     <TarjetaPlegable
       titulo="Material presupuestado"
       abierta={abierta}
       resumen={
-        sueltos.length === 0
+        cuantos === 0
           ? 'Sin material'
-          : `${pesos(total)} · ${sueltos.length} ${sueltos.length === 1 ? 'material' : 'materiales'}`
+          : `${pesos(total)} · ${cuantos} ${cuantos === 1 ? 'material' : 'materiales'}`
       }
       pie={`${pesos(total)} · al aprobar se copia a la orden de trabajo como material COTIZADO, para compararlo después contra lo que realmente se gastó.`}
     >
       <div className="px-5 py-5">
-        {sueltos.length === 0 && (
+        {cuantos === 0 && (
           <p className="mb-3 text-sm text-tinta-500">
             Opcional. Anota la pintura y el material que calculas usar para poder medir la utilidad
             real de la obra.
           </p>
+        )}
+
+        {deHerreria.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-tinta-400">
+              Del cotizador de herrería
+            </p>
+            <ul className="divide-y divide-tinta-100 rounded-[14px] border-[0.5px] border-tinta-200 bg-tinta-50/60">
+              {deHerreria.map((m, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 px-3.5 py-2 text-sm">
+                  <span className="min-w-0 truncate text-tinta-700">
+                    {m.material}
+                    {m.concepto && <span className="text-tinta-400"> · {m.concepto}</span>}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-tinta-600">
+                    {num(m.piezas)} × {pesos(num(m.costo))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-xs text-tinta-400">
+              Se editan en su concepto de herrería; al aprobar también pasan a la orden de trabajo.
+            </p>
+          </div>
         )}
 
         <div className="space-y-1.5">
@@ -1121,9 +1296,11 @@ function BloqueMateriales({
               className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12"
             >
               <div className="lg:col-span-6">
-                <Entrada
-                  value={m.material}
-                  onChange={(e) => actualizar(i, { material: e.target.value })}
+                <EntradaSugerencias
+                  valor={m.material}
+                  onCambio={(v) => actualizar(i, { material: v })}
+                  onElegir={(s) => elegir(i, s)}
+                  sugerencias={sugerencias}
                   placeholder="Rivinol 7 blanco"
                   disabled={bloqueado}
                 />

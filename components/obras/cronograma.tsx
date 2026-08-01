@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
-import { CalendarClock, Plus, Trash2 } from 'lucide-react'
+import { CalendarClock, ListChecks, Plus, Trash2 } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -12,7 +12,7 @@ import { fecha, fechaHora } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { ESTATUS_TAREA } from '@/lib/obras'
 import {
-  anotarEnBitacora, eliminarTarea, guardarTarea, recorrerCronograma,
+  anotarEnBitacora, crearCronogramaDesdePartidas, eliminarTarea, guardarTarea, recorrerCronograma,
 } from '@/app/admin/obras/acciones'
 import type { CronogramaTarea, EstatusTarea } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
@@ -21,7 +21,11 @@ const DIA = 86_400_000
 
 export function PanelCronograma({ datos }: { datos: DatosObra }) {
   const router = useRouter()
-  const [editando, setEditando] = useState<CronogramaTarea | 'nueva' | null>(null)
+  // La tarea que se edita, 'nueva' para una de primer nivel, o { padre } para
+  // colgarle una subtarea a una existente.
+  const [editando, setEditando] = useState<
+    CronogramaTarea | { padre: CronogramaTarea } | 'nueva' | null
+  >(null)
   const [recorriendo, setRecorriendo] = useState(false)
   const [nota, setNota] = useState('')
   const [pendiente, iniciar] = useTransition()
@@ -29,6 +33,12 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
 
   const cerrada = datos.concentrado.estatus === 'cerrada'
   const responsables = new Map(datos.oficiales.map((o) => [o.id, o.nombre]))
+
+  const padres = datos.tareas.filter((t) => !t.padre_id)
+  const hijosDe = new Map<string, CronogramaTarea[]>()
+  for (const t of datos.tareas) {
+    if (t.padre_id) hijosDe.set(t.padre_id, [...(hijosDe.get(t.padre_id) ?? []), t])
+  }
 
   // Rango del timeline: de la primera fecha a la última, con un margen.
   const linea = useMemo(() => {
@@ -85,84 +95,58 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
               descripcion="Arma el cronograma para poder recorrerlo cuando llueva o falte un oficial."
               accion={
                 !cerrada ? (
-                  <button
-                    type="button"
-                    onClick={() => setEditando('nueva')}
-                    className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
-                  >
-                    <Plus size={16} />
-                    Nueva tarea
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => accion(() => crearCronogramaDesdePartidas(datos.obra.id))}
+                      disabled={pendiente}
+                      className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+                    >
+                      <ListChecks size={16} />
+                      {pendiente ? 'Creando…' : 'Crear cronograma con las partidas'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditando('nueva')}
+                      className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                    >
+                      <Plus size={16} />
+                      Nueva tarea
+                    </button>
+                  </div>
                 ) : undefined
               }
             />
           ) : (
             <>
               <ul className="divide-y divide-tinta-100">
-                {datos.tareas.map((t) => {
-                  const inicio = t.fecha_inicio ? new Date(`${t.fecha_inicio}T00:00:00`).getTime() : null
-                  const fin = t.fecha_fin ? new Date(`${t.fecha_fin}T00:00:00`).getTime() : inicio
-                  const desfase =
-                    linea && inicio ? ((inicio - linea.inicio) / DIA / linea.dias) * 100 : 0
-                  const ancho =
-                    linea && inicio && fin
-                      ? Math.max(3, (((fin - inicio) / DIA + 1) / linea.dias) * 100)
-                      : 0
-
-                  return (
-                    <li key={t.id} className="px-4 py-3">
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => !cerrada && setEditando(t)}
-                          className="text-left text-sm font-medium text-tinta-900 hover:text-haaco-700"
-                        >
-                          {t.nombre}
-                        </button>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-tinta-500">
-                            {fecha(t.fecha_inicio)} → {fecha(t.fecha_fin)}
-                          </span>
-                          <Etiqueta tono={ESTATUS_TAREA[t.estatus].tono}>
-                            {ESTATUS_TAREA[t.estatus].texto}
-                          </Etiqueta>
-                          {!cerrada && (
-                            <button
-                              type="button"
-                              onClick={() => accion(() => eliminarTarea(datos.obra.id, t.id))}
-                              disabled={pendiente}
-                              className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
-                              aria-label={`Eliminar ${t.nombre}`}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {linea && inicio && (
-                        <div className="h-2.5 overflow-hidden rounded-full bg-tinta-100">
-                          <div
-                            className={`h-full rounded-full ${
-                              t.estatus === 'terminada'
-                                ? 'bg-haaco-500'
-                                : t.estatus === 'en_proceso'
-                                  ? 'bg-sky-500'
-                                  : 'bg-tinta-300'
-                            }`}
-                            style={{ marginLeft: `${desfase}%`, width: `${ancho}%` }}
-                          />
-                        </div>
-                      )}
-
-                      {t.responsable_id && (
-                        <p className="mt-1 text-xs text-tinta-400">
-                          {responsables.get(t.responsable_id)}
-                        </p>
-                      )}
-                    </li>
-                  )
-                })}
+                {padres.map((t) => (
+                  <li key={t.id}>
+                    <FilaTarea
+                      tarea={t}
+                      linea={linea}
+                      responsables={responsables}
+                      cerrada={cerrada}
+                      pendiente={pendiente}
+                      onEditar={() => setEditando(t)}
+                      onSubtarea={() => setEditando({ padre: t })}
+                      onEliminar={() => accion(() => eliminarTarea(datos.obra.id, t.id))}
+                    />
+                    {(hijosDe.get(t.id) ?? []).map((h) => (
+                      <FilaTarea
+                        key={h.id}
+                        tarea={h}
+                        hija
+                        linea={linea}
+                        responsables={responsables}
+                        cerrada={cerrada}
+                        pendiente={pendiente}
+                        onEditar={() => setEditando(h)}
+                        onEliminar={() => accion(() => eliminarTarea(datos.obra.id, h.id))}
+                      />
+                    ))}
+                  </li>
+                ))}
               </ul>
 
               {!cerrada && (
@@ -232,7 +216,8 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
       {editando && (
         <FormularioTarea
           obraId={datos.obra.id}
-          tarea={editando === 'nueva' ? undefined : editando}
+          tarea={editando === 'nueva' || 'padre' in editando ? undefined : editando}
+          padre={editando !== 'nueva' && 'padre' in editando ? editando.padre : undefined}
           orden={datos.tareas.length}
           oficiales={datos.oficiales}
           onCerrar={() => setEditando(null)}
@@ -247,11 +232,112 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
 }
 
 // ---------------------------------------------------------------------------
+function FilaTarea({
+  tarea, hija, linea, responsables, cerrada, pendiente, onEditar, onSubtarea, onEliminar,
+}: {
+  tarea: CronogramaTarea
+  hija?: boolean
+  linea: { inicio: number; fin: number; dias: number } | null
+  responsables: Map<string, string>
+  cerrada: boolean
+  pendiente: boolean
+  onEditar: () => void
+  onSubtarea?: () => void
+  onEliminar: () => void
+}) {
+  const inicio = tarea.fecha_inicio ? new Date(`${tarea.fecha_inicio}T00:00:00`).getTime() : null
+  const fin = tarea.fecha_fin ? new Date(`${tarea.fecha_fin}T00:00:00`).getTime() : inicio
+  const desfase = linea && inicio ? ((inicio - linea.inicio) / DIA / linea.dias) * 100 : 0
+  const ancho =
+    linea && inicio && fin ? Math.max(3, (((fin - inicio) / DIA + 1) / linea.dias) * 100) : 0
+
+  return (
+    // Toda la fila abre la tarea; los botones de la derecha frenan el click.
+    <div
+      role="button"
+      tabIndex={cerrada ? -1 : 0}
+      onClick={() => !cerrada && onEditar()}
+      onKeyDown={(e) => {
+        if (!cerrada && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onEditar()
+        }
+      }}
+      className={`px-4 py-3 transition ${cerrada ? '' : 'cursor-pointer hover:bg-tinta-50/60'} ${
+        hija ? 'border-l-2 border-tinta-150 pl-4 ml-6' : ''
+      }`}
+    >
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className={`text-sm font-medium ${hija ? 'text-tinta-700' : 'text-tinta-900'}`}>
+          {tarea.nombre}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-tinta-500">
+            {fecha(tarea.fecha_inicio)} → {fecha(tarea.fecha_fin)}
+          </span>
+          <Etiqueta tono={ESTATUS_TAREA[tarea.estatus].tono}>
+            {ESTATUS_TAREA[tarea.estatus].texto}
+          </Etiqueta>
+          {!cerrada && onSubtarea && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSubtarea()
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border-[0.5px] border-tinta-200 px-2 py-1 text-xs font-medium text-tinta-600 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800"
+            >
+              <Plus size={12} />
+              Subtarea
+            </button>
+          )}
+          {!cerrada && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEliminar()
+              }}
+              disabled={pendiente}
+              className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
+              aria-label={`Eliminar ${tarea.nombre}`}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {linea && inicio && (
+        <div className={`overflow-hidden rounded-full bg-tinta-100 ${hija ? 'h-1.5' : 'h-2.5'}`}>
+          <div
+            className={`h-full rounded-full ${
+              tarea.estatus === 'terminada'
+                ? 'bg-haaco-500'
+                : tarea.estatus === 'en_proceso'
+                  ? 'bg-sky-500'
+                  : 'bg-tinta-300'
+            }`}
+            style={{ marginLeft: `${desfase}%`, width: `${ancho}%` }}
+          />
+        </div>
+      )}
+
+      {tarea.responsable_id && (
+        <p className="mt-1 text-xs text-tinta-400">{responsables.get(tarea.responsable_id)}</p>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 function FormularioTarea({
-  obraId, tarea, orden, oficiales, onCerrar,
+  obraId, tarea, padre, orden, oficiales, onCerrar,
 }: {
   obraId: string
   tarea?: CronogramaTarea
+  /** Si viene, la tarea nueva se cuelga de ésta como subtarea. */
+  padre?: CronogramaTarea
   orden: number
   oficiales: DatosObra['oficiales']
   onCerrar: () => void
@@ -260,7 +346,7 @@ function FormularioTarea({
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [nombre, setNombre] = useState(tarea?.nombre ?? '')
-  const [inicio, setInicio] = useState(tarea?.fecha_inicio ?? hoyISO())
+  const [inicio, setInicio] = useState(tarea?.fecha_inicio ?? padre?.fecha_inicio ?? hoyISO())
   const [fin, setFin] = useState(tarea?.fecha_fin ?? '')
   const [estatus, setEstatus] = useState<EstatusTarea>(tarea?.estatus ?? 'pendiente')
   const [responsable, setResponsable] = useState(tarea?.responsable_id ?? '')
@@ -270,6 +356,7 @@ function FormularioTarea({
       setError(null)
       const r = await guardarTarea(obraId, {
         id: tarea?.id,
+        padre_id: tarea?.padre_id ?? padre?.id ?? null,
         nombre,
         fecha_inicio: inicio || null,
         fecha_fin: fin || inicio || null,
@@ -283,7 +370,12 @@ function FormularioTarea({
     })
 
   return (
-    <Dialogo abierto onCerrar={onCerrar} titulo={tarea ? 'Editar tarea' : 'Nueva tarea'}>
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      titulo={tarea ? 'Editar tarea' : padre ? 'Nueva subtarea' : 'Nueva tarea'}
+      descripcion={padre ? `Cuelga de «${padre.nombre}».` : undefined}
+    >
       <CuerpoDialogo>
         <Campo
           etiqueta="Tarea"

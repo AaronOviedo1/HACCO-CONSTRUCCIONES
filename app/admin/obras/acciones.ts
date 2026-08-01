@@ -310,6 +310,7 @@ export async function guardarTarea(
   obraId: string,
   tarea: {
     id?: string
+    padre_id?: string | null
     nombre: string
     fecha_inicio: string | null
     fecha_fin: string | null
@@ -338,6 +339,82 @@ export async function eliminarTarea(obraId: string, id: string): Promise<Resulta
   if (error) return fallo(error)
   refrescar(obraId)
   return { ok: true }
+}
+
+/**
+ * Arma el cronograma inicial con lo que ya trae la cotización: primero los
+ * pasos de la descripción del trabajo (en su orden) y luego una tarea por
+ * partida. Cada tarea queda de un día, encadenada a partir de hoy; de ahí se
+ * ajustan fechas o se recorren.
+ */
+export async function crearCronogramaDesdePartidas(obraId: string): Promise<Resultado<number>> {
+  const supabase = await staff()
+
+  const { data: obra } = await supabase
+    .from('obras')
+    .select('id, cotizacion_id')
+    .eq('id', obraId)
+    .single()
+  if (!obra) return { ok: false, error: 'No se encontró la obra.' }
+
+  const [{ data: items }, { data: procesos }, { data: textos }, { count: existentes }] =
+    await Promise.all([
+      supabase
+        .from('cotizacion_items')
+        .select('descripcion, orden')
+        .eq('cotizacion_id', obra.cotizacion_id)
+        .order('orden'),
+      supabase
+        .from('cotizacion_procesos')
+        .select('contenido_override, texto_proceso_id, orden')
+        .eq('cotizacion_id', obra.cotizacion_id)
+        .order('orden'),
+      supabase.from('textos_proceso').select('id, titulo'),
+      supabase.from('cronograma_tareas').select('id', { count: 'exact', head: true }).eq('obra_id', obraId),
+    ])
+
+  if ((existentes ?? 0) > 0) {
+    return { ok: false, error: 'El cronograma ya tiene tareas; agrégalas una por una.' }
+  }
+
+  const titulos = new Map((textos ?? []).map((t) => [t.id, t.titulo]))
+  const recortar = (s: string) => (s.length > 60 ? `${s.slice(0, 60).trimEnd()}…` : s)
+
+  const nombres = [
+    // Pasos del proceso: si el bullet salió de la biblioteca se usa su título.
+    ...(procesos ?? []).map((p) =>
+      (p.texto_proceso_id && titulos.get(p.texto_proceso_id)) ||
+      recortar((p.contenido_override ?? '').trim()),
+    ),
+    ...(items ?? []).map((i) => recortar(i.descripcion.trim())),
+  ].filter(Boolean)
+
+  if (nombres.length === 0) {
+    return { ok: false, error: 'La cotización no tiene partidas ni descripción del trabajo.' }
+  }
+
+  const hoy = new Date()
+  const dia = (n: number) => {
+    const d = new Date(hoy)
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const { error } = await supabase.from('cronograma_tareas').insert(
+    nombres.map((nombre, i) => ({
+      obra_id: obraId,
+      nombre,
+      fecha_inicio: dia(i),
+      fecha_fin: dia(i),
+      estatus: 'pendiente' as EstatusTarea,
+      responsable_id: null,
+      orden: i,
+    })),
+  )
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true, datos: nombres.length }
 }
 
 /** Llovió, faltó el oficial, se atrasó el material: se recorre lo que falta. */

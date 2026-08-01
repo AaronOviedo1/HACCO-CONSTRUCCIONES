@@ -131,6 +131,8 @@ export type Cotizacion = {
   subtotal: number
   iva_pct: number
   total: number
+  /** Viáticos presupuestados: no salen en el PDF, se comparan en la OT. */
+  viaticos: number
   linea_calidad: string | null
   notas: string | null
   vigencia_dias: number
@@ -219,6 +221,8 @@ export type ObraConcepto = {
 export type CronogramaTarea = {
   id: string
   obra_id: string
+  /** Tarea de la que cuelga; null si es tarea de primer nivel. */
+  padre_id: string | null
   nombre: string
   fecha_inicio: string | null
   fecha_fin: string | null
@@ -585,10 +589,12 @@ export type VObraConcentrado = {
   fecha_cierre: string | null
   avance_pct: number
   cotizado: number
+  mano_obra_cotizada: number
   mano_obra: number
   contratos: number
   material_cotizado: number
   material_real: number
+  viaticos_cotizados: number
   viaticos: number
   gastos_adicionales: number
   utilidad: number
@@ -683,6 +689,7 @@ export type DocumentoCotizacionSql = {
   anticipo_pct?: number | null
   iva_pct?: number
   vigencia_dias?: number
+  viaticos?: number
   linea_calidad?: string | null
   notas?: string | null
   fecha?: string

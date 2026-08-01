@@ -1,18 +1,50 @@
 import 'server-only'
 import { notFound } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { borradorVacio, type BorradorCotizacion } from '@/lib/cotizaciones'
+import { masComunes } from '@/lib/sugerencias'
+import {
+  borradorVacio,
+  type BorradorCotizacion,
+  type SugerenciasCotizacion,
+} from '@/lib/cotizaciones'
 
 /** Catálogos que necesita el editor: clientes, biblioteca de textos y pinturas. */
 export async function cargarCatalogos() {
   const supabase = await crearClienteServidor()
-  const [{ data: clientes }, { data: textos }, { data: productos }] = await Promise.all([
+  const [
+    { data: clientes },
+    { data: textos },
+    { data: productos },
+    { data: partidasPrevias },
+    { data: materialesPrevios },
+    { data: procesosPrevios },
+  ] = await Promise.all([
     supabase.from('clientes').select('*').eq('activo', true).order('nombre'),
     supabase.from('textos_proceso').select('*').eq('activo', true).order('orden'),
     supabase.from('productos').select('*').eq('activo', true).neq('tipo', 'insumo_taller').order('nombre'),
+    // Lo ya cotizado (el Excel migrado incluido) alimenta las sugerencias.
+    supabase.from('cotizacion_items').select('descripcion, precio_unitario').is('desglose_id', null).limit(2000),
+    supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
+    supabase.from('cotizacion_procesos').select('contenido_override').is('texto_proceso_id', null).limit(2000),
   ])
 
-  return { clientes: clientes ?? [], textos: textos ?? [], productos: productos ?? [] }
+  const sugerencias: SugerenciasCotizacion = {
+    partidas: masComunes(
+      (partidasPrevias ?? []).map((p) => ({ texto: p.descripcion, monto: p.precio_unitario })),
+      30,
+    ),
+    materiales: masComunes(
+      (materialesPrevios ?? []).map((m) => ({ texto: m.material, monto: m.costo })),
+      30,
+    ),
+    // Bullets escritos a mano que no salieron de la biblioteca.
+    procesos: masComunes(
+      (procesosPrevios ?? []).map((p) => ({ texto: p.contenido_override, monto: null })),
+      8,
+    ).map((s) => s.texto),
+  }
+
+  return { clientes: clientes ?? [], textos: textos ?? [], productos: productos ?? [], sugerencias }
 }
 
 /** Reconstruye el borrador del editor a partir de lo guardado. */
@@ -22,13 +54,17 @@ export async function cargarCotizacion(id: string) {
   const { data: cotizacion } = await supabase.from('cotizaciones').select('*').eq('id', id).maybeSingle()
   if (!cotizacion) notFound()
 
-  const [{ data: procesos }, { data: items }, { data: desglose }, { data: materiales }, { count: obras }] =
+  const [{ data: procesos }, { data: items }, { data: desglose }, { data: materiales }, { data: obras }] =
     await Promise.all([
       supabase.from('cotizacion_procesos').select('*').eq('cotizacion_id', id).order('orden'),
       supabase.from('cotizacion_items').select('*').eq('cotizacion_id', id).order('orden'),
       supabase.from('cotizacion_herreria_desglose').select('*').eq('cotizacion_id', id).order('orden'),
       supabase.from('cotizacion_materiales').select('*').eq('cotizacion_id', id).order('orden'),
-      supabase.from('obras').select('id', { count: 'exact', head: true }).eq('cotizacion_id', id),
+      supabase
+        .from('obras')
+        .select('id, ot_numero, nombre, estatus')
+        .eq('cotizacion_id', id)
+        .order('ot_numero'),
     ])
 
   const base = borradorVacio(cotizacion.tipo)
@@ -43,6 +79,7 @@ export async function cargarCotizacion(id: string) {
     anticipo_pct: String(cotizacion.anticipo_pct ?? base.anticipo_pct),
     iva_pct: String(cotizacion.iva_pct),
     vigencia_dias: String(cotizacion.vigencia_dias),
+    viaticos: Number(cotizacion.viaticos) > 0 ? String(cotizacion.viaticos) : '',
     linea_calidad: cotizacion.linea_calidad ?? '',
     notas: cotizacion.notas ?? '',
     fecha: cotizacion.fecha,
@@ -83,5 +120,5 @@ export async function cargarCotizacion(id: string) {
       })),
   }
 
-  return { cotizacion, borrador, obras: obras ?? 0 }
+  return { cotizacion, borrador, obras: obras ?? [] }
 }

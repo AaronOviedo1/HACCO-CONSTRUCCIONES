@@ -7,6 +7,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta, Tarjeta } from '@/components/ui'
+import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, pesos } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
@@ -314,6 +315,8 @@ export function PanelCierre({ datos }: { datos: DatosObra }) {
         <FormularioPoliza
           obraId={datos.obra.id}
           poliza={datos.poliza}
+          sugerenciasAreas={datos.sugerenciasAreas}
+          sugerenciasPinturas={datos.sugerenciasMateriales}
           onCerrar={() => setEditandoPoliza(false)}
         />
       )}
@@ -404,10 +407,12 @@ function DialogoDiagnostico({
 
 // ---------------------------------------------------------------------------
 function FormularioPoliza({
-  obraId, poliza, onCerrar,
+  obraId, poliza, sugerenciasAreas, sugerenciasPinturas, onCerrar,
 }: {
   obraId: string
   poliza: DatosObra['poliza']
+  sugerenciasAreas: DatosObra['sugerenciasAreas']
+  sugerenciasPinturas: DatosObra['sugerenciasMateriales']
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -470,12 +475,20 @@ function FormularioPoliza({
             {areas.map((a, i) => (
               <div key={i} className="grid grid-cols-12 gap-1.5">
                 <div className="col-span-3">
-                  <Entrada value={a.area} onChange={(e) => cambiar(i, 'area', e.target.value)} placeholder="Fachada" />
+                  <EntradaSugerencias
+                    valor={a.area}
+                    onCambio={(v) => cambiar(i, 'area', v)}
+                    onElegir={(s) => cambiar(i, 'area', s.texto)}
+                    sugerencias={sugerenciasAreas}
+                    placeholder="Fachada"
+                  />
                 </div>
                 <div className="col-span-4">
-                  <Entrada
-                    value={a.pintura}
-                    onChange={(e) => cambiar(i, 'pintura', e.target.value)}
+                  <EntradaSugerencias
+                    valor={a.pintura}
+                    onCambio={(v) => cambiar(i, 'pintura', v)}
+                    onElegir={(s) => cambiar(i, 'pintura', s.texto)}
+                    sugerencias={sugerenciasPinturas}
                     placeholder="Rivinol 7"
                   />
                 </div>

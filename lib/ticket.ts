@@ -1,10 +1,20 @@
 import type { CategoriaGasto, MetodoPago } from '@/types/database'
 
+/** Un artículo del ticket, tal como viene impreso. */
+export type RenglonTicket = {
+  descripcion: string
+  piezas: number
+  /** Lo que costó ese renglón en total. */
+  monto: number
+}
+
 /** Lo que la foto de un comprobante puede llenar del formulario de gasto. */
 export type LecturaTicket = {
   descripcion: string | null
   piezas: number | null
   monto: number | null
+  /** Los artículos del ticket; con dos o más el formulario se divide en conceptos. */
+  renglones: RenglonTicket[]
   metodo: MetodoPago | null
   categoria: CategoriaGasto | null
   folio: string | null

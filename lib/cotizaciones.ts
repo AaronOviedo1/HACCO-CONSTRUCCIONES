@@ -41,6 +41,18 @@ export type ProcesoBorrador = {
   contenido: string
 }
 
+/**
+ * Texto que ya se ha usado en cotizaciones anteriores (las del Excel migrado
+ * incluidas), con su precio o costo más reciente para rellenar el campo.
+ */
+export type Sugerencia = { texto: string; veces: number; monto: number | null }
+
+export type SugerenciasCotizacion = {
+  partidas: Sugerencia[]
+  materiales: Sugerencia[]
+  procesos: string[]
+}
+
 export type BorradorCotizacion = {
   cliente_id: string
   nombre_obra: string
@@ -50,6 +62,8 @@ export type BorradorCotizacion = {
   anticipo_pct: string
   iva_pct: string
   vigencia_dias: string
+  /** Viáticos presupuestados: no salen en el PDF, van al concentrado de la OT. */
+  viaticos: string
   linea_calidad: string
   notas: string
   fecha: string
@@ -121,8 +135,10 @@ export function borradorVacio(tipo: TipoCotizacion = 'pintura'): BorradorCotizac
     anticipo_pct: String(
       tipo === 'herreria' ? REGLAS.anticipoHerreriaPct : REGLAS.anticipoPinturaPct,
     ),
-    iva_pct: String(REGLAS.ivaPct),
+    // El IVA no se captura: si el cliente pide factura son los 16 de siempre.
+    iva_pct: '0',
     vigencia_dias: String(REGLAS.vigenciaCotizacionDias),
+    viaticos: '',
     linea_calidad: LINEA_CALIDAD,
     notas: '',
     fecha: hoyISO(),
@@ -161,6 +177,7 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
     anticipo_pct: num(borrador.anticipo_pct),
     iva_pct: num(borrador.iva_pct),
     vigencia_dias: num(borrador.vigencia_dias) || 30,
+    viaticos: num(borrador.viaticos),
     linea_calidad: borrador.linea_calidad.trim() || null,
     notas: borrador.notas.trim() || null,
     fecha: borrador.fecha,
@@ -237,9 +254,13 @@ export function hoyISO(): string {
 }
 
 /** Notas al pie del PDF, tal como salen hoy en la carta. */
-export function notasCotizacion(anticipoPct: number, vigenciaDias: number): string[] {
+export function notasCotizacion(
+  anticipoPct: number,
+  vigenciaDias: number,
+  conIva = true,
+): string[] {
   return [
-    '*Precios más IVA',
+    ...(conIva ? ['*Precios más IVA'] : []),
     `*Anticipo ${Math.round(anticipoPct)}% para iniciar trabajo, resto al finalizar`,
     '*Trabajo Garantizado.',
     `*Vigencia de cotización ${vigenciaDias} días`,

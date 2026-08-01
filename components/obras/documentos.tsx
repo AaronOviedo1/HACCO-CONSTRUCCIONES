@@ -90,7 +90,7 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                     </p>
                   </div>
                   <a
-                    href={`/api/recibos/${r.id}/pdf?descargar=1`}
+                    href={`/api/recibos/${r.id}/pdf`}
                     target="_blank"
                     rel="noopener"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
@@ -142,7 +142,7 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                       </p>
                     </div>
                     <a
-                      href={`/api/contratos/${c.id}/pdf?descargar=1`}
+                      href={`/api/contratos/${c.id}/pdf`}
                       target="_blank"
                       rel="noopener"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
@@ -187,7 +187,7 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                       </p>
                     </div>
                     <a
-                      href={`/api/pagares/${p.id}/pdf?descargar=1`}
+                      href={`/api/pagares/${p.id}/pdf`}
                       target="_blank"
                       rel="noopener"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
@@ -226,7 +226,7 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
               </p>
             </div>
             <a
-              href={`/api/polizas/${datos.poliza.id}/pdf?descargar=1`}
+              href={`/api/polizas/${datos.poliza.id}/pdf`}
               target="_blank"
               rel="noopener"
               className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"

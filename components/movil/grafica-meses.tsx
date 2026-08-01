@@ -17,8 +17,10 @@ export function GraficaMeses({
 }) {
   const [activo, setActivo] = useState(meses.length - 1)
 
-  const ancho = 313
-  const alto = 88
+  // El viewBox es ancho para que en pantallas grandes el trazo se dibuje casi
+  // 1:1 y el texto no se infle; en el teléfono simplemente se encoge.
+  const ancho = 620
+  const alto = 190
   const tope = Math.max(1, ...meses.map((x) => x.cotizado)) * 1.12
   const paso = meses.length > 1 ? ancho / (meses.length - 1) : ancho
 
@@ -71,7 +73,7 @@ export function GraficaMeses({
         </div>
 
         <svg
-          viewBox="-4 -8 322 116"
+          viewBox={`-4 -8 ${ancho + 9} ${alto + 28}`}
           className="block min-w-0 flex-1 overflow-visible"
           role="img"
           aria-label={`Cotizado contra aprobado en los últimos ${meses.length} meses`}

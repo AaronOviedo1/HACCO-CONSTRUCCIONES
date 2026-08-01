@@ -26,9 +26,14 @@ Te llega la foto de un ticket, una nota de remisión o una factura y llenas la c
 
 Reglas:
 - «monto» es el TOTAL que se pagó, con IVA incluido. Nunca el subtotal ni un renglón suelto.
+- «renglones»: un renglón por cada artículo distinto del ticket, con su descripción corta, sus piezas
+  y el importe de ese renglón (lo que costó en total ese artículo, tal como lo dice el ticket).
+  Si el ticket es de un solo artículo, la lista lleva ese único renglón. Ignora renglones de
+  descuentos, redondeos o propinas.
 - «piezas»: si el ticket es de un solo artículo, su cantidad. Si trae varios artículos distintos, pon 1
   (el sistema divide monto entre piezas para sacar el costo unitario, y esa cuenta sólo sirve con un artículo).
 - «descripcion»: corta y en el español de la obra, como la escribiría el maestro. Ej. «4 cubetas Rivinol 7 blanco».
+  Si trae varios artículos es el resumen del ticket completo.
   Nada de RFC, direcciones, cajero ni leyendas del ticket.
 - «fecha»: en México se escribe día/mes/año. Devuélvela como AAAA-MM-DD. Si no se alcanza a leer, null.
 - «metodo»: efectivo o «contado» → efectivo; terminal, TDC, TDD o cualquier tarjeta → tarjeta_empresa;
@@ -80,6 +85,19 @@ export async function POST(peticion: Request) {
       descripcion: { type: ['string', 'null'], description: 'Qué se compró, en pocas palabras' },
       piezas: { type: ['number', 'null'] },
       monto: { type: ['number', 'null'], description: 'Total pagado con IVA' },
+      renglones: {
+        type: 'array',
+        description: 'Un renglón por artículo distinto del ticket',
+        items: {
+          type: 'object',
+          properties: {
+            descripcion: { type: 'string' },
+            piezas: { type: 'number' },
+            importe: { type: 'number', description: 'Lo que costó ese renglón en total' },
+          },
+          required: ['descripcion', 'piezas', 'importe'],
+        },
+      },
       metodo: { type: ['string', 'null'], enum: [...Object.keys(METODO_PAGO), null] },
       categoria: { type: ['string', 'null'], enum: [...Object.keys(CATEGORIA_GASTO), null] },
       folio: { type: ['string', 'null'] },
@@ -87,7 +105,7 @@ export async function POST(peticion: Request) {
       proveedor: { type: ['string', 'null'], enum: [...proveedores.map((p) => p.nombre), null] },
       aviso: { type: ['string', 'null'] },
     },
-    required: ['descripcion', 'piezas', 'monto', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'aviso'],
+    required: ['descripcion', 'piezas', 'monto', 'renglones', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'aviso'],
   }
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -133,10 +151,25 @@ export async function POST(peticion: Request) {
     const leido = bloque.input as Record<string, unknown>
     const nombre = typeof leido.proveedor === 'string' ? leido.proveedor : null
 
+    // Renglones del ticket: sólo pasan los que traen descripción e importe.
+    const renglones = (Array.isArray(leido.renglones) ? leido.renglones : [])
+      .map((r) => {
+        const fila = r as Record<string, unknown>
+        return {
+          descripcion: texto(fila.descripcion),
+          piezas: entero(fila.piezas) ?? 1,
+          monto: numero(fila.importe),
+        }
+      })
+      .filter((r): r is { descripcion: string; piezas: number; monto: number } =>
+        Boolean(r.descripcion && r.monto),
+      )
+
     const lectura: LecturaTicket = {
       descripcion: texto(leido.descripcion),
       piezas: entero(leido.piezas),
       monto: numero(leido.monto),
+      renglones,
       metodo: clave<MetodoPago>(leido.metodo, METODO_PAGO),
       categoria: clave<CategoriaGasto>(leido.categoria, CATEGORIA_GASTO),
       folio: texto(leido.folio),

@@ -56,7 +56,7 @@ export function BarraLateral({
           <Membrete compacto tono="claro" />
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="sin-barra flex-1 overflow-y-auto px-3 py-4">
           {GRUPOS.map((grupo) => {
             const items = secciones.filter((s) => s.grupo === grupo)
             if (items.length === 0) return null

@@ -12,10 +12,8 @@ export default async function PaginaCotizacion({
   await requerirRol(['admin', 'administracion'])
   const { id } = await params
 
-  const [{ cotizacion, borrador, obras }, { clientes, textos, productos }] = await Promise.all([
-    cargarCotizacion(id),
-    cargarCatalogos(),
-  ])
+  const [{ cotizacion, borrador, obras }, { clientes, textos, productos, sugerencias }] =
+    await Promise.all([cargarCotizacion(id), cargarCatalogos()])
 
   return (
     <EditorCotizacion
@@ -27,6 +25,7 @@ export default async function PaginaCotizacion({
       textos={textos}
       productos={productos}
       obras={obras}
+      sugerencias={sugerencias}
     />
   )
 }

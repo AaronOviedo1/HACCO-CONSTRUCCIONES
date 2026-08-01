@@ -7,15 +7,12 @@ export const dynamic = 'force-dynamic'
 
 export default async function NuevaCotizacion() {
   await requerirRol(['admin', 'administracion'])
-  const { clientes, textos, productos } = await cargarCatalogos()
+  const { clientes, textos, productos, sugerencias } = await cargarCatalogos()
 
-  // Los pasos del proceso vienen preseleccionados: casi siempre son los mismos
-  // y se quitan más rápido de lo que se agregan.
+  // La descripción del trabajo arranca vacía: cada obra lleva sus propios
+  // pasos y es más rápido agregarlos de la biblioteca que borrar los que sobran.
   const inicial = {
     ...borradorVacio('pintura'),
-    procesos: textos
-      .slice(0, 5)
-      .map((t) => ({ texto_proceso_id: t.id, contenido: t.contenido })),
     items: [{ descripcion: '', m2: '', precio_unitario: '' }],
   }
 
@@ -28,7 +25,8 @@ export default async function NuevaCotizacion() {
       clientes={clientes}
       textos={textos}
       productos={productos}
-      obras={0}
+      obras={[]}
+      sugerencias={sugerencias}
     />
   )
 }

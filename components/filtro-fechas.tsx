@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useLayoutEffect, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 /**
@@ -85,22 +86,68 @@ function Desplegable({
   titulo: string
 }) {
   const caja = useRef<HTMLDivElement>(null)
-  const [pegadoDerecha, setPegadoDerecha] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
+  // El panel vive en un portal sobre <body>: dentro de las tarjetas (que traen
+  // overflow-hidden) el calendario se recortaba. En escritorio se posiciona
+  // junto al botón; en el teléfono sigue siendo la hoja pegada abajo.
+  const [pos, setPos] = useState<React.CSSProperties | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!abierto) return
-    // Si el botón está cerca del borde, el panel cuelga hacia la izquierda.
-    const sitio = caja.current?.getBoundingClientRect()
-    if (sitio) setPegadoDerecha(sitio.left + 600 > window.innerWidth)
+
+    const colocar = () => {
+      if (!window.matchMedia('(min-width: 640px)').matches) {
+        setPos(null)
+        return
+      }
+      const boton = caja.current?.getBoundingClientRect()
+      if (!boton) return
+      const alto = panel.current?.offsetHeight ?? 0
+      const ancho = panel.current?.offsetWidth ?? 0
+      const abajo = window.innerHeight - boton.bottom - 16
+      const arriba = boton.top - 16
+      const izquierda = Math.max(8, Math.min(boton.left, window.innerWidth - ancho - 8))
+      // Cuelga del botón; si no cabe abajo se voltea, y si no cabe entero de
+      // ningún lado se pega al borde de la pantalla aunque tape el botón:
+      // cortado no sirve de nada. Los `auto` explícitos anulan los anclajes
+      // de la hoja móvil (bottom-0, inset-x-0), que si no se cuelan y estiran
+      // el panel de arriba a abajo.
+      if (alto <= abajo) {
+        setPos({ top: boton.bottom + 8, bottom: 'auto', left: izquierda, right: 'auto' })
+      } else if (alto <= arriba) {
+        setPos({
+          top: 'auto',
+          bottom: window.innerHeight - boton.top + 8,
+          left: izquierda,
+          right: 'auto',
+        })
+      } else {
+        setPos({
+          top: Math.max(8, window.innerHeight - alto - 8),
+          bottom: 'auto',
+          left: izquierda,
+          right: 'auto',
+          maxHeight: window.innerHeight - 16,
+        })
+      }
+    }
+
+    colocar()
     const fuera = (e: MouseEvent) => {
-      if (caja.current && !caja.current.contains(e.target as Node)) onCerrar()
+      const t = e.target as Node
+      if (caja.current?.contains(t) || panel.current?.contains(t)) return
+      onCerrar()
     }
     const tecla = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar()
     document.addEventListener('mousedown', fuera)
     document.addEventListener('keydown', tecla)
+    window.addEventListener('resize', colocar)
+    window.addEventListener('scroll', colocar, true)
     return () => {
       document.removeEventListener('mousedown', fuera)
       document.removeEventListener('keydown', tecla)
+      window.removeEventListener('resize', colocar)
+      window.removeEventListener('scroll', colocar, true)
     }
   }, [abierto, onCerrar])
 
@@ -116,30 +163,34 @@ function Desplegable({
         {etiqueta}
       </button>
 
-      {abierto && (
-        <>
-          {/* En el teléfono el calendario sube como hoja; en escritorio cuelga del botón. */}
-          <div className="fixed inset-0 z-50 bg-tinta-950/40 sm:hidden" aria-hidden />
-          <div
-            className={`fixed inset-x-0 bottom-0 z-50 max-h-[92dvh] overflow-y-auto rounded-t-3xl border-tinta-200 bg-white p-4 pb-seguro shadow-xl animate-sube sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-2 sm:w-max sm:animate-none sm:rounded-2xl sm:border-[0.5px] sm:p-3.5 ${
-              pegadoDerecha ? 'sm:right-0' : 'sm:left-0'
-            }`}
-          >
-            <div className="mb-3 flex items-center justify-between sm:hidden">
-              <span className="text-base font-semibold">{titulo}</span>
-              <button
-                type="button"
-                onClick={onCerrar}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-tinta-150 text-tinta-600"
-                aria-label="Cerrar"
-              >
-                <X size={16} />
-              </button>
+      {abierto &&
+        createPortal(
+          <>
+            {/* En el teléfono el calendario sube como hoja; en escritorio cuelga del botón. */}
+            <div className="fixed inset-0 z-50 bg-tinta-950/40 sm:hidden" aria-hidden />
+            <div
+              ref={panel}
+              style={pos ?? undefined}
+              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92dvh] overflow-y-auto rounded-t-3xl border-tinta-200 bg-white p-4 pb-seguro shadow-xl animate-sube sm:inset-auto sm:w-max sm:animate-none sm:rounded-2xl sm:border-[0.5px] sm:p-3.5 ${
+                pos ? '' : 'sm:invisible'
+              }`}
+            >
+              <div className="mb-3 flex items-center justify-between sm:hidden">
+                <span className="text-base font-semibold">{titulo}</span>
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-tinta-150 text-tinta-600"
+                  aria-label="Cerrar"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {children}
             </div>
-            {children}
-          </div>
-        </>
-      )}
+          </>,
+          document.body,
+        )}
     </div>
   )
 }

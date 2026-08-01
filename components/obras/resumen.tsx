@@ -13,9 +13,11 @@ export function PanelResumen({ datos }: { datos: DatosObra }) {
   const cotizado = Number(c.cotizado)
 
   const manoObra = Number(c.mano_obra)
+  const manoObraCot = Number(c.mano_obra_cotizada)
   const materialReal = Number(c.material_real)
   const materialCot = Number(c.material_cotizado)
   const viaticos = Number(c.viaticos)
+  const viaticosCot = Number(c.viaticos_cotizados)
   const adicionales = Number(c.gastos_adicionales)
   const utilidad = Number(c.utilidad)
 
@@ -24,9 +26,11 @@ export function PanelResumen({ datos }: { datos: DatosObra }) {
 
   const renglones = [
     { concepto: 'Cotización', cot: cotizado, real: cotizado, tono: 'neutro' as const },
-    { concepto: 'Mano de obra', cot: null, real: manoObra, tono: 'neutro' as const },
+    // El cotizado de mano de obra sale del desglose de herrería; el de
+    // viáticos, del campo de la cotización. Cero se enseña como «—».
+    { concepto: 'Mano de obra', cot: manoObraCot > 0 ? manoObraCot : null, real: manoObra, tono: 'neutro' as const },
     { concepto: 'Material consumido', cot: materialCot, real: materialReal, tono: 'material' as const },
-    { concepto: 'Viáticos', cot: null, real: viaticos, tono: 'neutro' as const },
+    { concepto: 'Viáticos', cot: viaticosCot > 0 ? viaticosCot : null, real: viaticos, tono: 'neutro' as const },
     { concepto: 'Gastos adicionales', cot: null, real: adicionales, tono: 'neutro' as const },
   ]
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, MapPin } from 'lucide-react'
 
 /**
@@ -30,10 +31,42 @@ export function CampoDomicilio({
   const [aviso, setAviso] = useState<string | null>(null)
 
   const caja = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLUListElement>(null)
+  // La lista vive en un portal: dentro de las tarjetas (overflow-hidden) se
+  // recortaba, igual que le pasaba al calendario.
+  const [pos, setPos] = useState<React.CSSProperties | null>(null)
   // Google cobra por sesión de búsqueda: un token agrupa lo que se teclea
   // hasta que se elige una dirección.
   const sesion = useRef<string>(crypto.randomUUID())
   const escrito = useRef(false)
+
+  const mostrar = abierto && sugerencias.length > 0
+
+  useLayoutEffect(() => {
+    if (!mostrar) return
+
+    const colocar = () => {
+      const campo = caja.current?.querySelector('textarea')?.getBoundingClientRect()
+      if (!campo) return
+      const alto = panel.current?.offsetHeight ?? 0
+      const abajo = window.innerHeight - campo.bottom - 12
+      const ancho = Math.min(Math.max(campo.width, 300), window.innerWidth - 16)
+      const izquierda = Math.max(8, Math.min(campo.left, window.innerWidth - ancho - 8))
+      setPos(
+        alto <= abajo || abajo >= campo.top - 12
+          ? { top: campo.bottom + 4, left: izquierda, width: ancho, maxHeight: Math.max(abajo, 160) }
+          : { bottom: window.innerHeight - campo.top + 4, left: izquierda, width: ancho, maxHeight: campo.top - 12 },
+      )
+    }
+
+    colocar()
+    window.addEventListener('resize', colocar)
+    window.addEventListener('scroll', colocar, true)
+    return () => {
+      window.removeEventListener('resize', colocar)
+      window.removeEventListener('scroll', colocar, true)
+    }
+  }, [mostrar, sugerencias])
 
   useEffect(() => {
     if (!escrito.current || disabled) return
@@ -68,7 +101,9 @@ export function CampoDomicilio({
 
   useEffect(() => {
     const fuera = (e: MouseEvent) => {
-      if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false)
+      const t = e.target as Node
+      if (caja.current?.contains(t) || panel.current?.contains(t)) return
+      setAbierto(false)
     }
     document.addEventListener('mousedown', fuera)
     return () => document.removeEventListener('mousedown', fuera)
@@ -105,22 +140,30 @@ export function CampoDomicilio({
         />
       )}
 
-      {abierto && sugerencias.length > 0 && (
-        <ul className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-[14px] border-[0.5px] border-tinta-200 bg-white shadow-lg lg:rounded-lg">
-          {sugerencias.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => elegir(s.texto)}
-                className="flex w-full items-start gap-2 border-b-[0.5px] border-tinta-100 px-3.5 py-2.5 text-left text-sm text-tinta-700 transition last:border-b-0 hover:bg-haaco-50"
-              >
-                <MapPin size={15} className="mt-0.5 shrink-0 text-tinta-400" />
-                {s.texto}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {mostrar &&
+        createPortal(
+          <ul
+            ref={panel}
+            style={pos ?? undefined}
+            className={`fixed z-50 overflow-y-auto rounded-[14px] border-[0.5px] border-tinta-200 bg-white shadow-lg lg:rounded-lg ${
+              pos ? '' : 'invisible'
+            }`}
+          >
+            {sugerencias.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => elegir(s.texto)}
+                  className="flex w-full items-start gap-2 border-b-[0.5px] border-tinta-100 px-3.5 py-2.5 text-left text-sm text-tinta-700 transition last:border-b-0 hover:bg-haaco-50"
+                >
+                  <MapPin size={15} className="mt-0.5 shrink-0 text-tinta-400" />
+                  {s.texto}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
 
       <div className="mt-1 flex items-center justify-between gap-3">
         <span className="text-xs text-tinta-400">{aviso ?? 'Escribe y elige de las sugerencias'}</span>

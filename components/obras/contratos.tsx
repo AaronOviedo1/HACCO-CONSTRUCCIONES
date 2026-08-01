@@ -168,7 +168,7 @@ function TarjetaContrato({
 
         <div className="flex flex-wrap items-center gap-1.5">
           <a
-            href={`/api/contratos/${contrato.id}/pdf?descargar=1`}
+            href={`/api/contratos/${contrato.id}/pdf`}
             target="_blank"
             rel="noopener"
             className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
@@ -306,7 +306,7 @@ function TarjetaContrato({
             </div>
             <div className="flex items-center gap-1.5">
               <a
-                href={`/api/pagares/${pagare.id}/pdf?descargar=1`}
+                href={`/api/pagares/${pagare.id}/pdf`}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"

@@ -1,8 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
-import { Camera, Loader2, Plus, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { Camera, Loader2, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -12,7 +12,7 @@ import { hoyISO, num } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
 import { prepararTicket, type LecturaTicket } from '@/lib/ticket'
-import { registrarGasto } from '@/app/admin/finanzas-acciones'
+import { eliminarGasto, registrarGasto } from '@/app/admin/finanzas-acciones'
 import type {
   CategoriaGasto, CondicionCompra, MetodoPago, ObraConcepto, Proveedor,
 } from '@/types/database'
@@ -61,6 +61,7 @@ function FormularioGasto({
   onCerrar: () => void
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const entrada = useRef<HTMLInputElement>(null)
   const [pendiente, iniciar] = useTransition()
   const [subiendo, setSubiendo] = useState(false)
@@ -74,6 +75,11 @@ function FormularioGasto({
   const [descripcion, setDescripcion] = useState('')
   const [piezas, setPiezas] = useState('1')
   const [monto, setMonto] = useState('')
+  // Cuando el ticket trae varios artículos, se captura renglón por renglón y
+  // se registra un gasto por cada uno; null = captura sencilla de siempre.
+  const [renglones, setRenglones] = useState<
+    { descripcion: string; piezas: string; monto: string }[] | null
+  >(null)
   const [folio, setFolio] = useState('')
   const [proveedorId, setProveedorId] = useState('')
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
@@ -138,9 +144,22 @@ function FormularioGasto({
       puestos.push(campo)
     }
 
-    poner('descripción', l.descripcion, setDescripcion)
-    poner('piezas', l.piezas === null ? null : String(l.piezas), setPiezas)
-    poner('monto', l.monto === null ? null : String(l.monto), setMonto)
+    // Ticket de varios artículos: cada concepto llega con sus piezas y su
+    // importe, listo para revisar renglón por renglón.
+    if (l.renglones.length > 1 && !tocado.current.has('conceptos')) {
+      setRenglones(
+        l.renglones.map((r) => ({
+          descripcion: r.descripcion,
+          piezas: String(r.piezas),
+          monto: String(r.monto),
+        })),
+      )
+      puestos.push(`${l.renglones.length} conceptos`)
+    } else if (renglones === null) {
+      poner('descripción', l.descripcion, setDescripcion)
+      poner('piezas', l.piezas === null ? null : String(l.piezas), setPiezas)
+      poner('monto', l.monto === null ? null : String(l.monto), setMonto)
+    }
     poner('método', l.metodo, setMetodo)
     poner('categoría', l.categoria, setCategoria)
     poner('folio', l.folio, setFolio)
@@ -155,6 +174,32 @@ function FormularioGasto({
 
   /** Marca un campo como escrito a mano para que la foto ya no lo pise. */
   const mio = (campo: string) => tocado.current.add(campo)
+
+  const cambiarRenglon = (i: number, parche: Partial<{ descripcion: string; piezas: string; monto: string }>) => {
+    mio('conceptos')
+    setRenglones((lista) => (lista ?? []).map((r, j) => (j === i ? { ...r, ...parche } : r)))
+  }
+
+  /** De la captura sencilla al modo por conceptos y de regreso. */
+  const dividir = () => {
+    mio('conceptos')
+    setRenglones([
+      { descripcion, piezas, monto },
+      { descripcion: '', piezas: '1', monto: '' },
+    ])
+  }
+  const unir = () => {
+    const primero = renglones?.[0]
+    if (primero) {
+      setDescripcion(primero.descripcion)
+      setPiezas(primero.piezas)
+      setMonto(primero.monto)
+    }
+    setRenglones(null)
+  }
+
+  const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && num(r.monto) > 0)
+  const totalRenglones = filasValidas.reduce((s, r) => s + num(r.monto), 0)
 
   const guardar = () =>
     iniciar(async () => {
@@ -179,14 +224,10 @@ function FormularioGasto({
         }
       }
 
-      const r = await registrarGasto({
+      const base = {
         obra_id: obraId || null,
         concepto_id: conceptoId || null,
         categoria,
-        descripcion,
-        piezas: num(piezas) || 1,
-        costo_unitario: num(piezas) > 0 ? num(monto) / num(piezas) : null,
-        monto: num(monto),
         folio_factura: folio.trim() || null,
         proveedor_id: proveedorId || null,
         metodo,
@@ -194,10 +235,45 @@ function FormularioGasto({
         foto_ticket_path: ruta,
         fecha,
         crear_material: esMaterialDeObra && crearMaterial,
-      })
+      }
 
-      if (!r.ok) return setError(r.error)
+      if (renglones) {
+        // Un gasto por concepto: comparten ticket, folio, proveedor y forma de pago.
+        for (const [i, r] of filasValidas.entries()) {
+          const res = await registrarGasto({
+            ...base,
+            descripcion: r.descripcion,
+            piezas: num(r.piezas) || 1,
+            costo_unitario: num(r.piezas) > 0 ? num(r.monto) / num(r.piezas) : null,
+            monto: num(r.monto),
+          })
+          if (!res.ok) {
+            setError(`Concepto ${i + 1} («${r.descripcion}»): ${res.error}`)
+            return
+          }
+        }
+      } else {
+        const r = await registrarGasto({
+          ...base,
+          descripcion,
+          piezas: num(piezas) || 1,
+          costo_unitario: num(piezas) > 0 ? num(monto) / num(piezas) : null,
+          monto: num(monto),
+        })
+        if (!r.ok) return setError(r.error)
+      }
+
       onCerrar()
+
+      // La página de gastos abre en el mes actual; si el ticket era de otro
+      // mes (pasa seguido al capturar con calma), la vista brinca a ese mes
+      // para que el gasto recién guardado quede a la vista.
+      const mesGasto = fecha.slice(0, 7)
+      if (pathname === '/admin/gastos' && mesGasto !== hoyISO().slice(0, 7)) {
+        const [a, m] = mesGasto.split('-').map(Number)
+        const ultimo = new Date(a, m, 0).getDate()
+        router.replace(`/admin/gastos?desde=${mesGasto}-01&hasta=${mesGasto}-${String(ultimo).padStart(2, '0')}`)
+      }
       router.refresh()
     })
 
@@ -300,20 +376,109 @@ function FormularioGasto({
           )}
         </div>
 
-        <Campo
-          etiqueta="Descripción"
-          hijo={
-            <Entrada
-              value={descripcion}
-              onChange={(e) => {
-                mio('descripción')
-                setDescripcion(e.target.value)
-              }}
-              placeholder="Cubetas Rivinol 7 blanco"
-              autoFocus
-            />
-          }
-        />
+        {renglones ? (
+          <div className="sm:col-span-2">
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-tinta-700">Conceptos del ticket</span>
+              <button
+                type="button"
+                onClick={unir}
+                className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
+              >
+                Capturar como uno solo
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {renglones.map((r, i) => (
+                <div key={i} className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12">
+                  <div className="lg:col-span-7">
+                    <Entrada
+                      value={r.descripcion}
+                      onChange={(e) => cambiarRenglon(i, { descripcion: e.target.value })}
+                      placeholder="Cubeta Rivinol 7 blanco"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end lg:order-last lg:col-span-1">
+                    {renglones.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mio('conceptos')
+                          setRenglones((lista) => (lista ?? []).filter((_, j) => j !== i))
+                        }}
+                        className="flex h-11 w-11 items-center justify-center rounded text-tinta-400 hover:bg-red-50 hover:text-red-600 lg:h-auto lg:w-auto lg:p-1"
+                        aria-label="Quitar concepto"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="col-span-2 grid grid-cols-2 gap-1.5 lg:contents">
+                    <div className="lg:col-span-2">
+                      <Numero
+                        value={r.piezas}
+                        onChange={(e) => cambiarRenglon(i, { piezas: e.target.value })}
+                        placeholder="pzas"
+                      />
+                    </div>
+                    <div className="lg:col-span-2">
+                      <Numero
+                        value={r.monto}
+                        onChange={(e) => cambiarRenglon(i, { monto: e.target.value })}
+                        placeholder="importe"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  mio('conceptos')
+                  setRenglones((lista) => [...(lista ?? []), { descripcion: '', piezas: '1', monto: '' }])
+                }}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-haaco-700 hover:underline"
+              >
+                <Plus size={14} />
+                Agregar concepto
+              </button>
+              <span className="text-sm font-semibold tabular-nums text-tinta-900">
+                Total {pesos(totalRenglones)}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-tinta-400">
+              Se registra un gasto por concepto; comparten ticket, folio, proveedor y forma de pago.
+            </p>
+          </div>
+        ) : (
+          <Campo
+            etiqueta="Descripción"
+            hijo={
+              <Entrada
+                value={descripcion}
+                onChange={(e) => {
+                  mio('descripción')
+                  setDescripcion(e.target.value)
+                }}
+                placeholder="Cubetas Rivinol 7 blanco"
+                autoFocus
+              />
+            }
+          />
+        )}
+        {!renglones && (
+          <div className="-mt-2 sm:col-span-2">
+            <button
+              type="button"
+              onClick={dividir}
+              className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
+            >
+              ¿El ticket trae varios artículos? Divídelo en conceptos
+            </button>
+          </div>
+        )}
         <Campo
           etiqueta="Categoría"
           hijo={
@@ -379,39 +544,43 @@ function FormularioGasto({
           />
         )}
 
-        <Campo
-          etiqueta="Piezas"
-          ancho="medio"
-          hijo={
-            <Numero
-              value={piezas}
-              onChange={(e) => {
-                mio('piezas')
-                setPiezas(e.target.value)
-              }}
+        {!renglones && (
+          <>
+            <Campo
+              etiqueta="Piezas"
+              ancho="medio"
+              hijo={
+                <Numero
+                  value={piezas}
+                  onChange={(e) => {
+                    mio('piezas')
+                    setPiezas(e.target.value)
+                  }}
+                />
+              }
             />
-          }
-        />
-        <Campo
-          etiqueta="Monto total"
-          ancho="medio"
-          hijo={
-            <Numero
-              value={monto}
-              onChange={(e) => {
-                mio('monto')
-                setMonto(e.target.value)
-              }}
-              placeholder="0.00"
-              className="text-center text-2xl font-bold -tracking-[0.5px] lg:text-right lg:text-sm lg:font-normal lg:tracking-normal"
+            <Campo
+              etiqueta="Monto total"
+              ancho="medio"
+              hijo={
+                <Numero
+                  value={monto}
+                  onChange={(e) => {
+                    mio('monto')
+                    setMonto(e.target.value)
+                  }}
+                  placeholder="0.00"
+                  className="text-center text-2xl font-bold -tracking-[0.5px] lg:text-right lg:text-sm lg:font-normal lg:tracking-normal"
+                />
+              }
+              ayuda={
+                num(piezas) > 1 && num(monto) > 0
+                  ? `${pesos(num(monto) / num(piezas))} por pieza`
+                  : undefined
+              }
             />
-          }
-          ayuda={
-            num(piezas) > 1 && num(monto) > 0
-              ? `${pesos(num(monto) / num(piezas))} por pieza`
-              : undefined
-          }
-        />
+          </>
+        )}
 
         <Campo
           etiqueta="Proveedor"
@@ -513,10 +682,20 @@ function FormularioGasto({
         <button
           type="button"
           onClick={guardar}
-          disabled={pendiente || subiendo || !descripcion.trim() || num(monto) <= 0}
+          disabled={
+            pendiente ||
+            subiendo ||
+            (renglones ? filasValidas.length === 0 : !descripcion.trim() || num(monto) <= 0)
+          }
           className="min-h-12 rounded-[14px] bg-haaco-700 px-4 text-base font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300 sm:min-h-0 sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium"
         >
-          {subiendo ? 'Subiendo ticket…' : pendiente ? 'Guardando…' : 'Registrar gasto'}
+          {subiendo
+            ? 'Subiendo ticket…'
+            : pendiente
+              ? 'Guardando…'
+              : renglones && filasValidas.length > 1
+                ? `Registrar ${filasValidas.length} gastos`
+                : 'Registrar gasto'}
         </button>
       </PieDialogo>
     </Dialogo>
@@ -529,20 +708,38 @@ function lista(palabras: string[]) {
   return `${palabras.slice(0, -1).join(', ')} y ${palabras[palabras.length - 1]}`
 }
 
-/** Notas rápidas para el detalle del gasto en la tabla. */
-export function BotonEliminarGasto({ id, onEliminar }: { id: string; onEliminar: (id: string) => void }) {
+/** Borra el gasto con todo y sus rastros: cuenta por pagar y material real. */
+export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcion: string }) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
   return (
     <button
       type="button"
+      disabled={pendiente}
       onClick={() => {
-        if (confirm('¿Eliminar el gasto? También se quitan su cuenta por pagar y su material.')) {
-          onEliminar(id)
+        if (!confirm(`¿Eliminar «${descripcion}»? También se quitan su cuenta por pagar y su material.`)) {
+          return
         }
+        iniciar(async () => {
+          setError(null)
+          const r = await eliminarGasto(id)
+          if (!r.ok) {
+            setError(r.error)
+            alert(r.error)
+            return
+          }
+          router.refresh()
+        })
       }}
-      className="rounded p-1 text-tinta-400 transition hover:bg-red-50 hover:text-red-600"
-      aria-label="Eliminar gasto"
+      className={`rounded p-1 text-tinta-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 ${
+        error ? 'text-red-600' : ''
+      }`}
+      aria-label={`Eliminar ${descripcion}`}
+      title="Eliminar gasto"
     >
-      <X size={15} />
+      {pendiente ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
     </button>
   )
 }

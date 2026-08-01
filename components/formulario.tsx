@@ -28,7 +28,7 @@ export function Campo({
   )
 }
 
-export function Entrada(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Entrada(props: React.ComponentProps<'input'>) {
   const { className = '', ...resto } = props
   return <input {...resto} className={`${CLASE_CAMPO} ${className}`} />
 }
@@ -83,7 +83,7 @@ export function Seleccion(props: React.SelectHTMLAttributes<HTMLSelectElement>) 
   )
 }
 
-export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function AreaTexto(props: React.ComponentProps<'textarea'>) {
   const { className = '', ...resto } = props
   return <textarea {...resto} className={`${CLASE_CAMPO} min-h-20 ${className}`} />
 }
@@ -97,12 +97,14 @@ export function Opciones<T extends string>({
   opciones,
   onCambio,
   columnas,
+  deshabilitado,
 }: {
   valor: T
   opciones: [T, string][]
   onCambio: (valor: T) => void
   /** Rejilla fija en vez de flujo libre: útil para dos o cuatro opciones. */
   columnas?: 2 | 3
+  deshabilitado?: boolean
 }) {
   const rejilla = columnas === 2 ? 'grid grid-cols-2' : columnas === 3 ? 'grid grid-cols-3' : 'flex flex-wrap'
 
@@ -115,11 +117,12 @@ export function Opciones<T extends string>({
             key={clave}
             type="button"
             onClick={() => onCambio(clave)}
+            disabled={deshabilitado}
             aria-pressed={activa}
-            className={`min-h-11 rounded-[13px] border px-3.5 text-[14.5px] font-semibold transition ${
+            className={`min-h-11 rounded-[13px] border px-3.5 text-[14.5px] font-semibold transition disabled:cursor-not-allowed ${
               activa
-                ? 'border-haaco-700 bg-haaco-700 text-white'
-                : 'border-tinta-300 bg-white text-tinta-700 hover:border-haaco-300'
+                ? 'border-haaco-700 bg-haaco-700 text-white disabled:border-haaco-300 disabled:bg-haaco-300'
+                : 'border-tinta-300 bg-white text-tinta-700 hover:border-haaco-300 disabled:text-tinta-400 disabled:hover:border-tinta-300'
             }`}
           >
             {texto}

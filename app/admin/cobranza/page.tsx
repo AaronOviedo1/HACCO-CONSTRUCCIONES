@@ -28,11 +28,7 @@ export default async function PaginaCobranza({
   const supabase = await crearClienteServidor()
 
   const [{ data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }] = await Promise.all([
-    supabase
-      .from('v_cobranza')
-      .select('*')
-      .in('estatus', ['aprobada', 'terminada'])
-      .order('fecha', { ascending: false }),
+    supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
     supabase.from('pagos_cobranza').select('*').order('fecha'),
     supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
     supabase.from('cotizaciones').select('id, nombre_obra'),
@@ -42,7 +38,13 @@ export default async function PaginaCobranza({
   // de obra que traía la cotización.
   const nombreCotizado = new Map((nombres ?? []).map((c) => [c.id, c.nombre_obra]))
 
-  const filas = cobranza ?? []
+  // Se cobra lo aprobado o terminado — y también lo que ya tiene OT abierta
+  // aunque la cotización haya regresado a borrador o enviada para editarse:
+  // la obra arrancó y su dinero se sigue aquí.
+  const conObra = new Set((obras ?? []).map((o) => o.cotizacion_id))
+  const filas = (cobranza ?? []).filter(
+    (c) => c.estatus === 'aprobada' || c.estatus === 'terminada' || conObra.has(c.cotizacion_id),
+  )
   const porCotizacion = new Map<string, PagoCobranza[]>()
   for (const p of pagos ?? []) {
     porCotizacion.set(p.cotizacion_id, [...(porCotizacion.get(p.cotizacion_id) ?? []), p])
