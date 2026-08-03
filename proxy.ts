@@ -48,6 +48,15 @@ export default async function proxy(request: NextRequest) {
     },
   )
 
+  // Redirige preservando las cookies que Supabase haya tocado (p. ej. al
+  // limpiar un refresh token inválido); si no se copian, la cookie vencida
+  // nunca se borra y el error se repite en cada request.
+  const redirigir = (destino: URL) => {
+    const redireccion = NextResponse.redirect(destino)
+    respuesta.cookies.getAll().forEach((cookie) => redireccion.cookies.set(cookie))
+    return redireccion
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
   const ruta = request.nextUrl.pathname
   const esPublica = RUTAS_PUBLICAS.some((p) => ruta.startsWith(p))
@@ -58,7 +67,7 @@ export default async function proxy(request: NextRequest) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/login'
     destino.searchParams.set('siguiente', ruta)
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   const { data: perfil } = await supabase
@@ -73,7 +82,7 @@ export default async function proxy(request: NextRequest) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/login'
     destino.searchParams.set('motivo', 'inactivo')
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   const inicio = RUTA_POR_ROL[perfil.rol]
@@ -83,28 +92,28 @@ export default async function proxy(request: NextRequest) {
     const destino = request.nextUrl.clone()
     destino.pathname = inicio
     destino.search = ''
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   // La cuadrilla nunca entra al panel administrativo
   if (perfil.rol === 'cuadrilla' && !ruta.startsWith('/obra')) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/obra'
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   // El contador sólo ve reportes
   if (perfil.rol === 'contador' && !ruta.startsWith('/admin/reportes')) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/admin/reportes'
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   // Staff no necesita la vista de cuadrilla
   if (ruta.startsWith('/obra') && perfil.rol !== 'cuadrilla') {
     const destino = request.nextUrl.clone()
     destino.pathname = '/admin'
-    return NextResponse.redirect(destino)
+    return redirigir(destino)
   }
 
   return respuesta
