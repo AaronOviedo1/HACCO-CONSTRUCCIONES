@@ -1,5 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { MembretePdf } from '@/components/documentos/marca-pdf'
+import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fechaLarga, montoEnLetra, pesos } from '@/lib/format'
@@ -86,6 +86,7 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
   return (
     <Document title={`Recibo de abono ${datos.folio}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <View style={e.membrete}>
           <MembretePdf tamano={28} />
           <View>

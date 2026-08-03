@@ -1,5 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { MembretePdf } from '@/components/documentos/marca-pdf'
+import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fecha, pesos } from '@/lib/format'
@@ -91,6 +91,7 @@ export function DocumentoReporteContador({ reporte }: { reporte: ReporteMensual 
   return (
     <Document title={`Concentrado ${reporte.etiqueta}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <View style={e.membrete} fixed>
           <MembretePdf tamano={28} />
           <View>

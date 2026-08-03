@@ -1,5 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { MembretePdf } from '@/components/documentos/marca-pdf'
+import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fechaLarga, pesos } from '@/lib/format'
@@ -245,6 +245,7 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
       subject={`Cotización ${datos.folio} · ${datos.cliente}`}
     >
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <View style={e.banda} fixed />
 
         {/* Membrete: marca + folio ---------------------------------------- */}

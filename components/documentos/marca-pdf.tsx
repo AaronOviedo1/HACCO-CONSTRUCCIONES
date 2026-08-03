@@ -1,13 +1,12 @@
 import { Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
-import { MARCA } from '@/lib/marca'
+import { LOGO_CAJA, LOGO_TRAZO, MARCA } from '@/lib/marca'
 
 /**
- * Imagotipo de HAACO PRO para los PDFs.
- * Mismos trazos que components/marca.tsx, dibujados con los primitivos SVG de
- * react-pdf porque aquí no hay Tailwind ni CSS.
+ * Imagotipo de HAACO PRO para los PDFs: el vector original del manual,
+ * dibujado con los primitivos SVG de react-pdf porque aquí no hay CSS.
  */
 
-const PROPORCION = 96 / 116
+const PROPORCION = LOGO_CAJA.ancho / LOGO_CAJA.alto
 
 export function LogoPdf({
   tamano = 28,
@@ -20,39 +19,41 @@ export function LogoPdf({
     <Svg
       width={tamano * PROPORCION}
       height={tamano}
-      viewBox="0 0 96 116"
+      viewBox={`0 0 ${LOGO_CAJA.ancho} ${LOGO_CAJA.alto}`}
       style={{ marginRight: 8 }}
     >
-      <Path d="M13 12V110" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M19.5 6V109.5" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M26 4V108.5" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M32.5 8V107" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path
-        d="M13 66C28 61 46 57 62 55"
-        stroke={color}
-        strokeWidth={3.4}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M13 77C28 72 46 68 62 66"
-        stroke={color}
-        strokeWidth={3.4}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path d="M62 4V98" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M68.5 30V95" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M75 36V92.5" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path d="M81.5 44V89.5" stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      <Path
-        d="M13 110C36 108 68 100 92 84"
-        stroke={color}
-        strokeWidth={3.4}
-        strokeLinecap="round"
-        fill="none"
-      />
+      <Path d={LOGO_TRAZO} fill={color} />
     </Svg>
+  )
+}
+
+/**
+ * Marca de agua para los documentos: el imagotipo grande, muy tenue y fijo
+ * al centro de cada página, debajo del contenido. Va como primer hijo del
+ * <Page> para que todo lo demás se pinte encima.
+ */
+export function MarcaAguaPdf({ tamano = 340 }: { tamano?: number }) {
+  return (
+    <View
+      fixed
+      style={{
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Svg
+        width={tamano * PROPORCION}
+        height={tamano}
+        viewBox={`0 0 ${LOGO_CAJA.ancho} ${LOGO_CAJA.alto}`}
+      >
+        <Path d={LOGO_TRAZO} fill={MARCA.verde} fillOpacity={0.05} />
+      </Svg>
+    </View>
   )
 }
 

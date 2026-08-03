@@ -1,5 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { MembretePdf } from '@/components/documentos/marca-pdf'
+import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fecha, fechaLarga, montoEnLetra, pesos } from '@/lib/format'
@@ -138,6 +138,7 @@ export function DocumentoRecibo({ datos }: { datos: DatosRecibo }) {
   return (
     <Document title={`Recibo ${datos.folio}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <Membrete />
 
         <View style={e.encabezadoDoc}>
@@ -254,6 +255,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
   return (
     <Document title={`Contrato ${datos.oficial}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <Membrete />
 
         <View style={e.encabezadoDoc}>
@@ -466,6 +468,7 @@ export function DocumentoPagare({ datos }: { datos: DatosPagare }) {
   return (
     <Document title={`Pagaré ${datos.suscriptor}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <Membrete />
 
         <View style={e.encabezadoDoc}>
@@ -569,6 +572,7 @@ export function DocumentoPoliza({ datos }: { datos: DatosPoliza }) {
   return (
     <Document title={`Póliza ${datos.folio}`} author={EMPRESA.nombre}>
       <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
         <Membrete />
 
         <View style={e.encabezadoDoc}>
