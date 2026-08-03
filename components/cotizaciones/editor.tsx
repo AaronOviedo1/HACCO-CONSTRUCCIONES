@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import {
   ArrowUpRight, Check, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2, Trash2, X,
 } from 'lucide-react'
@@ -13,7 +13,7 @@ import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { CampoDomicilio } from '@/components/campo-domicilio'
-import { Etiqueta, Tarjeta, TarjetaPlegable } from '@/components/ui'
+import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
 import { REGLAS } from '@/lib/empresa'
@@ -29,6 +29,27 @@ import {
 import type { Cliente, EstatusCotizacion, Obra, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
 
 type ObraLigada = Pick<Obra, 'id' | 'ot_numero' | 'nombre' | 'estatus'>
+
+const ESCRITORIO = '(min-width: 1024px)'
+
+/**
+ * Si la pantalla es de escritorio.
+ *
+ * Sirve para decidir qué tarjetas nacen abiertas. En el servidor y en el
+ * primer pintado responde que no: el teléfono es el caso que manda aquí y así
+ * nunca se ve un parpadeo de secciones abriéndose y cerrándose.
+ */
+function useEscritorio() {
+  return useSyncExternalStore(
+    (avisar) => {
+      const consulta = window.matchMedia(ESCRITORIO)
+      consulta.addEventListener('change', avisar)
+      return () => consulta.removeEventListener('change', avisar)
+    },
+    () => window.matchMedia(ESCRITORIO).matches,
+    () => false,
+  )
+}
 
 type Props = {
   cotizacionId: string | null
@@ -68,9 +89,13 @@ export function EditorCotizacion({
     return [...mapa.values()]
   }, [sugerencias.materiales, productos])
   const bloqueado = estatus === 'aprobada' || estatus === 'terminada'
-  // Al capturar una cotización nueva se necesita todo a la vista; al volver a
-  // una que ya existe lo que se toca son las partidas, y lo demás estorba.
+  // En el teléfono todo nace plegado: la cotización completa mide varias
+  // pantallas y así se ve de un vistazo qué trae y se abre nada más lo que se
+  // va a tocar. En el escritorio hay espacio, y al capturar una cotización
+  // nueva conviene tener los datos a la vista desde el principio.
+  const escritorio = useEscritorio()
   const nueva = !cotizacionId
+  const abiertaEnAlta = escritorio && nueva
   const muestraPintura = doc.tipo === 'pintura' || doc.tipo === 'mixta'
   const muestraHerreria = doc.tipo === 'herreria' || doc.tipo === 'mixta'
 
@@ -277,7 +302,7 @@ export function EditorCotizacion({
           {/* Datos generales ---------------------------------------------- */}
           <TarjetaPlegable
             titulo="Datos de la cotización"
-            abierta={nueva}
+            abierta={abiertaEnAlta}
             resumen={`Anticipo ${num(doc.anticipo_pct)}% · vigencia ${num(doc.vigencia_dias)} días · ${doc.requiere_factura ? 'con factura (IVA 16%)' : 'sin factura'}`}
           >
             <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
@@ -421,7 +446,7 @@ export function EditorCotizacion({
             textos={textos}
             productos={productos}
             bloqueado={bloqueado}
-            abierta={nueva}
+            abierta={abiertaEnAlta}
             sugeridos={sugerencias.procesos}
           />
 
@@ -433,6 +458,7 @@ export function EditorCotizacion({
               setSucio={setSucio}
               bloqueado={bloqueado}
               sugerencias={sugerencias.partidas}
+              abierta={escritorio}
             />
           )}
 
@@ -444,6 +470,7 @@ export function EditorCotizacion({
               setSucio={setSucio}
               bloqueado={bloqueado}
               sugerencias={materialesSugeridos}
+              abierta={escritorio}
             />
           )}
 
@@ -453,14 +480,14 @@ export function EditorCotizacion({
             setDoc={setDoc}
             setSucio={setSucio}
             bloqueado={bloqueado}
-            abierta={nueva}
+            abierta={abiertaEnAlta}
             sugerencias={materialesSugeridos}
           />
 
           {/* Notas -------------------------------------------------------- */}
           <TarjetaPlegable
             titulo="Notas al pie"
-            abierta={nueva}
+            abierta={abiertaEnAlta}
             resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias), doc.requiere_factura).length} notas en el PDF${doc.notas.trim() ? ' · con notas internas' : ''}`}
           >
             <div className="px-5 py-5">
@@ -499,7 +526,11 @@ export function EditorCotizacion({
 
         {/* Resumen ---------------------------------------------------------- */}
         <aside className="lg:sticky lg:top-6 lg:h-fit">
-          <Tarjeta titulo="Resumen">
+          <TarjetaPlegable
+            titulo="Resumen"
+            abierta={escritorio}
+            resumen={`Total ${pesos(totales.total)}`}
+          >
             <dl className="divide-y divide-tinta-100">
               {muestraPintura && (
                 <Renglon etiqueta="Partidas de pintura" valor={pesos(totales.partidas)} />
@@ -521,7 +552,7 @@ export function EditorCotizacion({
                 <strong className="text-haaco-700">{pesos(totales.utilidadHerreria)}</strong>
               </div>
             )}
-          </Tarjeta>
+          </TarjetaPlegable>
 
           {cotizacionId && !bloqueado && (
             <div className="mt-4 space-y-2">
@@ -812,8 +843,8 @@ function BloqueProcesos({
 }
 
 function BloquePartidas({
-  doc, setDoc, setSucio, bloqueado, sugerencias,
-}: BloqueProps & { sugerencias: Sugerencia[] }) {
+  doc, setDoc, setSucio, bloqueado, sugerencias, abierta,
+}: BloqueProps & { sugerencias: Sugerencia[]; abierta: boolean }) {
   const actualizar = (i: number, campo: 'descripcion' | 'm2' | 'precio_unitario', valor: string) => {
     setDoc((d) => ({
       ...d,
@@ -835,8 +866,19 @@ function BloquePartidas({
     setSucio(true)
   }
 
+  const cuantas = doc.items.length
+  const total = doc.items.reduce((s, i) => s + importePartida(i), 0)
+
   return (
-    <Tarjeta titulo="Partidas de pintura">
+    <TarjetaPlegable
+      titulo="Partidas de pintura"
+      abierta={abierta}
+      resumen={
+        cuantas === 0
+          ? 'Sin partidas'
+          : `${cuantas} ${cuantas === 1 ? 'partida' : 'partidas'} · ${pesos(total)}`
+      }
+    >
       {/* Teléfono: una tarjeta por partida, que la tabla no cabe. */}
       <div className="flex flex-col gap-3 px-4 py-4 lg:hidden">
         {doc.items.map((item, i) => (
@@ -977,13 +1019,13 @@ function BloquePartidas({
           </button>
         </div>
       )}
-    </Tarjeta>
+    </TarjetaPlegable>
   )
 }
 
 function BloqueHerreria({
-  doc, setDoc, setSucio, bloqueado, sugerencias,
-}: BloqueProps & { sugerencias: Sugerencia[] }) {
+  doc, setDoc, setSucio, bloqueado, sugerencias, abierta,
+}: BloqueProps & { sugerencias: Sugerencia[]; abierta: boolean }) {
   const actualizar = (i: number, parche: Partial<ConceptoBorrador>) => {
     setDoc((d) => ({
       ...d,
@@ -992,9 +1034,18 @@ function BloqueHerreria({
     setSucio(true)
   }
 
+  const cuantos = doc.desglose.length
+  const venta = doc.desglose.reduce((s, c) => s + precioConcepto(c), 0)
+
   return (
-    <Tarjeta
+    <TarjetaPlegable
       titulo="Cotizador de herrería"
+      abierta={abierta}
+      resumen={
+        cuantos === 0
+          ? 'Sin conceptos'
+          : `${cuantos} ${cuantos === 1 ? 'concepto' : 'conceptos'} · ${pesos(venta)}`
+      }
       pie="Materiales + mano de obra + indirectos = costo. El precio de venta se calcula con el % de utilidad y entra como partida en la cotización."
     >
       <div className="space-y-4 px-5 py-5">
@@ -1034,7 +1085,7 @@ function BloqueHerreria({
           </button>
         )}
       </div>
-    </Tarjeta>
+    </TarjetaPlegable>
   )
 }
 
