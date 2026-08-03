@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="es-MX"
       className={`${figtree.variable} ${archivo.variable} h-full antialiased`}
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full overflow-x-hidden font-sans">{children}</body>
     </html>
   )
 }

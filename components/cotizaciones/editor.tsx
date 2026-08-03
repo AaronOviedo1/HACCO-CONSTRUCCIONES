@@ -298,7 +298,7 @@ export function EditorCotizacion({
       )}
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           {/* Datos generales ---------------------------------------------- */}
           <TarjetaPlegable
             titulo="Datos de la cotización"
@@ -525,7 +525,7 @@ export function EditorCotizacion({
         </div>
 
         {/* Resumen ---------------------------------------------------------- */}
-        <aside className="lg:sticky lg:top-6 lg:h-fit">
+        <aside className="min-w-0 lg:sticky lg:top-6 lg:h-fit">
           <TarjetaPlegable
             titulo="Resumen"
             abierta={escritorio}
