@@ -4,7 +4,9 @@ import { requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
 import { EncabezadoPagina, EstadoVacio, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
-import { BotonNuevoCliente, FilaCliente } from '@/components/catalogos/formulario-cliente'
+import {
+  BotonNuevoCliente, FilaCliente, FilaClienteMovil,
+} from '@/components/catalogos/formulario-cliente'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +49,27 @@ export default async function PaginaClientes({
         <BuscadorTabla marcador="Buscar cliente por nombre…" />
       </div>
 
-      <Tarjeta pie={`${filas.length} ${filas.length === 1 ? 'cliente' : 'clientes'}`}>
+      {/* Teléfono: un renglón por cliente, que la tabla no cabe ----------- */}
+      {filas.length > 0 && (
+        <Tarjeta className="lg:hidden" pie={`${filas.length} ${filas.length === 1 ? 'cliente' : 'clientes'}`}>
+          {filas.map((c) => {
+            const datos = resumen.get(c.id) ?? { n: 0, monto: 0 }
+            return (
+              <FilaClienteMovil
+                key={c.id}
+                cliente={c}
+                cotizaciones={datos.n}
+                contratado={datos.monto}
+              />
+            )
+          })}
+        </Tarjeta>
+      )}
+
+      <Tarjeta
+        className={filas.length > 0 ? 'hidden lg:block' : ''}
+        pie={`${filas.length} ${filas.length === 1 ? 'cliente' : 'clientes'}`}
+      >
         {filas.length === 0 ? (
           <EstadoVacio
             titulo={q ? 'Ningún cliente coincide' : 'Todavía no hay clientes'}

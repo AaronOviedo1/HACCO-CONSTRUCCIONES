@@ -97,9 +97,15 @@ export default async function PaginaPagosFijos({
                 ) : (
                   <ul className="divide-y divide-tinta-100">
                     {deLaQuincena.map((p) => (
-                      <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-tinta-900">
+                      <li
+                        key={p.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 lg:gap-3 lg:py-2.5"
+                      >
+                        {/* En el teléfono el beneficiario se queda con el
+                            primer renglón entero: compartiéndolo se aplastaba
+                            a media palabra. */}
+                        <div className="min-w-0 flex-1 basis-full lg:basis-auto">
+                          <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-tinta-900">
                             {p.beneficiario}
                             <Etiqueta tono="gris">{p.categoria}</Etiqueta>
                             {p.recurrente && <Etiqueta tono="azul">recurrente</Etiqueta>}
@@ -114,7 +120,7 @@ export default async function PaginaPagosFijos({
                         </div>
 
                         <span className="text-xs text-tinta-500">{METODO_PAGO[p.metodo]}</span>
-                        <span className="w-24 text-right font-medium tabular-nums text-tinta-900">
+                        <span className="ml-auto font-medium tabular-nums text-tinta-900 lg:ml-0 lg:w-24 lg:text-right">
                           {pesos(p.monto)}
                         </span>
                         <Etiqueta tono={ESTADO_PAGO_FIJO[p.estado as EstadoPagoFijo].tono}>

@@ -9,6 +9,7 @@ import { ESTATUS_OBRA } from '@/lib/obras'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
+import { FilaLista } from '@/components/movil/piezas'
 import { BarraReportes, BotonHoja } from '@/components/reportes/barra'
 import type { EstatusObra } from '@/types/database'
 
@@ -177,7 +178,40 @@ export default async function PaginaReportes({
               <BotonHoja mes={mes} hoja="obras" titulo="Obras" />
             </div>
 
-            <Tarjeta pie={`${r.obras.length} órdenes de trabajo`}>
+            {/* Teléfono: la obra y lo que dejó; el desglose, en la hoja --- */}
+            {r.obras.length > 0 && (
+              <Tarjeta className="lg:hidden" pie={`${r.obras.length} órdenes de trabajo`}>
+                {r.obras.map((o) => {
+                  const pct =
+                    Number(o.cotizado) > 0 ? (Number(o.utilidad) / Number(o.cotizado)) * 100 : 0
+                  return (
+                    <FilaLista
+                      key={o.obra_id}
+                      href={`/admin/obras/${o.obra_id}`}
+                      principal={o.nombre}
+                      secundario={`${o.ot_numero} · ${ESTATUS_OBRA[o.estatus as EstatusObra].texto} · real ${pesos(o.material_real)}`}
+                      derecha={
+                        <>
+                          <span
+                            className={`text-sm font-semibold tabular-nums ${
+                              Number(o.utilidad) < 0 ? 'text-red-600' : 'text-haaco-700'
+                            }`}
+                          >
+                            {pesos(o.utilidad)}
+                          </span>
+                          <span className="text-[10.5px] text-tinta-400">{porcentaje(pct, 0)}</span>
+                        </>
+                      }
+                    />
+                  )
+                })}
+              </Tarjeta>
+            )}
+
+            <Tarjeta
+              className={r.obras.length > 0 ? 'hidden lg:block' : ''}
+              pie={`${r.obras.length} órdenes de trabajo`}
+            >
               {r.obras.length === 0 ? (
                 <EstadoVacio titulo="Sin obras con movimiento este mes" />
               ) : (
@@ -287,11 +321,41 @@ export default async function PaginaReportes({
                 pie="Regla contable: esto todavía no es ingreso. Se reconoce cuando se termine de cobrar."
                 className="lg:col-span-2"
               >
+                {/* Teléfono: cliente y lo que falta por cobrar ---------- */}
+                {r.aprobadasNoLiquidadas.length > 0 && (
+                  <div className="lg:hidden">
+                    {r.aprobadasNoLiquidadas.map((c) => (
+                      <FilaLista
+                        key={c.cotizacion_id}
+                        principal={c.cliente}
+                        secundario={`${c.folio} · contratado ${pesos(c.cotizado)}${c.requiere_factura ? ' · con factura' : ''}`}
+                        derecha={
+                          <>
+                            <span className="text-sm font-semibold tabular-nums text-amber-700">
+                              {pesos(c.saldo)}
+                            </span>
+                            <span className="text-[10.5px] text-tinta-400">
+                              cobrado {pesos(c.cobrado)}
+                            </span>
+                          </>
+                        }
+                      />
+                    ))}
+                    <p className="flex items-center justify-between gap-2 bg-amber-50/60 px-4 py-2.5 text-sm">
+                      <span className="font-semibold text-tinta-900">Total no realizable aún</span>
+                      <span className="font-semibold tabular-nums text-amber-700">
+                        {pesos(r.aprobadasNoLiquidadas.reduce((s, c) => s + Number(c.saldo), 0))}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
                 {r.aprobadasNoLiquidadas.length === 0 ? (
                   <p className="px-4 py-8 text-center text-sm text-tinta-500">
                     Todo lo aprobado está liquidado.
                   </p>
                 ) : (
+                  <div className="hidden lg:block">
                   <Tabla>
                     <thead>
                       <tr>
@@ -330,6 +394,7 @@ export default async function PaginaReportes({
                       </tr>
                     </tbody>
                   </Tabla>
+                  </div>
                 )}
               </Tarjeta>
             </div>
@@ -347,9 +412,37 @@ export default async function PaginaReportes({
                 r.cobranza.reduce((s, c) => s + Number(c.saldo), 0),
               )}`}
             >
+              {/* Teléfono: por cliente, cuánto falta ------------------- */}
+              {r.cobranza.length > 0 && (
+                <div className="lg:hidden">
+                  {r.cobranza.map((c) => (
+                    <FilaLista
+                      key={c.cotizacion_id}
+                      principal={c.cliente}
+                      secundario={`${c.folio} · ${fecha(c.fecha)} · cobrado ${pesos(c.cobrado)} de ${pesos(c.cotizado)}`}
+                      derecha={
+                        <>
+                          <span
+                            className={`text-sm font-semibold tabular-nums ${
+                              Number(c.saldo) > 0 ? 'text-amber-700' : 'text-haaco-700'
+                            }`}
+                          >
+                            {pesos(c.saldo)}
+                          </span>
+                          <span className="text-[10.5px] text-tinta-400">
+                            {porcentaje(c.pct_pendiente, 0)} pendiente
+                          </span>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+
               {r.cobranza.length === 0 ? (
                 <EstadoVacio titulo="Sin obras aprobadas" />
               ) : (
+                <div className="hidden lg:block">
                 <Tabla>
                   <thead>
                     <tr>
@@ -384,6 +477,7 @@ export default async function PaginaReportes({
                     ))}
                   </tbody>
                 </Tabla>
+                </div>
               )}
             </Tarjeta>
           </section>
@@ -405,9 +499,26 @@ export default async function PaginaReportes({
             </div>
 
             <Tarjeta pie={`${r.movimientos.length} movimientos`}>
+              {/* Teléfono: el movimiento y su monto -------------------- */}
+              {r.movimientos.length > 0 && (
+                <div className="lg:hidden">
+                  {r.movimientos.map((m, i) => (
+                    <FilaLista
+                      key={i}
+                      principal={m.concepto}
+                      secundario={`${fecha(m.fecha)} · ${m.origen} · ${METODO_PAGO[m.metodo]}${m.referencia ? ` · ${m.referencia}` : ''}`}
+                      derecha={
+                        <span className="text-sm font-semibold tabular-nums">{pesos(m.monto)}</span>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+
               {r.movimientos.length === 0 ? (
                 <EstadoVacio titulo="Sin movimientos este mes" />
               ) : (
+                <div className="hidden lg:block">
                 <Tabla>
                   <thead>
                     <tr>
@@ -436,6 +547,7 @@ export default async function PaginaReportes({
                     ))}
                   </tbody>
                 </Tabla>
+                </div>
               )}
             </Tarjeta>
           </section>

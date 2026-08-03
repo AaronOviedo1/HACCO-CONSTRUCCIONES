@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
+import { FilaLista } from '@/components/movil/piezas'
 import {
   BotonEditarProducto, BotonEditarProveedor, BotonEditarTexto, BotonMovimiento,
   BotonNuevoProducto, BotonNuevoProveedor, BotonNuevoTexto,
@@ -87,9 +88,38 @@ async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
 
   const filas = data ?? []
   const nombreProveedor = new Map(proveedores.map((p) => [p.id, p.nombre]))
+  const tipoProducto = (t: string) =>
+    t === 'pintura' ? 'Pintura' : t === 'herreria' ? 'Herrería' : 'Otro'
 
   return (
-    <Tarjeta pie={`${filas.length} productos`}>
+    <>
+      {/* Teléfono: el producto y su costo; el resto, al abrirlo ---------- */}
+      {filas.length > 0 && (
+        <Tarjeta className="lg:hidden" pie={`${filas.length} productos`}>
+          {filas.map((p) => (
+            <FilaLista
+              key={p.id}
+              principal={
+                <>
+                  {p.nombre}
+                  {!p.activo && <span className="text-tinta-400"> · inactivo</span>}
+                </>
+              }
+              secundario={[p.codigo, tipoProducto(p.tipo), p.unidad, p.proveedor_id && nombreProveedor.get(p.proveedor_id)]
+                .filter(Boolean)
+                .join(' · ')}
+              derecha={
+                <span className="text-sm font-semibold tabular-nums">
+                  {p.costo > 0 ? pesos(p.costo) : '—'}
+                </span>
+              }
+              accion={<BotonEditarProducto producto={p} proveedores={proveedores} />}
+            />
+          ))}
+        </Tarjeta>
+      )}
+
+    <Tarjeta className={filas.length > 0 ? 'hidden lg:block' : ''} pie={`${filas.length} productos`}>
       {filas.length === 0 ? (
         <EstadoVacio titulo="Sin productos" descripcion="Carga el catálogo con npm run bd:seed o da de alta el primero." />
       ) : (
@@ -134,6 +164,7 @@ async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
         </Tabla>
       )}
     </Tarjeta>
+    </>
   )
 }
 
@@ -149,7 +180,46 @@ async function TablaInsumos({ proveedores }: { proveedores: Proveedor[] }) {
   const porId = new Map((productos ?? []).map((p) => [p.id, p]))
 
   return (
-    <Tarjeta pie="La existencia sale del kardex: cada salida a obra la descuenta y se marca con folio «TALLER».">
+    <>
+      {/* Teléfono: lo que se pregunta en el taller es cuánto queda ------- */}
+      {filas.length > 0 && (
+        <Tarjeta className="lg:hidden" pie="La existencia sale del kardex: cada salida a obra la descuenta.">
+          {filas.map((i) => {
+            const bajo = Number(i.existencia) <= 2
+            return (
+              <FilaLista
+                key={i.producto_id}
+                principal={i.nombre}
+                secundario={`${i.codigo ?? '—'} · ${pesos(i.precio_neto)} neto · ${fecha(i.ultimo_movimiento)}`}
+                derecha={
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${bajo ? 'text-red-600' : ''}`}
+                  >
+                    {Number(i.existencia)} {i.unidad}
+                  </span>
+                }
+                accion={
+                  <span className="flex items-center">
+                    <BotonMovimiento
+                      producto={{ producto_id: i.producto_id, nombre: i.nombre, unidad: i.unidad }}
+                      tipo="entrada"
+                    />
+                    <BotonMovimiento
+                      producto={{ producto_id: i.producto_id, nombre: i.nombre, unidad: i.unidad }}
+                      tipo="salida"
+                    />
+                  </span>
+                }
+              />
+            )
+          })}
+        </Tarjeta>
+      )}
+
+    <Tarjeta
+      className={filas.length > 0 ? 'hidden lg:block' : ''}
+      pie="La existencia sale del kardex: cada salida a obra la descuenta y se marca con folio «TALLER»."
+    >
       {filas.length === 0 ? (
         <EstadoVacio titulo="Sin insumos" descripcion="Carga el kardex con npm run bd:seed o da de alta el primero." />
       ) : (
@@ -203,13 +273,42 @@ async function TablaInsumos({ proveedores }: { proveedores: Proveedor[] }) {
         </Tabla>
       )}
     </Tarjeta>
+    </>
   )
 }
 
 // ---------------------------------------------------------------------------
 function TablaProveedores({ proveedores }: { proveedores: Proveedor[] }) {
   return (
-    <Tarjeta pie="Los días de crédito se copian automáticamente a la cuenta por pagar cuando un gasto se registra a crédito.">
+    <>
+      {/* Teléfono: a quién se le compra y en qué términos ---------------- */}
+      {proveedores.length > 0 && (
+        <Tarjeta className="lg:hidden">
+          {proveedores.map((p) => (
+            <FilaLista
+              key={p.id}
+              principal={
+                <>
+                  {p.nombre}
+                  {!p.activo && <span className="text-tinta-400"> · inactivo</span>}
+                </>
+              }
+              secundario={p.contacto ?? p.telefono ?? p.notas ?? '—'}
+              derecha={
+                <span className="text-[11.5px] text-tinta-500">
+                  {p.dias_credito_default > 0 ? `${p.dias_credito_default} días` : 'Contado'}
+                </span>
+              }
+              accion={<BotonEditarProveedor proveedor={p} />}
+            />
+          ))}
+        </Tarjeta>
+      )}
+
+    <Tarjeta
+      className={proveedores.length > 0 ? 'hidden lg:block' : ''}
+      pie="Los días de crédito se copian automáticamente a la cuenta por pagar cuando un gasto se registra a crédito."
+    >
       {proveedores.length === 0 ? (
         <EstadoVacio titulo="Sin proveedores" descripcion="Da de alta el primero para poder registrar compras." />
       ) : (
@@ -246,6 +345,7 @@ function TablaProveedores({ proveedores }: { proveedores: Proveedor[] }) {
         </Tabla>
       )}
     </Tarjeta>
+    </>
   )
 }
 

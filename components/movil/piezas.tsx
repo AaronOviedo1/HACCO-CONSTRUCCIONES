@@ -207,12 +207,15 @@ export function ChipsFiltro({
   className?: string
 }) {
   return (
-    <div className={`sin-barra -mx-4 flex gap-1.5 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:px-0 ${className}`}>
+    // Envuelven en varios renglones en vez de correrse a lo ancho: los filtros
+    // que no se ven no se usan, y en el teléfono nadie descubre un carril que
+    // se desplaza de lado.
+    <div className={`flex flex-wrap gap-1.5 ${className}`}>
       {opciones.map((o) => (
         <Link
           key={o.titulo}
           href={o.href}
-          className={`flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:rounded-lg ${
+          className={`flex min-h-9 items-center whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:rounded-lg ${
             o.activo
               ? 'border-haaco-700 bg-haaco-700 text-white'
               : 'border-tinta-200 bg-white text-tinta-600'
@@ -393,11 +396,14 @@ export function FilaLista({
   principal,
   secundario,
   derecha,
+  accion,
 }: {
   href?: string
   principal: ReactNode
   secundario?: ReactNode
   derecha: ReactNode
+  /** Botón al final del renglón —editar, mover—; no se combina con href. */
+  accion?: ReactNode
 }) {
   const cuerpo = (
     <>
@@ -408,6 +414,7 @@ export function FilaLista({
         )}
       </span>
       <span className="flex shrink-0 flex-col items-end gap-[3px]">{derecha}</span>
+      {accion && <span className="flex shrink-0 items-center">{accion}</span>}
     </>
   )
 

@@ -36,9 +36,53 @@ export function PanelResumen({ datos }: { datos: DatosObra }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+      {/* min-w-0: la tabla de adentro mide 34rem y sin esto estira la columna
+          del grid más allá del ancho del teléfono. */}
+      <div className="min-w-0 lg:col-span-2">
         <Tarjeta titulo="Concentrado financiero">
-          <div className="overflow-x-auto">
+          {/* Teléfono: el mismo concentrado, un renglón por concepto ------- */}
+          <ul className="divide-y divide-tinta-100 lg:hidden">
+            {renglones.map((r) => (
+              <li key={r.concepto} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-tinta-700">
+                    <span className="truncate">{r.concepto}</span>
+                    {r.tono === 'material' && materialCot > 0 && (
+                      <Etiqueta tono={semaforo.tono}>{semaforo.texto}</Etiqueta>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-tinta-900">
+                    {pesos(r.real)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11.5px] tabular-nums text-tinta-400">
+                  Cotizado {r.cot == null ? '—' : pesos(r.cot)} · {porcentaje(pct(r.real), 1)} de lo
+                  cotizado
+                </p>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-2 bg-haaco-50/60 px-4 py-3">
+              <span className="font-semibold text-tinta-900">Utilidad</span>
+              <span className="text-right">
+                <span
+                  className={`block text-lg font-semibold tabular-nums ${
+                    utilidad < 0 ? 'text-red-600' : 'text-haaco-700'
+                  }`}
+                >
+                  {pesos(utilidad)}
+                </span>
+                <span
+                  className={`block text-[11.5px] tabular-nums ${
+                    utilidad < 0 ? 'text-red-600' : 'text-haaco-700'
+                  }`}
+                >
+                  {porcentaje(pct(utilidad), 1)}
+                </span>
+              </span>
+            </li>
+          </ul>
+
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[34rem] text-sm">
               <thead>
                 <tr>

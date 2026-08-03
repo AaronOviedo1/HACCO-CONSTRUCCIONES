@@ -8,6 +8,7 @@ import {
 } from '@/components/formulario'
 import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, Td } from '@/components/ui'
+import { pesos } from '@/lib/format'
 import { eliminarCliente, guardarCliente, type EstadoAccion } from '@/app/admin/acciones'
 import type { Cliente } from '@/types/database'
 
@@ -41,6 +42,60 @@ export function BotonEditarCliente({ cliente }: { cliente: Cliente }) {
         aria-label={`Editar ${cliente.nombre}`}
       >
         <Pencil size={15} />
+      </button>
+      <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
+    </>
+  )
+}
+
+/**
+ * El mismo cliente, en el teléfono.
+ *
+ * La tabla no cabe en 393 px —quedaban tres columnas y el resto se iba de
+ * lado—, así que cada cliente es un renglón con lo que de verdad se busca:
+ * cómo se llama, cómo localizarlo y cuánto lleva contratado.
+ */
+export function FilaClienteMovil({
+  cliente,
+  cotizaciones,
+  contratado,
+}: {
+  cliente: Cliente
+  cotizaciones: number
+  contratado: number
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const contacto = [cliente.telefono, cliente.correo, cliente.domicilio]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="flex w-full items-center justify-between gap-2.5 border-b-[0.5px] border-tinta-100 px-4 py-3 text-left transition last:border-b-0 active:bg-tinta-50"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-[14.5px] font-medium text-tinta-900">
+              {cliente.titulo_cortesia ? `${cliente.titulo_cortesia} ` : ''}
+              {cliente.nombre}
+            </span>
+            {!cliente.activo && <Etiqueta tono="gris">Inactivo</Etiqueta>}
+          </span>
+          {contacto && (
+            <span className="mt-0.5 block truncate text-[11.5px] text-tinta-400">{contacto}</span>
+          )}
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-[3px]">
+          <span className="text-sm font-semibold tabular-nums text-tinta-900">
+            {contratado > 0 ? pesos(contratado) : '—'}
+          </span>
+          <span className="text-[10.5px] text-tinta-400">
+            {cotizaciones} {cotizaciones === 1 ? 'cotización' : 'cotizaciones'}
+          </span>
+        </span>
       </button>
       <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
     </>

@@ -55,8 +55,10 @@ export default async function PaginaObra({
     <>
       <EncabezadoObra concentrado={datos.concentrado} obra={datos.obra} cobranza={datos.cobranza} />
 
-      <nav className="sin-barra -mx-4 mb-4 overflow-x-auto px-4 lg:mb-5 lg:overflow-visible lg:px-0">
-        <div className="flex min-w-max gap-1.5 lg:border-b lg:border-tinta-200 lg:pb-px">
+      {/* Las ocho pestañas caben en dos renglones; en un carril que se corre
+          de lado, las últimas no las encuentra nadie. */}
+      <nav className="mb-4 lg:mb-5">
+        <div className="flex flex-wrap gap-1.5 lg:flex-nowrap lg:border-b lg:border-tinta-200 lg:pb-px">
           {PESTANAS.map((p) => {
             const es = activa === p.clave
             const n = pendientes[p.clave]

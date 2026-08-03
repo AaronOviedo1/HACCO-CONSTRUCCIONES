@@ -212,7 +212,45 @@ function TablaMateriales({
       {filas.length === 0 ? (
         <EstadoVacio titulo="Sin renglones" />
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Teléfono: el material y su total; piezas y costo, debajo ------- */}
+        <ul className="divide-y divide-tinta-100 lg:hidden">
+          {filas.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 px-4 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14.5px] text-tinta-800">
+                  {m.material}
+                  {m.concepto_id && (
+                    <span className="text-tinta-400"> · {nombreConcepto.get(m.concepto_id)}</span>
+                  )}
+                </span>
+                <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] tabular-nums text-tinta-400">
+                  {Number(m.piezas)} × {pesos(m.costo)}
+                  {m.es_taller ? (
+                    <Etiqueta tono="azul">TALLER</Etiqueta>
+                  ) : m.folio_factura ? (
+                    <span className="font-mono">· {m.folio_factura}</span>
+                  ) : null}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-medium tabular-nums text-tinta-900">
+                {pesos(m.total)}
+              </span>
+              {!cerrada && (
+                <button
+                  type="button"
+                  onClick={() => onBorrar(m.id)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-tinta-400"
+                  aria-label={`Quitar ${m.material}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[28rem] text-sm">
             <thead>
               <tr>
@@ -280,6 +318,7 @@ function TablaMateriales({
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {!cerrada && (

@@ -162,9 +162,11 @@ export function CotizadorRapido({
                   }))
                   setPaso('tipo')
                 }}
-                className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-5 py-5 text-left transition hover:border-haaco-300 hover:bg-haaco-50/40 active:bg-haaco-50"
+                // min-w-0: sin esto la celda del grid crece con el domicilio más
+                // largo y se lleva de corbata el ancho de la pantalla.
+                className="min-w-0 rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-5 py-5 text-left transition hover:border-haaco-300 hover:bg-haaco-50/40 active:bg-haaco-50"
               >
-                <span className="block text-base font-semibold text-tinta-900">{c.nombre}</span>
+                <span className="block truncate text-base font-semibold text-tinta-900">{c.nombre}</span>
                 {c.domicilio && (
                   <span className="mt-0.5 block truncate text-sm text-tinta-500">{c.domicilio}</span>
                 )}

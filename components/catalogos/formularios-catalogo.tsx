@@ -53,7 +53,9 @@ export function BotonEditar({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
+        // En el teléfono el lápiz necesita superficie para el pulgar; en la
+        // tabla del escritorio vuelve a ser un icono discreto.
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800 lg:h-auto lg:w-auto lg:p-1.5"
         aria-label={titulo}
       >
         <Pencil size={15} />

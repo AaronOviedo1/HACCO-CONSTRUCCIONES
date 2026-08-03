@@ -4,6 +4,7 @@ import { fecha } from '@/lib/format'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th, type TonoEtiqueta,
 } from '@/components/ui'
+import { FilaLista } from '@/components/movil/piezas'
 import type { RolUsuario } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,34 @@ export default async function PaginaUsuarios() {
         descripcion="No hay registro público: las cuentas las crea Dirección. Cada rol ve exactamente lo que le toca."
       />
 
-      <Tarjeta pie={`${filas.length} usuarios · ${filas.filter((u) => u.activo).length} activos`}>
+      {/* Teléfono: quién es y con qué rol entra --------------------------- */}
+      {filas.length > 0 && (
+        <Tarjeta
+          className="lg:hidden"
+          pie={`${filas.length} usuarios · ${filas.filter((u) => u.activo).length} activos`}
+        >
+          {filas.map((u) => (
+            <FilaLista
+              key={u.id}
+              principal={u.nombre}
+              secundario={[u.correo, u.oficio, u.es_externo ? 'Externo' : 'Interno']
+                .filter(Boolean)
+                .join(' · ')}
+              derecha={
+                <>
+                  <Etiqueta tono={TONO_ROL[u.rol]}>{NOMBRE_ROL[u.rol]}</Etiqueta>
+                  {!u.activo && <Etiqueta tono="rojo">Baja</Etiqueta>}
+                </>
+              }
+            />
+          ))}
+        </Tarjeta>
+      )}
+
+      <Tarjeta
+        className={filas.length > 0 ? 'hidden lg:block' : ''}
+        pie={`${filas.length} usuarios · ${filas.filter((u) => u.activo).length} activos`}
+      >
         {filas.length === 0 ? (
           <EstadoVacio
             titulo="Sin usuarios"

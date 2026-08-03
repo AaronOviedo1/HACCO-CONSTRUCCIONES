@@ -7,6 +7,7 @@ import {
   type TonoEtiqueta,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
+import { FilaLista } from '@/components/movil/piezas'
 import { BotonEditarHerramienta, BotonNuevaHerramienta } from '@/components/catalogos/formularios-catalogo'
 import type { EstadoHerramienta } from '@/types/database'
 
@@ -94,7 +95,32 @@ export default async function PaginaHerramientas({
         </nav>
       </div>
 
-      <Tarjeta pie={`${filas.length} de ${inventario.length} herramientas · valor total ${pesos(valorTotal)}`}>
+      {/* Teléfono: qué pieza es, dónde anda y cómo está ------------------- */}
+      {filas.length > 0 && (
+        <Tarjeta className="lg:hidden" pie={`${filas.length} de ${inventario.length} herramientas`}>
+          {filas.map((h) => (
+            <FilaLista
+              key={h.id}
+              principal={h.nombre}
+              secundario={[h.codigo, h.marca, h.ubicacion].filter(Boolean).join(' · ')}
+              derecha={
+                <>
+                  <Etiqueta tono={ESTADO[h.estado].tono}>{ESTADO[h.estado].texto}</Etiqueta>
+                  {h.valor != null && (
+                    <span className="text-[11.5px] tabular-nums text-tinta-400">{pesos(h.valor)}</span>
+                  )}
+                </>
+              }
+              accion={<BotonEditarHerramienta herramienta={h} />}
+            />
+          ))}
+        </Tarjeta>
+      )}
+
+      <Tarjeta
+        className={filas.length > 0 ? 'hidden lg:block' : ''}
+        pie={`${filas.length} de ${inventario.length} herramientas · valor total ${pesos(valorTotal)}`}
+      >
         {error ? (
           <EstadoVacio
             titulo="No se pudo leer el inventario"

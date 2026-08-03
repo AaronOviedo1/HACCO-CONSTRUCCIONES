@@ -150,13 +150,19 @@ export function Indicador({
     rojo: 'text-red-600',
   } as const
 
+  // En el teléfono estos números van de tres en tres por renglón: un millón con
+  // sus comas no cabe a 22 px y se cortaba. Baja de tamaño según lo que mide,
+  // en vez de recortarse. En pantalla grande sobra espacio y todos van igual.
+  const tamano =
+    valor.length > 9 ? 'text-[15.5px]' : valor.length > 7 ? 'text-[19px]' : 'text-[22px]'
+
   const contenido = (
     <>
       <div className="text-[10.5px] font-semibold uppercase leading-tight tracking-[0.07em] text-tinta-500 lg:text-xs lg:font-medium lg:tracking-wide">
         {etiqueta}
       </div>
       <div
-        className={`mt-1.5 text-[22px] font-bold -tracking-[0.6px] tabular-nums lg:tipo-display lg:text-2xl lg:font-extrabold lg:tracking-normal ${tonos[tono]}`}
+        className={`mt-1.5 ${tamano} font-bold -tracking-[0.6px] tabular-nums lg:tipo-display lg:text-2xl lg:font-extrabold lg:tracking-normal ${tonos[tono]}`}
       >
         {valor}
       </div>

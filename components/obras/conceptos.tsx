@@ -74,7 +74,43 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Teléfono: concepto, cuánto lleva y su semáforo ------------- */}
+            <ul className="divide-y divide-tinta-100 lg:hidden">
+              {datos.conceptos.map((c) => {
+                const gastado = consumo.get(c.id) ?? 0
+                const s = semaforoMaterial(Number(c.presupuesto), gastado)
+                return (
+                  <li key={c.id} className="flex items-center gap-2 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => !cerrada && setEditando(c)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <span className="block truncate text-[14.5px] font-medium text-tinta-900">
+                        {c.nombre}
+                      </span>
+                      <span className="mt-0.5 block text-[11.5px] tabular-nums text-tinta-400">
+                        {pesos(gastado)} de {pesos(c.presupuesto)}
+                      </span>
+                    </button>
+                    <Etiqueta tono={s.tono}>{s.texto}</Etiqueta>
+                    {!cerrada && (
+                      <button
+                        type="button"
+                        onClick={() => borrar(c.id)}
+                        disabled={pendiente}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-tinta-400"
+                        aria-label={`Eliminar ${c.nombre}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[32rem] text-sm">
                 <thead>
                   <tr>

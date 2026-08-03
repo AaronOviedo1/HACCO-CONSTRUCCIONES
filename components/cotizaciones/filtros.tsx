@@ -48,14 +48,15 @@ export function FiltrosCotizaciones({
     <div className="mb-3.5 flex flex-col gap-2.5 lg:mb-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2">
       <BuscadorTabla marcador="Folio, cliente u obra…" />
 
-      {/* Teléfono: el estatus se toca, no se despliega. */}
-      <div className="sin-barra -mx-4 flex gap-1.5 overflow-x-auto px-4 lg:hidden">
+      {/* Teléfono: el estatus se toca, no se despliega; y se ven todos los
+          botones a la vez, sin tener que correr la fila de lado. */}
+      <div className="flex flex-wrap gap-1.5 lg:hidden">
         {ESTATUS.map((o) => (
           <button
             key={o.valor}
             type="button"
             onClick={() => fijar('estatus', o.valor)}
-            className={`min-h-9 shrink-0 whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition ${
+            className={`min-h-9 whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition ${
               estatusActual === o.valor
                 ? 'border-haaco-700 bg-haaco-700 text-white'
                 : 'border-tinta-200 bg-white text-tinta-600'
