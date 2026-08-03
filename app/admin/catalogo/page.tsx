@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
+import { BuscadorTabla } from '@/components/buscador'
 import { FilaLista } from '@/components/movil/piezas'
 import {
   BotonEditarProducto, BotonEditarProveedor, BotonEditarTexto, BotonMovimiento,
@@ -24,11 +25,12 @@ type Pestana = (typeof PESTANAS)[number]['clave']
 export default async function PaginaCatalogo({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string }>
+  searchParams: Promise<{ t?: string; q?: string }>
 }) {
   await requerirRol(['admin', 'administracion'])
-  const { t } = await searchParams
+  const { t, q } = await searchParams
   const activa = (PESTANAS.find((p) => p.clave === t)?.clave ?? 'productos') as Pestana
+  const busqueda = (q ?? '').trim().toLowerCase()
 
   const supabase = await crearClienteServidor()
   const { data: proveedores } = await supabase
@@ -62,9 +64,31 @@ export default async function PaginaCatalogo({
         ))}
       </nav>
 
-      {activa === 'productos' && <TablaProductos proveedores={listaProveedores} />}
-      {activa === 'insumos' && <TablaInsumos proveedores={listaProveedores} />}
-      {activa === 'proveedores' && <TablaProveedores proveedores={listaProveedores} />}
+      {activa !== 'textos' && (
+        <div className="mb-4">
+          <BuscadorTabla
+            marcador={
+              activa === 'proveedores'
+                ? 'Buscar proveedor…'
+                : 'Buscar por nombre, código o proveedor…'
+            }
+          />
+        </div>
+      )}
+
+      {activa === 'productos' && (
+        <TablaProductos proveedores={listaProveedores} busqueda={busqueda} />
+      )}
+      {activa === 'insumos' && <TablaInsumos proveedores={listaProveedores} busqueda={busqueda} />}
+      {activa === 'proveedores' && (
+        <TablaProveedores
+          proveedores={listaProveedores.filter(
+            (p) =>
+              !busqueda ||
+              `${p.nombre} ${p.contacto ?? ''} ${p.telefono ?? ''}`.toLowerCase().includes(busqueda),
+          )}
+        />
+      )}
       {activa === 'textos' && <TablaTextos />}
     </>
   )
@@ -77,7 +101,12 @@ function AccionDePestana({ pestana, proveedores }: { pestana: Pestana; proveedor
 }
 
 // ---------------------------------------------------------------------------
-async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
+async function TablaProductos({
+  proveedores, busqueda,
+}: {
+  proveedores: Proveedor[]
+  busqueda: string
+}) {
   const supabase = await crearClienteServidor()
   const { data } = await supabase
     .from('productos')
@@ -86,8 +115,14 @@ async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
     .order('tipo')
     .order('nombre')
 
-  const filas = data ?? []
   const nombreProveedor = new Map(proveedores.map((p) => [p.id, p.nombre]))
+  const filas = (data ?? []).filter(
+    (p) =>
+      !busqueda ||
+      `${p.nombre} ${p.codigo ?? ''} ${(p.proveedor_id && nombreProveedor.get(p.proveedor_id)) ?? ''}`
+        .toLowerCase()
+        .includes(busqueda),
+  )
   const tipoProducto = (t: string) =>
     t === 'pintura' ? 'Pintura' : t === 'herreria' ? 'Herrería' : 'Otro'
 
@@ -169,14 +204,21 @@ async function TablaProductos({ proveedores }: { proveedores: Proveedor[] }) {
 }
 
 // ---------------------------------------------------------------------------
-async function TablaInsumos({ proveedores }: { proveedores: Proveedor[] }) {
+async function TablaInsumos({
+  proveedores, busqueda,
+}: {
+  proveedores: Proveedor[]
+  busqueda: string
+}) {
   const supabase = await crearClienteServidor()
   const [{ data }, { data: productos }] = await Promise.all([
     supabase.from('v_insumos_existencia').select('*').order('nombre'),
     supabase.from('productos').select('*').eq('tipo', 'insumo_taller'),
   ])
 
-  const filas = data ?? []
+  const filas = (data ?? []).filter(
+    (i) => !busqueda || `${i.nombre} ${i.codigo ?? ''}`.toLowerCase().includes(busqueda),
+  )
   const porId = new Map((productos ?? []).map((p) => [p.id, p]))
 
   return (

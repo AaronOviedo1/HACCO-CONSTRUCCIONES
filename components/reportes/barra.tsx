@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
 import { FiltroMes } from '@/components/filtro-fechas'
 import { etiquetaMes } from '@/lib/finanzas'
 
@@ -20,6 +20,7 @@ async function descargar(url: string, nombre: string) {
 
 export function BarraReportes({ mes, soloLectura }: { mes: string; soloLectura: boolean }) {
   const [bajando, setBajando] = useState(false)
+  const [bajandoPdf, setBajandoPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const bajarLibro = async () => {
@@ -34,6 +35,21 @@ export function BarraReportes({ mes, soloLectura }: { mes: string; soloLectura: 
       setError(e instanceof Error ? e.message : 'No se pudo generar el archivo.')
     } finally {
       setBajando(false)
+    }
+  }
+
+  const bajarPdf = async () => {
+    setError(null)
+    setBajandoPdf(true)
+    try {
+      await descargar(
+        `/api/reportes/pdf?mes=${mes}&descargar`,
+        `Concentrado ${etiquetaMes(mes).replace(' de ', ' ')}.pdf`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo generar el PDF.')
+    } finally {
+      setBajandoPdf(false)
     }
   }
 
@@ -61,15 +77,26 @@ export function BarraReportes({ mes, soloLectura }: { mes: string; soloLectura: 
           ))}
         </nav>
 
-        <button
-          type="button"
-          onClick={bajarLibro}
-          disabled={bajando}
-          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
-        >
-          {bajando ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
-          {bajando ? 'Generando…' : 'Descargar cierre completo'}
-        </button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={bajarPdf}
+            disabled={bajandoPdf}
+            className="inline-flex items-center gap-2 rounded-lg border border-haaco-300 bg-white px-4 py-2 text-sm font-medium text-haaco-800 transition hover:bg-haaco-50 disabled:opacity-50"
+          >
+            {bajandoPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+            {bajandoPdf ? 'Generando…' : 'PDF para el contador'}
+          </button>
+          <button
+            type="button"
+            onClick={bajarLibro}
+            disabled={bajando}
+            className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          >
+            {bajando ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+            {bajando ? 'Generando…' : 'Descargar cierre completo'}
+          </button>
+        </div>
       </div>
 
       {soloLectura && (

@@ -9,6 +9,7 @@ import {
 import { BotonEliminarGasto, BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
 import { FilaLista } from '@/components/movil/piezas'
+import { masComunes } from '@/lib/sugerencias'
 import type { CategoriaGasto } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -39,17 +40,58 @@ export default async function PaginaGastos({
   if (filtros.categoria) consulta = consulta.eq('categoria', filtros.categoria as CategoriaGasto)
   if (filtros.metodo) consulta = consulta.eq('metodo', filtros.metodo as 'efectivo')
 
-  const [{ data, error }, { data: obras }, { data: proveedores }, { data: conceptos }] =
-    await Promise.all([
-      consulta,
-      supabase
-        .from('obras')
-        .select('id, nombre, ot_numero')
-        .neq('estatus', 'cerrada')
-        .order('fecha_apertura', { ascending: false }),
-      supabase.from('proveedores').select('id, nombre, dias_credito_default').order('nombre'),
-      supabase.from('obra_conceptos').select('*').order('nombre'),
-    ])
+  const [
+    { data, error },
+    { data: obras },
+    { data: proveedores },
+    { data: conceptos },
+    { data: insumos },
+    { data: historial },
+    { data: productos },
+  ] = await Promise.all([
+    consulta,
+    supabase
+      .from('obras')
+      .select('id, nombre, ot_numero')
+      .neq('estatus', 'cerrada')
+      .order('fecha_apertura', { ascending: false }),
+    supabase.from('proveedores').select('id, nombre, dias_credito_default').order('nombre'),
+    supabase.from('obra_conceptos').select('*').order('nombre'),
+    supabase.from('v_insumos_existencia').select('*').order('nombre'),
+    supabase
+      .from('gastos')
+      .select('descripcion, costo_unitario')
+      .order('created_at', { ascending: false })
+      .limit(400),
+    supabase
+      .from('productos')
+      .select('id, nombre, costo, proveedor_id')
+      .eq('activo', true)
+      .order('nombre'),
+  ])
+
+  // Autocompletado del gasto: lo ya capturado + el catálogo (que además
+  // trae proveedor y costo para pre-llenar).
+  const sugerenciasGasto = masComunes(
+    (historial ?? []).map((g) => ({ texto: g.descripcion, monto: g.costo_unitario })),
+    200,
+  )
+  for (const p of productos ?? []) {
+    const previa = sugerenciasGasto.find((s) => s.texto.toLowerCase() === p.nombre.toLowerCase())
+    if (previa) {
+      previa.producto_id = p.id
+      previa.proveedor_id = p.proveedor_id
+      if (!previa.monto) previa.monto = p.costo
+    } else {
+      sugerenciasGasto.push({
+        texto: p.nombre,
+        veces: 0,
+        monto: p.costo,
+        producto_id: p.id,
+        proveedor_id: p.proveedor_id,
+      })
+    }
+  }
 
   let filas = data ?? []
   if (filtros.q?.trim()) {
@@ -83,6 +125,8 @@ export default async function PaginaGastos({
             obras={obras ?? []}
             proveedores={proveedores ?? []}
             conceptos={conceptos ?? []}
+            insumos={insumos ?? []}
+            sugerencias={sugerenciasGasto}
           />
         }
       />

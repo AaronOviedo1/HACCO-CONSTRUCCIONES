@@ -3,9 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
+import { REGLAS } from '@/lib/empresa'
 import type {
   EstadoPagoFijo, GastoSql, MetodoPago, TipoDeduccion, TipoMovimientoCaja,
-  TipoPagoCobranza,
+  TipoPagoCobranza, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -39,6 +40,62 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
   revalidatePath('/admin')
   if (gasto.obra_id) revalidatePath(`/admin/obras/${gasto.obra_id}`)
   return { ok: true, datos: { id: data as string } }
+}
+
+/**
+ * Da entrada al inventario del taller con lo que se compró en un gasto.
+ * Con producto_id abona a un insumo existente; con nombre crea el insumo.
+ */
+export async function entradaInventario(
+  gastoId: string,
+  cantidad: number,
+  productoId: string | null,
+  nombre: string | null,
+  unidad: string | null,
+): Promise<Resultado> {
+  if (cantidad <= 0) return { ok: false, error: 'La cantidad tiene que ser mayor a cero.' }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('entrada_inventario_desde_gasto', {
+    p_gasto: gastoId,
+    p_cantidad: cantidad,
+    p_producto: productoId,
+    p_nombre: nombre,
+    p_unidad: unidad,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/catalogo')
+  return { ok: true }
+}
+
+/** Alta rápida en el catálogo desde el gasto, para compras que se repiten. */
+export async function agregarProductoAlCatalogo(datos: {
+  nombre: string
+  costo: number
+  unidad: string
+  tipo: TipoProducto
+  proveedor_id: string | null
+}): Promise<Resultado> {
+  if (!datos.nombre.trim()) return { ok: false, error: 'Falta el nombre del producto.' }
+
+  const supabase = await staff()
+  const costo = datos.costo || 0
+  const iva = Math.round(costo * (REGLAS.ivaPct / 100) * 100) / 100
+
+  const { error } = await supabase.from('productos').insert({
+    nombre: datos.nombre.trim(),
+    unidad: datos.unidad.trim() || 'pza',
+    tipo: datos.tipo,
+    costo,
+    iva,
+    precio_neto: Math.round((costo + iva) * 100) / 100,
+    proveedor_id: datos.proveedor_id,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/catalogo')
+  return { ok: true }
 }
 
 export async function eliminarGasto(id: string): Promise<Resultado> {

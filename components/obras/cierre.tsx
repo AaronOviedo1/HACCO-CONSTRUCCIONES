@@ -317,6 +317,7 @@ export function PanelCierre({ datos }: { datos: DatosObra }) {
           poliza={datos.poliza}
           sugerenciasAreas={datos.sugerenciasAreas}
           sugerenciasPinturas={datos.sugerenciasMateriales}
+          coloresPoliza={datos.coloresPoliza}
           onCerrar={() => setEditandoPoliza(false)}
         />
       )}
@@ -407,14 +408,22 @@ function DialogoDiagnostico({
 
 // ---------------------------------------------------------------------------
 function FormularioPoliza({
-  obraId, poliza, sugerenciasAreas, sugerenciasPinturas, onCerrar,
+  obraId, poliza, sugerenciasAreas, sugerenciasPinturas, coloresPoliza, onCerrar,
 }: {
   obraId: string
   poliza: DatosObra['poliza']
   sugerenciasAreas: DatosObra['sugerenciasAreas']
   sugerenciasPinturas: DatosObra['sugerenciasMateriales']
+  coloresPoliza: DatosObra['coloresPoliza']
   onCerrar: () => void
 }) {
+  // Cada color visto en pólizas anteriores, con su código a la mano.
+  const sugerenciasColores = coloresPoliza.map((c) => ({
+    texto: c.color,
+    veces: 0,
+    monto: null,
+  }))
+  const codigoDe = new Map(coloresPoliza.map((c) => [c.color.toLowerCase(), c.codigo]))
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -493,7 +502,23 @@ function FormularioPoliza({
                   />
                 </div>
                 <div className="col-span-2">
-                  <Entrada value={a.color} onChange={(e) => cambiar(i, 'color', e.target.value)} placeholder="Blanco" />
+                  <EntradaSugerencias
+                    valor={a.color}
+                    onCambio={(v) => cambiar(i, 'color', v)}
+                    onElegir={(s) => {
+                      // Al elegir un color conocido su código se llena solo.
+                      const codigo = codigoDe.get(s.texto.toLowerCase())
+                      setAreas((l) =>
+                        l.map((fila, j) =>
+                          j === i
+                            ? { ...fila, color: s.texto, codigo: codigo || fila.codigo }
+                            : fila,
+                        ),
+                      )
+                    }}
+                    sugerencias={sugerenciasColores}
+                    placeholder="Blanco"
+                  />
                 </div>
                 <div className="col-span-2">
                   <Entrada value={a.codigo} onChange={(e) => cambiar(i, 'codigo', e.target.value)} placeholder="RV-100" />

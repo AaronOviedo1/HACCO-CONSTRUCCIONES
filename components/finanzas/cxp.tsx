@@ -44,16 +44,15 @@ export function AccionesCxp({
   const puedeAbonar = !cuenta.cancelada && Number(cuenta.saldo) > 0
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center justify-end gap-1">
       {puedeAbonar && (
         <button
           type="button"
           onClick={() => setAbonando(true)}
-          className="rounded-lg p-1.5 text-haaco-600 transition hover:bg-haaco-50"
-          aria-label="Registrar pago"
-          title="Registrar pago"
+          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-haaco-300 bg-haaco-50 px-2.5 py-1.5 text-xs font-semibold text-haaco-800 transition hover:bg-haaco-100"
         >
-          <Banknote size={15} />
+          <Banknote size={14} />
+          Registrar pago
         </button>
       )}
       <button
@@ -70,6 +69,55 @@ export function AccionesCxp({
         <FormularioCxp cuenta={cuenta} proveedores={proveedores} onCerrar={() => setEditando(false)} />
       )}
     </div>
+  )
+}
+
+/** Botón de pago para el renglón del teléfono: abre el mismo diálogo. */
+export function BotonPagoMovil({ cuenta }: { cuenta: VCuentaPorPagar }) {
+  const [abonando, setAbonando] = useState(false)
+  if (cuenta.cancelada || Number(cuenta.saldo) <= 0) return null
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbonando(true)}
+        data-tap
+        className="flex h-11 w-11 items-center justify-center rounded-[14px] border-[0.5px] border-haaco-300 bg-haaco-50 text-haaco-700 transition active:bg-haaco-100"
+        aria-label={`Registrar pago a ${cuenta.proveedor}`}
+      >
+        <Banknote size={18} />
+      </button>
+      {abonando && <DialogoAbono cuenta={cuenta} onCerrar={() => setAbonando(false)} />}
+    </>
+  )
+}
+
+/** Filtro por proveedor que sí existe en el teléfono (las tarjetas laterales no). */
+export function FiltroProveedorCxp({
+  proveedores, valor, vista,
+}: {
+  proveedores: Pick<Proveedor, 'id' | 'nombre'>[]
+  valor: string
+  vista: string
+}) {
+  const router = useRouter()
+  return (
+    <Seleccion
+      value={valor}
+      onChange={(e) =>
+        router.replace(
+          `/admin/cuentas-por-pagar?t=${vista}${e.target.value ? `&proveedor=${e.target.value}` : ''}`,
+        )
+      }
+      aria-label="Filtrar por proveedor"
+    >
+      <option value="">Todos los proveedores</option>
+      {proveedores.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.nombre}
+        </option>
+      ))}
+    </Seleccion>
   )
 }
 

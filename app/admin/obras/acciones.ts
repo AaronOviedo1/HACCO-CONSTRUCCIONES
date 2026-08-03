@@ -5,7 +5,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import type {
   EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
-  ResultadoCierre, TipoPagoCobranza,
+  ResultadoCierre, TipoAvance, TipoPagoCobranza,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -57,6 +57,41 @@ export async function anotarEnBitacora(obraId: string, texto: string): Promise<R
     tipo: 'nota',
     descripcion: texto,
     autor_id: user?.id ?? null,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+/**
+ * Dirección y Administración también pueden dejar un avance cuando van a la
+ * obra. Mismo feed que la cuadrilla; la foto se sube desde el navegador a
+ * avances/{obra_id}/... igual que en /obra.
+ */
+export async function registrarAvanceAdmin(
+  obraId: string,
+  datos: {
+    tipo: TipoAvance
+    storage_path: string | null
+    comentario: string
+    porcentaje: number | null
+  },
+): Promise<Resultado> {
+  const perfil = await requerirRol(['admin', 'administracion'])
+  const supabase = await crearClienteServidor()
+
+  if (!datos.storage_path && !datos.comentario.trim()) {
+    return { ok: false, error: 'Sube una foto o escribe una nota.' }
+  }
+
+  const { error } = await supabase.from('avances').insert({
+    obra_id: obraId,
+    autor_id: perfil.id,
+    tipo: datos.tipo,
+    storage_path: datos.storage_path,
+    comentario: datos.comentario.trim() || null,
+    porcentaje_avance: datos.porcentaje,
   })
 
   if (error) return fallo(error)
@@ -270,11 +305,16 @@ export async function guardarMaterial(
   return { ok: true }
 }
 
+/**
+ * Borra el renglón vía RPC: si el material había salido del taller, la
+ * cantidad regresa al kardex con un movimiento de reversa.
+ */
 export async function eliminarMaterial(obraId: string, id: string): Promise<Resultado> {
   const supabase = await staff()
-  const { error } = await supabase.from('obra_materiales').delete().eq('id', id)
+  const { error } = await supabase.rpc('eliminar_material_obra', { p_material: id })
   if (error) return fallo(error)
   refrescar(obraId)
+  revalidatePath('/admin/catalogo')
   return { ok: true }
 }
 
@@ -317,17 +357,39 @@ export async function guardarTarea(
     estatus: EstatusTarea
     responsable_id: string | null
     orden: number
+    peso?: number
+    /** null en tareas con subtareas: su avance es derivado y no se manda. */
+    avance_pct?: number | null
   },
 ): Promise<Resultado> {
   const supabase = await staff()
   if (!tarea.nombre.trim()) return { ok: false, error: 'La tarea necesita un nombre.' }
 
-  const fila = { obra_id: obraId, ...tarea, nombre: tarea.nombre.trim() }
+  const { avance_pct, peso, ...resto } = tarea
+  const fila = {
+    obra_id: obraId,
+    ...resto,
+    nombre: tarea.nombre.trim(),
+    ...(peso != null && peso > 0 ? { peso } : {}),
+    ...(avance_pct != null ? { avance_pct: Math.min(100, Math.max(0, avance_pct)) } : {}),
+  }
 
   const { error } = tarea.id
     ? await supabase.from('cronograma_tareas').update(fila).eq('id', tarea.id)
     : await supabase.from('cronograma_tareas').insert(fila)
 
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+/** Marcar terminada de un toque: el trigger pone el 100 % y recalcula la obra. */
+export async function marcarTareaTerminada(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('cronograma_tareas')
+    .update({ estatus: 'terminada' })
+    .eq('id', id)
   if (error) return fallo(error)
   refrescar(obraId)
   return { ok: true }

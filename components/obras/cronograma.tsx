@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
-import { CalendarClock, ListChecks, Plus, Trash2 } from 'lucide-react'
+import { CalendarClock, Check, ListChecks, Plus, Trash2 } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -12,7 +12,8 @@ import { fecha, fechaHora } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { ESTATUS_TAREA } from '@/lib/obras'
 import {
-  anotarEnBitacora, crearCronogramaDesdePartidas, eliminarTarea, guardarTarea, recorrerCronograma,
+  anotarEnBitacora, crearCronogramaDesdePartidas, eliminarTarea, guardarTarea,
+  marcarTareaTerminada, recorrerCronograma,
 } from '@/app/admin/obras/acciones'
 import type { CronogramaTarea, EstatusTarea } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
@@ -130,6 +131,7 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
                       pendiente={pendiente}
                       onEditar={() => setEditando(t)}
                       onSubtarea={() => setEditando({ padre: t })}
+                      onTerminar={() => accion(() => marcarTareaTerminada(datos.obra.id, t.id))}
                       onEliminar={() => accion(() => eliminarTarea(datos.obra.id, t.id))}
                     />
                     {(hijosDe.get(t.id) ?? []).map((h) => (
@@ -142,6 +144,7 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
                         cerrada={cerrada}
                         pendiente={pendiente}
                         onEditar={() => setEditando(h)}
+                        onTerminar={() => accion(() => marcarTareaTerminada(datos.obra.id, h.id))}
                         onEliminar={() => accion(() => eliminarTarea(datos.obra.id, h.id))}
                       />
                     ))}
@@ -218,6 +221,11 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
           obraId={datos.obra.id}
           tarea={editando === 'nueva' || 'padre' in editando ? undefined : editando}
           padre={editando !== 'nueva' && 'padre' in editando ? editando.padre : undefined}
+          tieneHijas={
+            editando !== 'nueva' &&
+            !('padre' in editando) &&
+            (hijosDe.get(editando.id)?.length ?? 0) > 0
+          }
           orden={datos.tareas.length}
           oficiales={datos.oficiales}
           onCerrar={() => setEditando(null)}
@@ -233,7 +241,7 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
 
 // ---------------------------------------------------------------------------
 function FilaTarea({
-  tarea, hija, linea, responsables, cerrada, pendiente, onEditar, onSubtarea, onEliminar,
+  tarea, hija, linea, responsables, cerrada, pendiente, onEditar, onSubtarea, onTerminar, onEliminar,
 }: {
   tarea: CronogramaTarea
   hija?: boolean
@@ -243,6 +251,7 @@ function FilaTarea({
   pendiente: boolean
   onEditar: () => void
   onSubtarea?: () => void
+  onTerminar: () => void
   onEliminar: () => void
 }) {
   const inicio = tarea.fecha_inicio ? new Date(`${tarea.fecha_inicio}T00:00:00`).getTime() : null
@@ -275,9 +284,31 @@ function FilaTarea({
           <span className="text-xs text-tinta-500">
             {fecha(tarea.fecha_inicio)} → {fecha(tarea.fecha_fin)}
           </span>
+          <span
+            className={`text-xs font-semibold tabular-nums ${
+              tarea.avance_pct >= 100 ? 'text-haaco-700' : 'text-tinta-500'
+            }`}
+          >
+            {Math.round(tarea.avance_pct)}%
+          </span>
           <Etiqueta tono={ESTATUS_TAREA[tarea.estatus].tono}>
             {ESTATUS_TAREA[tarea.estatus].texto}
           </Etiqueta>
+          {!cerrada && tarea.estatus !== 'terminada' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onTerminar()
+              }}
+              disabled={pendiente}
+              className="inline-flex items-center gap-1 rounded-lg border-[0.5px] border-tinta-200 px-2 py-1 text-xs font-medium text-tinta-600 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800"
+              aria-label={`Marcar ${tarea.nombre} como terminada`}
+            >
+              <Check size={12} />
+              Terminar
+            </button>
+          )}
           {!cerrada && onSubtarea && (
             <button
               type="button"
@@ -332,12 +363,14 @@ function FilaTarea({
 
 // ---------------------------------------------------------------------------
 function FormularioTarea({
-  obraId, tarea, padre, orden, oficiales, onCerrar,
+  obraId, tarea, padre, tieneHijas, orden, oficiales, onCerrar,
 }: {
   obraId: string
   tarea?: CronogramaTarea
   /** Si viene, la tarea nueva se cuelga de ésta como subtarea. */
   padre?: CronogramaTarea
+  /** Con subtareas, el avance de la tarea es derivado y no se captura. */
+  tieneHijas?: boolean
   orden: number
   oficiales: DatosObra['oficiales']
   onCerrar: () => void
@@ -350,6 +383,8 @@ function FormularioTarea({
   const [fin, setFin] = useState(tarea?.fecha_fin ?? '')
   const [estatus, setEstatus] = useState<EstatusTarea>(tarea?.estatus ?? 'pendiente')
   const [responsable, setResponsable] = useState(tarea?.responsable_id ?? '')
+  const [peso, setPeso] = useState(String(tarea?.peso ?? 1))
+  const [avance, setAvance] = useState(String(Math.round(tarea?.avance_pct ?? 0)))
 
   const guardar = () =>
     iniciar(async () => {
@@ -363,6 +398,8 @@ function FormularioTarea({
         estatus,
         responsable_id: responsable || null,
         orden: tarea?.orden ?? orden,
+        peso: num(peso) || 1,
+        avance_pct: tieneHijas ? null : num(avance),
       })
       if (!r.ok) return setError(r.error)
       onCerrar()
@@ -402,7 +439,15 @@ function FormularioTarea({
           etiqueta="Estatus"
           ancho="medio"
           hijo={
-            <Seleccion value={estatus} onChange={(e) => setEstatus(e.target.value as EstatusTarea)}>
+            <Seleccion
+              value={estatus}
+              onChange={(e) => {
+                const v = e.target.value as EstatusTarea
+                setEstatus(v)
+                if (v === 'terminada') setAvance('100')
+                else if (v === 'pendiente') setAvance('0')
+              }}
+            >
               <option value="pendiente">Pendiente</option>
               <option value="en_proceso">En proceso</option>
               <option value="terminada">Terminada</option>
@@ -421,6 +466,24 @@ function FormularioTarea({
                 </option>
               ))}
             </Seleccion>
+          }
+        />
+        {!tieneHijas && (
+          <Campo
+            etiqueta="Avance (%)"
+            ancho="medio"
+            hijo={<Numero value={avance} onChange={(e) => setAvance(e.target.value)} max={100} />}
+            ayuda="Al 100 % la tarea queda terminada sola."
+          />
+        )}
+        <Campo
+          etiqueta="Peso"
+          ancho="medio"
+          hijo={<Numero value={peso} onChange={(e) => setPeso(e.target.value)} />}
+          ayuda={
+            tieneHijas
+              ? 'El avance se calcula desde sus subtareas. El peso dice qué tanto pesa en la obra.'
+              : 'Qué tanto pesa la tarea en el avance global. Lijar toda la casa pesa más que un retoque.'
           }
         />
         <MensajeError mensaje={error} />

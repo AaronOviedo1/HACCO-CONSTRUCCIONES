@@ -45,7 +45,14 @@ export type ProcesoBorrador = {
  * Texto que ya se ha usado en cotizaciones anteriores (las del Excel migrado
  * incluidas), con su precio o costo más reciente para rellenar el campo.
  */
-export type Sugerencia = { texto: string; veces: number; monto: number | null }
+export type Sugerencia = {
+  texto: string
+  veces: number
+  monto: number | null
+  /** Presentes cuando la sugerencia viene del catálogo de productos. */
+  producto_id?: string | null
+  proveedor_id?: string | null
+}
 
 export type SugerenciasCotizacion = {
   partidas: Sugerencia[]

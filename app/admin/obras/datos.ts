@@ -57,17 +57,20 @@ export async function cargarObra(id: string) {
     supabase.from('productos').select('nombre, costo').eq('activo', true).neq('tipo', 'insumo_taller'),
   ])
 
-  const [materialesCotizados, partidasCotizacion, conceptosPrevios] = await Promise.all([
-    supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
-    // Las partidas de la cotización de esta obra: sirven como áreas de la póliza.
-    supabase
-      .from('cotizacion_items')
-      .select('descripcion, orden')
-      .eq('cotizacion_id', concentrado.cotizacion_id)
-      .order('orden'),
-    // Los conceptos ya usados en cualquier obra: los nombres se repiten.
-    supabase.from('obra_conceptos').select('nombre, presupuesto').limit(2000),
-  ])
+  const [materialesCotizados, partidasCotizacion, conceptosPrevios, polizasPrevias] =
+    await Promise.all([
+      supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
+      // Las partidas de la cotización de esta obra: sirven como áreas de la póliza.
+      supabase
+        .from('cotizacion_items')
+        .select('descripcion, orden')
+        .eq('cotizacion_id', concentrado.cotizacion_id)
+        .order('orden'),
+      // Los conceptos ya usados en cualquier obra: los nombres se repiten.
+      supabase.from('obra_conceptos').select('nombre, presupuesto').limit(2000),
+      // Colores y códigos de todas las pólizas: los tonos se repiten entre obras.
+      supabase.from('polizas_garantia').select('items').limit(500),
+    ])
 
   const sugerenciasConceptos = masComunes(
     (conceptosPrevios.data ?? []).map((c) => ({ texto: c.nombre, monto: c.presupuesto })),
@@ -78,6 +81,22 @@ export async function cargarObra(id: string) {
     (partidasCotizacion.data ?? []).map((p) => ({ texto: p.descripcion, monto: null })),
     20,
   )
+
+  // Cada color con su código más reciente, para autocompletar la póliza.
+  const coloresVistos = new Map<string, { color: string; codigo: string }>()
+  for (const p of polizasPrevias.data ?? []) {
+    const items = Array.isArray(p.items) ? p.items : []
+    for (const item of items) {
+      const { color, codigo } = item as { color?: string; codigo?: string }
+      if (color?.trim()) {
+        coloresVistos.set(color.trim().toLowerCase(), {
+          color: color.trim(),
+          codigo: codigo?.trim() ?? '',
+        })
+      }
+    }
+  }
+  const coloresPoliza = [...coloresVistos.values()]
 
   const sugerenciasMateriales = conCatalogo(
     masComunes(
@@ -113,6 +132,7 @@ export async function cargarObra(id: string) {
     sugerenciasMateriales,
     sugerenciasAreas,
     sugerenciasConceptos,
+    coloresPoliza,
   }
 }
 

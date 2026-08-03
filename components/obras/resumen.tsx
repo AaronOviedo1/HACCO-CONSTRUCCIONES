@@ -202,6 +202,12 @@ export function PanelResumen({ datos }: { datos: DatosObra }) {
               etiqueta="Tareas pendientes"
               valor={String(datos.tareas.filter((t) => t.estatus !== 'terminada').length)}
             />
+            {datos.tareas.length > 0 && (
+              <Dato
+                etiqueta="Avance según cronograma"
+                valor={`${Math.round(Number(c.avance_pct ?? 0))}%`}
+              />
+            )}
             <Dato
               etiqueta="Detalles sin atender"
               valor={String(datos.detalles.filter((d) => !d.atendido).length)}

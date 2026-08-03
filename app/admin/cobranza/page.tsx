@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
-import { TIPO_PAGO_COBRANZA, tonoCobranza } from '@/lib/finanzas'
+import { TIPO_PAGO_COBRANZA, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
@@ -260,6 +260,39 @@ export default async function PaginaCobranza({
           </Tabla>
         </Tarjeta>
       ) : (
+        <>
+        {/* Teléfono: los totales y el PDF; la tabla completa vive en escritorio */}
+        <Tarjeta className="mb-4 lg:hidden" titulo="Concentrado para el contador">
+          <div className="space-y-3 px-4 py-4">
+            <dl className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <dt className="text-[11px] text-tinta-500">Cotizado</dt>
+                <dd className="text-sm font-semibold tabular-nums">{pesosCortos(totalCotizado)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-tinta-500">Cobrado</dt>
+                <dd className="text-sm font-semibold tabular-nums">{pesosCortos(totalCobrado)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-tinta-500">Por cobrar</dt>
+                <dd className="text-sm font-semibold tabular-nums text-haaco-700">
+                  {pesosCortos(totalSaldo)}
+                </dd>
+              </div>
+            </dl>
+            <a
+              href={`/api/reportes/pdf?mes=${mesActual()}&descargar`}
+              data-tap
+              className="flex min-h-12 w-full items-center justify-center rounded-[14px] bg-haaco-700 px-4 text-[15px] font-semibold text-white transition active:bg-haaco-800"
+            >
+              Descargar PDF de {etiquetaMes(mesActual())}
+            </a>
+            <p className="text-center text-xs text-tinta-400">
+              El concentrado detallado y otros meses están en Reportes.
+            </p>
+          </div>
+        </Tarjeta>
+
         <Tarjeta
           className="hidden lg:block"
           titulo="Concentrado para el contador"
@@ -326,6 +359,7 @@ export default async function PaginaCobranza({
             </tbody>
           </Tabla>
         </Tarjeta>
+        </>
       )}
 
       {vista === 'registro' && (pagos ?? []).length > 0 && (

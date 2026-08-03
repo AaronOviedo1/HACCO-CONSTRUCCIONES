@@ -1,6 +1,7 @@
 import { Camera, FileText, Video } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { CapturarAvanceAdmin } from '@/components/obras/capturar-avance-admin'
 import { fechaHora } from '@/lib/format'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -9,6 +10,7 @@ const ICONO = { foto: Camera, video: Video, nota: FileText } as const
 /**
  * Feed cronológico de lo que sube la cuadrilla. Reemplaza el grupo de
  * WhatsApp: aquí las fotos quedan pegadas a su obra y a su fecha.
+ * Dirección también puede dejar un avance cuando va a la obra.
  */
 export async function PanelAvances({ datos }: { datos: DatosObra }) {
   const supabase = await crearClienteServidor()
@@ -23,21 +25,47 @@ export async function PanelAvances({ datos }: { datos: DatosObra }) {
     }
   }
 
+  // Autores: los oficiales de la obra más quien sea que haya subido algo (staff).
   const autores = new Map(datos.oficiales.map((o) => [o.id, o.nombre]))
+  const faltantes = [...new Set(datos.avances.map((a) => a.autor_id))].filter(
+    (id) => !autores.has(id),
+  )
+  if (faltantes.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, nombre')
+      .in('id', faltantes)
+    for (const p of perfiles ?? []) autores.set(p.id, p.nombre)
+  }
+
+  const cerrada = datos.concentrado.estatus === 'cerrada'
+
+  const captura = !cerrada && (
+    <Tarjeta
+      titulo="Registrar un avance"
+      pie="Va al mismo historial que los avances de la cuadrilla."
+    >
+      <CapturarAvanceAdmin obraId={datos.obra.id} tieneCronograma={datos.tareas.length > 0} />
+    </Tarjeta>
+  )
 
   if (datos.avances.length === 0) {
     return (
-      <Tarjeta>
-        <EstadoVacio
-          titulo="Todavía no hay avances"
-          descripcion="La cuadrilla sube fotos y el porcentaje desde su teléfono, en la pantalla /obra. Cada avance actualiza el porcentaje de la OT."
-        />
-      </Tarjeta>
+      <div className="space-y-3">
+        {captura}
+        <Tarjeta>
+          <EstadoVacio
+            titulo="Todavía no hay avances"
+            descripcion="La cuadrilla sube fotos y el porcentaje desde su teléfono, en la pantalla /obra. Cada avance actualiza el porcentaje de la OT."
+          />
+        </Tarjeta>
+      </div>
     )
   }
 
   return (
     <div className="space-y-3">
+      {captura}
       {datos.avances.map((avance) => {
         const Icono = ICONO[avance.tipo]
         const url = avance.storage_path ? urls.get(avance.storage_path) : null

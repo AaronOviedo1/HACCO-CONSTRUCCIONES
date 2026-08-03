@@ -169,6 +169,7 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
           origen={nuevo}
           conceptos={datos.conceptos}
           sugerencias={datos.sugerenciasMateriales}
+          insumos={datos.insumos}
           onCerrar={() => setNuevo(null)}
         />
       )}
@@ -340,12 +341,13 @@ function TablaMateriales({
 
 // ---------------------------------------------------------------------------
 function FormularioMaterial({
-  obraId, origen, conceptos, sugerencias, onCerrar,
+  obraId, origen, conceptos, sugerencias, insumos, onCerrar,
 }: {
   obraId: string
   origen: OrigenMaterial
   conceptos: DatosObra['conceptos']
   sugerencias: DatosObra['sugerenciasMateriales']
+  insumos: DatosObra['insumos']
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -356,19 +358,48 @@ function FormularioMaterial({
   const [costo, setCosto] = useState('')
   const [folio, setFolio] = useState('')
   const [conceptoId, setConceptoId] = useState('')
+  const [descontar, setDescontar] = useState(true)
+
+  // Si el nombre coincide con un insumo del taller, se ofrece descontar stock.
+  const insumo =
+    origen === 'real'
+      ? insumos.find((i) => i.nombre.trim().toLowerCase() === material.trim().toLowerCase())
+      : undefined
+
+  // Los insumos del taller también aparecen en el autocompletado.
+  const sugerenciasConInsumos =
+    origen === 'real'
+      ? [
+          ...sugerencias,
+          ...insumos
+            .filter(
+              (i) => !sugerencias.some((s) => s.texto.toLowerCase() === i.nombre.toLowerCase()),
+            )
+            .map((i) => ({ texto: i.nombre, veces: 0, monto: Number(i.costo) })),
+        ]
+      : sugerencias
 
   const guardar = () =>
     iniciar(async () => {
       setError(null)
-      const r = await guardarMaterial(obraId, {
-        origen,
-        concepto_id: conceptoId || null,
-        material,
-        piezas: num(piezas),
-        costo: num(costo),
-        folio_factura: folio.trim() || null,
-        es_taller: false,
-      })
+      const r =
+        insumo && descontar
+          ? await salidaDeTaller(
+              obraId,
+              insumo.producto_id,
+              num(piezas),
+              conceptoId || null,
+              folio.trim() ? `Folio ${folio.trim()}` : null,
+            )
+          : await guardarMaterial(obraId, {
+              origen,
+              concepto_id: conceptoId || null,
+              material,
+              piezas: num(piezas),
+              costo: num(costo),
+              folio_factura: folio.trim() || null,
+              es_taller: false,
+            })
       if (!r.ok) return setError(r.error)
       onCerrar()
       router.refresh()
@@ -396,12 +427,29 @@ function FormularioMaterial({
                 setMaterial(s.texto)
                 if (s.monto) setCosto(String(s.monto))
               }}
-              sugerencias={sugerencias}
+              sugerencias={sugerenciasConInsumos}
               placeholder="Cubeta Rivinol 7 blanco"
               autoFocus
             />
           }
         />
+        {insumo && (
+          <label className="flex items-start gap-2.5 rounded-lg bg-sky-50 px-3 py-2.5 text-sm text-sky-900 ring-1 ring-sky-200 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={descontar}
+              onChange={(e) => setDescontar(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-haaco-700"
+            />
+            <span>
+              Este material está en el inventario del taller (
+              {Number(insumo.existencia)} {insumo.unidad} disponibles).{' '}
+              {descontar
+                ? `Se descontarán ${num(piezas) || 0} del kardex y el renglón queda con folio TALLER a ${pesos(Number(insumo.costo))} c/u.`
+                : 'No se descontará: el renglón se registra como compra aparte.'}
+            </span>
+          </label>
+        )}
         <Campo etiqueta="Piezas" ancho="medio" hijo={<Numero value={piezas} onChange={(e) => setPiezas(e.target.value)} />} />
         <Campo
           etiqueta="Costo unitario"

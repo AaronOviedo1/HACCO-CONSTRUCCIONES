@@ -6,7 +6,9 @@ import { ESTADO_CXP, vencimientosPorSemana } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { AccionesCxp, BotonNuevaCxp } from '@/components/finanzas/cxp'
+import {
+  AccionesCxp, BotonNuevaCxp, BotonPagoMovil, FiltroProveedorCxp,
+} from '@/components/finanzas/cxp'
 import { BarrasSemanas, FilaLista } from '@/components/movil/piezas'
 import type { EstadoCxp } from '@/types/database'
 
@@ -103,6 +105,14 @@ export default async function PaginaCuentasPorPagar({
             </div>
           </Tarjeta>
 
+          <div className="mb-3.5">
+            <FiltroProveedorCxp
+              proveedores={proveedores ?? []}
+              valor={proveedor ?? ''}
+              vista={vista}
+            />
+          </div>
+
           <Tarjeta>
             {filas.map((c) => {
               const estado = ESTADO_CXP[c.estado as EstadoCxp]
@@ -117,6 +127,7 @@ export default async function PaginaCuentasPorPagar({
                       <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
                     </>
                   }
+                  accion={<BotonPagoMovil cuenta={c} />}
                 />
               )
             })}

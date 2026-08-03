@@ -229,6 +229,10 @@ export type CronogramaTarea = {
   estatus: EstatusTarea
   responsable_id: string | null
   orden: number
+  /** Qué tanto pesa la tarea en el avance global de la obra. */
+  peso: number
+  /** Avance de la tarea (0-100). En tareas con subtareas es derivado. */
+  avance_pct: number
   created_at: string
 }
 
@@ -277,6 +281,8 @@ export type InsumoKardex = {
   fecha: string
   obra_id: string | null
   notas: string | null
+  /** Gasto que dio la entrada al inventario, si aplica. */
+  gasto_id: string | null
   registrado_por: string | null
   created_at: string
 }
@@ -859,6 +865,18 @@ export type Database = {
         Returns: ResultadoCierre
       }
       registrar_gasto: { Args: { p_datos: GastoSql }; Returns: string }
+      eliminar_material_obra: { Args: { p_material: string }; Returns: undefined }
+      entrada_inventario_desde_gasto: {
+        Args: {
+          p_gasto: string
+          p_cantidad: number
+          p_producto?: string | null
+          p_nombre?: string | null
+          p_unidad?: string | null
+        }
+        Returns: string
+      }
+      recalcular_avance_obra: { Args: { p_obra: string }; Returns: undefined }
       abonar_cxp: {
         Args: { p_id: string; p_monto: number; p_fecha: string }
         Returns: { pagado: number; saldo: number; liquidada: boolean }

@@ -6,26 +6,32 @@ import { Camera, Loader2, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucid
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
+import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
-import { hoyISO, num } from '@/lib/cotizaciones'
+import { hoyISO, num, type Sugerencia } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
 import { prepararTicket, type LecturaTicket } from '@/lib/ticket'
-import { eliminarGasto, registrarGasto } from '@/app/admin/finanzas-acciones'
+import {
+  agregarProductoAlCatalogo, eliminarGasto, entradaInventario, registrarGasto,
+} from '@/app/admin/finanzas-acciones'
 import type {
   CategoriaGasto, CondicionCompra, MetodoPago, ObraConcepto, Proveedor,
+  TipoProducto, VInsumoExistencia,
 } from '@/types/database'
 
 type ObraSimple = { id: string; nombre: string; ot_numero: string | null }
 
 export function BotonNuevoGasto({
-  obras, proveedores, conceptos, obraFija,
+  obras, proveedores, conceptos, obraFija, insumos = [], sugerencias = [],
 }: {
   obras: ObraSimple[]
   proveedores: Pick<Proveedor, 'id' | 'nombre' | 'dias_credito_default'>[]
   conceptos: ObraConcepto[]
   obraFija?: string
+  insumos?: VInsumoExistencia[]
+  sugerencias?: Sugerencia[]
 }) {
   const [abierto, setAbierto] = useState(false)
   return (
@@ -44,6 +50,8 @@ export function BotonNuevoGasto({
           proveedores={proveedores}
           conceptos={conceptos}
           obraFija={obraFija}
+          insumos={insumos}
+          sugerencias={sugerencias}
           onCerrar={() => setAbierto(false)}
         />
       )}
@@ -52,12 +60,14 @@ export function BotonNuevoGasto({
 }
 
 function FormularioGasto({
-  obras, proveedores, conceptos, obraFija, onCerrar,
+  obras, proveedores, conceptos, obraFija, insumos, sugerencias, onCerrar,
 }: {
   obras: ObraSimple[]
   proveedores: Pick<Proveedor, 'id' | 'nombre' | 'dias_credito_default'>[]
   conceptos: ObraConcepto[]
   obraFija?: string
+  insumos: VInsumoExistencia[]
+  sugerencias: Sugerencia[]
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -87,6 +97,18 @@ function FormularioGasto({
   const [fecha, setFecha] = useState(hoyISO())
   const [crearMaterial, setCrearMaterial] = useState(true)
 
+  // Entrada al inventario del taller (compras para stock, sin obra)
+  const [alInventario, setAlInventario] = useState(false)
+  const [insumoId, setInsumoId] = useState('')
+  const [insumoUnidad, setInsumoUnidad] = useState('pza')
+  const [insumoCantidad, setInsumoCantidad] = useState('')
+
+  // Alta rápida en el catálogo para gastos que se repiten
+  const [catalogoAbierto, setCatalogoAbierto] = useState(false)
+  const [catalogoUnidad, setCatalogoUnidad] = useState('pza')
+  const [catalogoTipo, setCatalogoTipo] = useState<TipoProducto>('otro')
+  const [catalogoListo, setCatalogoListo] = useState(false)
+
   // Lectura del ticket: lo que ya tecleó quien captura manda sobre lo que lea
   // la foto, aunque la foto llegue después.
   const tocado = useRef(new Set<string>())
@@ -97,6 +119,12 @@ function FormularioGasto({
   const proveedor = proveedores.find((p) => p.id === proveedorId)
   const conceptosDeObra = conceptos.filter(() => Boolean(obraId))
   const esMaterialDeObra = categoria === 'material' && Boolean(obraId)
+  // Compras para el stock del taller: material o herramienta sin obra asignada.
+  const puedeInventario =
+    (categoria === 'material' || categoria === 'herramienta') && !obraId && !renglones
+  const enCatalogo = sugerencias.some(
+    (s) => s.producto_id && s.texto.toLowerCase() === descripcion.trim().toLowerCase(),
+  )
 
   const elegir = (f: File | null) => {
     if (!f) return
@@ -261,6 +289,21 @@ function FormularioGasto({
           monto: num(monto),
         })
         if (!r.ok) return setError(r.error)
+
+        if (puedeInventario && alInventario && r.datos) {
+          const cantidad = num(insumoCantidad) || num(piezas) || 1
+          const re = await entradaInventario(
+            r.datos.id,
+            cantidad,
+            insumoId || null,
+            insumoId ? null : descripcion,
+            insumoId ? null : insumoUnidad,
+          )
+          if (!re.ok) {
+            setError(`El gasto quedó guardado, pero la entrada al inventario falló: ${re.error}`)
+            return
+          }
+        }
       }
 
       onCerrar()
@@ -456,12 +499,26 @@ function FormularioGasto({
           <Campo
             etiqueta="Descripción"
             hijo={
-              <Entrada
-                value={descripcion}
-                onChange={(e) => {
+              <EntradaSugerencias
+                valor={descripcion}
+                onCambio={(v) => {
                   mio('descripción')
-                  setDescripcion(e.target.value)
+                  setDescripcion(v)
+                  setCatalogoListo(false)
                 }}
+                onElegir={(s) => {
+                  mio('descripción')
+                  setDescripcion(s.texto)
+                  if (s.monto && !num(monto)) {
+                    mio('importe')
+                    setMonto(String(Math.round(s.monto * (num(piezas) || 1) * 100) / 100))
+                  }
+                  if (s.proveedor_id && !proveedorId) {
+                    mio('proveedor')
+                    setProveedorId(s.proveedor_id)
+                  }
+                }}
+                sugerencias={sugerencias}
                 placeholder="Cubetas Rivinol 7 blanco"
                 autoFocus
               />
@@ -469,13 +526,76 @@ function FormularioGasto({
           />
         )}
         {!renglones && (
-          <div className="-mt-2 sm:col-span-2">
+          <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 sm:col-span-2">
             <button
               type="button"
               onClick={dividir}
               className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
             >
               ¿El ticket trae varios artículos? Divídelo en conceptos
+            </button>
+            {descripcion.trim() && !enCatalogo && !catalogoListo && (
+              <button
+                type="button"
+                onClick={() => setCatalogoAbierto((v) => !v)}
+                className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
+              >
+                Agregar al catálogo
+              </button>
+            )}
+            {catalogoListo && (
+              <span className="text-xs font-medium text-haaco-700">
+                Guardado en el catálogo: la próxima vez sale solo.
+              </span>
+            )}
+          </div>
+        )}
+        {!renglones && catalogoAbierto && !catalogoListo && (
+          <div className="flex flex-wrap items-end gap-2 rounded-lg bg-tinta-50 px-3 py-2.5 sm:col-span-2">
+            <Campo
+              etiqueta="Unidad"
+              hijo={
+                <Entrada
+                  value={catalogoUnidad}
+                  onChange={(e) => setCatalogoUnidad(e.target.value)}
+                  placeholder="pza"
+                />
+              }
+            />
+            <Campo
+              etiqueta="Tipo"
+              hijo={
+                <Seleccion
+                  value={catalogoTipo}
+                  onChange={(e) => setCatalogoTipo(e.target.value as TipoProducto)}
+                >
+                  <option value="otro">Otro</option>
+                  <option value="pintura">Pintura</option>
+                  <option value="herreria">Herrería</option>
+                  <option value="insumo_taller">Insumo de taller</option>
+                </Seleccion>
+              }
+            />
+            <button
+              type="button"
+              onClick={() =>
+                iniciar(async () => {
+                  const r = await agregarProductoAlCatalogo({
+                    nombre: descripcion,
+                    costo: num(piezas) > 0 ? num(monto) / num(piezas) : num(monto),
+                    unidad: catalogoUnidad,
+                    tipo: catalogoTipo,
+                    proveedor_id: proveedorId || null,
+                  })
+                  if (!r.ok) return setError(r.error)
+                  setCatalogoAbierto(false)
+                  setCatalogoListo(true)
+                })
+              }
+              disabled={pendiente}
+              className="rounded-lg bg-haaco-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+            >
+              Guardar en catálogo
             </button>
           </div>
         )}
@@ -666,6 +786,63 @@ function FormularioGasto({
             />
             Registrar también como material REAL de la obra
           </label>
+        )}
+
+        {puedeInventario && (
+          <div className="rounded-lg bg-tinta-50 px-3 py-2.5 sm:col-span-2">
+            <label className="flex items-center gap-2.5 text-sm text-tinta-700">
+              <input
+                type="checkbox"
+                checked={alInventario}
+                onChange={(e) => setAlInventario(e.target.checked)}
+                className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
+              />
+              Dar entrada al inventario del taller
+            </label>
+            {alInventario && (
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+                <Campo
+                  etiqueta="Insumo"
+                  hijo={
+                    <Seleccion value={insumoId} onChange={(e) => setInsumoId(e.target.value)}>
+                      <option value="">
+                        {descripcion.trim()
+                          ? `Nuevo: ${descripcion.trim().slice(0, 40)}`
+                          : 'Insumo nuevo (usa la descripción)'}
+                      </option>
+                      {insumos.map((i) => (
+                        <option key={i.producto_id} value={i.producto_id}>
+                          {i.nombre} · {Number(i.existencia)} {i.unidad}
+                        </option>
+                      ))}
+                    </Seleccion>
+                  }
+                />
+                <Campo
+                  etiqueta="Cantidad"
+                  hijo={
+                    <Numero
+                      value={insumoCantidad}
+                      onChange={(e) => setInsumoCantidad(e.target.value)}
+                      placeholder={piezas || '1'}
+                    />
+                  }
+                />
+                {!insumoId && (
+                  <Campo
+                    etiqueta="Unidad"
+                    hijo={
+                      <Entrada
+                        value={insumoUnidad}
+                        onChange={(e) => setInsumoUnidad(e.target.value)}
+                        placeholder="pza"
+                      />
+                    }
+                  />
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         <MensajeError mensaje={error} />
