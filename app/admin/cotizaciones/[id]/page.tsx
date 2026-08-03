@@ -17,6 +17,7 @@ export default async function PaginaCotizacion({
 
   return (
     <EditorCotizacion
+      key={cotizacion.id}
       cotizacionId={cotizacion.id}
       folio={cotizacion.folio}
       estatus={cotizacion.estatus}

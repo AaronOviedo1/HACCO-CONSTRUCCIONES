@@ -18,6 +18,7 @@ export default async function NuevaCotizacion() {
 
   return (
     <EditorCotizacion
+      key="nueva"
       cotizacionId={null}
       folio={null}
       estatus="borrador"
