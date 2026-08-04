@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useSyncExternalStore, useTransition } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import {
   ArrowUpRight, Check, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2, Trash2, X,
 } from 'lucide-react'
@@ -51,6 +51,31 @@ function useEscritorio() {
   )
 }
 
+const SUGERENCIAS_VACIAS: SugerenciasCotizacion = { partidas: [], materiales: [], procesos: [] }
+
+/**
+ * El autocompletado no bloquea el pintado.
+ *
+ * Las sugerencias salen de barrer miles de renglones ya cotizados: es lo más
+ * lento de abrir una cotización y lo menos urgente. La pantalla sale de
+ * inmediato con las listas vacías y se rellenan solas cuando el servidor
+ * termina, sin quitarle el foco a quien ya está capturando.
+ */
+function useSugerenciasDiferidas(promesa: Promise<SugerenciasCotizacion>) {
+  const [valor, setValor] = useState(SUGERENCIAS_VACIAS)
+
+  useEffect(() => {
+    let vivo = true
+    promesa.then(
+      (s) => { if (vivo) setValor(s) },
+      () => {},
+    )
+    return () => { vivo = false }
+  }, [promesa])
+
+  return valor
+}
+
 type Props = {
   cotizacionId: string | null
   folio: string | null
@@ -60,13 +85,15 @@ type Props = {
   textos: TextoProceso[]
   productos: Producto[]
   obras: ObraLigada[]
-  sugerencias: SugerenciasCotizacion
+  sugerencias: Promise<SugerenciasCotizacion>
 }
 
 export function EditorCotizacion({
-  cotizacionId, folio, estatus, inicial, clientes, textos, productos, obras, sugerencias,
+  cotizacionId, folio, estatus, inicial, clientes, textos, productos, obras,
+  sugerencias: promesaSugerencias,
 }: Props) {
   const router = useRouter()
+  const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
   const [doc, setDoc] = useState<BorradorCotizacion>(inicial)
   const [sucio, setSucio] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)

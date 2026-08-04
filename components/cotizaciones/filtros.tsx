@@ -5,6 +5,7 @@ import { useTransition } from 'react'
 import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
 import { FiltroRango } from '@/components/filtro-fechas'
+import { SelectorMovil } from '@/components/movil/selector-movil'
 
 const ESTATUS = [
   { valor: '', texto: 'Todos los estatus' },
@@ -48,23 +49,34 @@ export function FiltrosCotizaciones({
     <div className="mb-3.5 flex flex-col gap-2.5 lg:mb-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2">
       <BuscadorTabla marcador="Folio, cliente u obra…" />
 
-      {/* Teléfono: el estatus se toca, no se despliega; y se ven todos los
-          botones a la vez, sin tener que correr la fila de lado. */}
-      <div className="flex flex-wrap gap-1.5 lg:hidden">
-        {ESTATUS.map((o) => (
+      {/* Teléfono: estatus, fecha y limpiar caben en un solo renglón. En
+          escritorio `lg:contents` deshace el envoltorio y todo vuelve a la
+          fila de siempre, con los tres desplegables. */}
+      <div className="flex items-center gap-2 lg:contents">
+        <SelectorMovil
+          etiqueta="Estatus"
+          titulo="Filtrar cotizaciones"
+          activa={estatusActual}
+          className="min-w-0 flex-1"
+          onElegir={(v) => fijar('estatus', v)}
+          opciones={ESTATUS.map((o) => ({
+            clave: o.valor,
+            titulo: o.valor === '' ? 'Todas' : o.texto,
+          }))}
+        />
+
+        <FiltroRango titulo="Fecha de la cotización" />
+
+        {hayFiltros && (
           <button
-            key={o.valor}
             type="button"
-            onClick={() => fijar('estatus', o.valor)}
-            className={`min-h-9 whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition ${
-              estatusActual === o.valor
-                ? 'border-haaco-700 bg-haaco-700 text-white'
-                : 'border-tinta-200 bg-white text-tinta-600'
-            }`}
+            onClick={() => iniciar(() => router.replace('?', { scroll: false }))}
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-2xl px-3 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100 lg:min-h-0 lg:rounded-lg lg:py-2"
           >
-            {o.valor === '' ? 'Todas' : o.texto}
+            <X size={14} />
+            <span className="hidden sm:inline">Limpiar</span>
           </button>
-        ))}
+        )}
       </div>
 
       <select
@@ -104,18 +116,6 @@ export function FiltrosCotizaciones({
         ))}
       </select>
 
-      <FiltroRango titulo="Fecha de la cotización" />
-
-      {hayFiltros && (
-        <button
-          type="button"
-          onClick={() => iniciar(() => router.replace('?', { scroll: false }))}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100"
-        >
-          <X size={14} />
-          Limpiar
-        </button>
-      )}
     </div>
   )
 }

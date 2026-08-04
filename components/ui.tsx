@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { tamanoMonto } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Encabezado de pantalla
@@ -150,11 +151,9 @@ export function Indicador({
     rojo: 'text-red-600',
   } as const
 
-  // En el teléfono estos números van de tres en tres por renglón: un millón con
-  // sus comas no cabe a 22 px y se cortaba. Baja de tamaño según lo que mide,
-  // en vez de recortarse. En pantalla grande sobra espacio y todos van igual.
-  const tamano =
-    valor.length > 9 ? 'text-[15.5px]' : valor.length > 7 ? 'text-[19px]' : 'text-[22px]'
+  // En pantalla grande sobra espacio y todos van igual; en el teléfono el
+  // tamaño lo dicta lo que mide el número.
+  const tamano = tamanoMonto(valor)
 
   const contenido = (
     <>

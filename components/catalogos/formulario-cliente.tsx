@@ -59,10 +59,12 @@ export function FilaClienteMovil({
   cliente,
   cotizaciones,
   contratado,
+  obras,
 }: {
   cliente: Cliente
   cotizaciones: number
   contratado: number
+  obras: number
 }) {
   const [abierto, setAbierto] = useState(false)
   const contacto = [cliente.telefono, cliente.correo, cliente.domicilio]
@@ -92,8 +94,16 @@ export function FilaClienteMovil({
           <span className="text-sm font-semibold tabular-nums text-tinta-900">
             {contratado > 0 ? pesos(contratado) : '—'}
           </span>
+          {/* Texto plano: el renglón entero ya es el botón que abre la ficha,
+              así que aquí no puede colgarse un enlace a las obras. */}
           <span className="text-[10.5px] text-tinta-400">
             {cotizaciones} {cotizaciones === 1 ? 'cotización' : 'cotizaciones'}
+            {obras > 0 && (
+              <span className="font-medium text-haaco-700">
+                {' · '}
+                {obras} {obras === 1 ? 'obra' : 'obras'}
+              </span>
+            )}
           </span>
         </span>
       </button>

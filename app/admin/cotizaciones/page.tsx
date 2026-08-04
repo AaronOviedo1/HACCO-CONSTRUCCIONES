@@ -102,6 +102,11 @@ export default async function PaginaCotizaciones({
       {/* Teléfono: renglón tocable con el folio como ancla visual ----------- */}
       {filas.length > 0 && (
         <div className="lg:hidden">
+          {/* Sin `prefetch` forzado: con el loading.tsx del segmento, el
+              prefetch de siempre ya trae la cáscara y el toque se siente
+              inmediato. Forzarlo cargaría la cotización entera de cada
+              renglón visible —veinte cotizaciones, ciento ochenta consultas—
+              nada más por hacer scroll. */}
           <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
             {filas.map((c) => (
               <Link

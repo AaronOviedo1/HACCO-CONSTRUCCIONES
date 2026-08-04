@@ -8,6 +8,7 @@ import {
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
+import { SelectorMovil } from '@/components/movil/selector-movil'
 import { TarjetaObraMovil } from '@/components/obras/tarjeta-movil'
 import type { EstatusObra } from '@/types/database'
 
@@ -25,10 +26,10 @@ const FILTROS: { clave: string; titulo: string }[] = [
 export default async function PaginaObras({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estatus?: string }>
+  searchParams: Promise<{ q?: string; estatus?: string; cliente?: string }>
 }) {
   await requerirRol(['admin', 'administracion'])
-  const { q, estatus = 'activas' } = await searchParams
+  const { q, estatus = 'activas', cliente } = await searchParams
   const supabase = await crearClienteServidor()
 
   const { data, error } = await supabase
@@ -38,9 +39,9 @@ export default async function PaginaObras({
 
   const todas = data ?? []
 
-  const filas = todas.filter((o) => {
-    if (estatus === 'activas' && o.estatus === 'cerrada') return false
-    if (estatus && estatus !== 'activas' && o.estatus !== estatus) return false
+  /** Todo menos el estatus: es lo que se cuenta para las opciones del filtro. */
+  const candidatas = todas.filter((o) => {
+    if (cliente && o.cliente_id !== cliente) return false
     if (q?.trim()) {
       const texto = `${o.ot_numero ?? ''} ${o.nombre} ${o.cliente} ${o.cotizacion_folio ?? ''}`.toLowerCase()
       if (!texto.includes(q.trim().toLowerCase())) return false
@@ -48,6 +49,24 @@ export default async function PaginaObras({
     return true
   })
 
+  const cumple = (o: (typeof todas)[number], clave: string) =>
+    clave === 'activas' ? o.estatus !== 'cerrada' : !clave || o.estatus === clave
+
+  const filas = candidatas.filter((o) => cumple(o, estatus))
+  const conteos = Object.fromEntries(
+    FILTROS.map((f) => [f.clave, candidatas.filter((o) => cumple(o, f.clave)).length]),
+  )
+
+  /** El estatus cambia; la búsqueda y el cliente se conservan. */
+  const hrefFiltro = (clave: string) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (cliente) params.set('cliente', cliente)
+    params.set('estatus', clave)
+    return `/admin/obras?${params}`
+  }
+
+  const nombreCliente = cliente ? candidatas[0]?.cliente : undefined
   const activas = todas.filter((o) => o.estatus !== 'cerrada')
   const utilidadActiva = activas.reduce((s, o) => s + Number(o.utilidad), 0)
   const cotizadoActivo = activas.reduce((s, o) => s + Number(o.cotizado), 0)
@@ -59,7 +78,10 @@ export default async function PaginaObras({
         descripcion="Cada orden de trabajo con su concentrado: lo cotizado contra lo que realmente se está gastando."
       />
 
-      <div className="mb-3.5 grid grid-cols-3 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
+      {/* El conteo de activas son dos dígitos y los otros dos son dinero: a
+          tercios iguales los montos caían al tamaño chico. La primera columna
+          va angosta para que el dinero se lea grande. */}
+      <div className="mb-3.5 grid grid-cols-[0.72fr_1fr_1fr] gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
         <Indicador etiqueta="Activas" valor={String(activas.length)} />
         <Indicador etiqueta="Cotizado" valor={pesosCortos(cotizadoActivo)} />
         <Indicador
@@ -77,20 +99,42 @@ export default async function PaginaObras({
         />
       </div>
 
-      <div className="mb-3.5 flex flex-col gap-3 lg:mb-4 lg:flex-row lg:flex-wrap lg:items-center">
-        <BuscadorTabla marcador="OT, obra, cliente o folio de cotización…" />
-        <ChipsFiltro
-          opciones={FILTROS.map((f) => {
-            const params = new URLSearchParams()
-            if (q) params.set('q', q)
-            params.set('estatus', f.clave)
-            return {
-              titulo: f.titulo,
-              href: `/admin/obras?${params}`,
-              activo: estatus === f.clave,
-            }
-          })}
+      {nombreCliente && (
+        <p className="mb-3 flex items-center gap-2 text-[13.5px] text-tinta-500">
+          Obras de <strong className="font-semibold text-tinta-800">{nombreCliente}</strong>
+          <Link href="/admin/obras" className="font-medium text-haaco-700">
+            Ver todas
+          </Link>
+        </p>
+      )}
+
+      <div className="mb-3.5 flex items-center gap-2 lg:mb-4 lg:flex-wrap lg:gap-3">
+        <BuscadorTabla
+          marcador="OT, obra, cliente o folio de cotización…"
+          className="min-w-0 flex-1 lg:flex-none"
         />
+        {/* Teléfono: un solo chip con el filtro puesto; el resto en una hoja. */}
+        <SelectorMovil
+          etiqueta="Filtro"
+          titulo="Filtrar obras"
+          activa={estatus}
+          className="shrink-0"
+          opciones={FILTROS.map((f) => ({
+            clave: f.clave,
+            titulo: f.titulo,
+            href: hrefFiltro(f.clave),
+            badge: conteos[f.clave],
+          }))}
+        />
+        <div className="hidden lg:block">
+          <ChipsFiltro
+            opciones={FILTROS.map((f) => ({
+              titulo: f.titulo,
+              href: hrefFiltro(f.clave),
+              activo: estatus === f.clave,
+            }))}
+          />
+        </div>
       </div>
 
       {/* Teléfono: una tarjeta por orden de trabajo ------------------------- */}

@@ -10,7 +10,7 @@ import {
 import { Etiqueta, Td } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
-import { fecha, montoEnLetra, pesos } from '@/lib/format'
+import { fecha, montoEnLetra, pesos, tamanoMonto } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { METODO_PAGO, TIPO_PAGO_COBRANZA } from '@/lib/finanzas'
 import { eliminarCobro, registrarCobro } from '@/app/admin/finanzas-acciones'
@@ -208,7 +208,10 @@ function DialogoCobranza({
       descripcion={cobranza.cliente}
     >
       <CuerpoDialogo>
-        <dl className="grid grid-cols-4 gap-3 rounded-xl bg-tinta-50 px-4 py-3 text-sm sm:col-span-2">
+        {/* Dos por renglón en el teléfono: a cuatro columnas cada monto se
+            quedaba con 70 px y $27,170.00 mide más que eso. El orden no se
+            toca —se lee de corrido para verificar que el saldo cuadra—. */}
+        <dl className="grid grid-cols-2 gap-3 rounded-xl bg-tinta-50 px-4 py-3 text-sm sm:col-span-2 sm:grid-cols-4">
           <Dato etiqueta="Cotizado" valor={pesos(cobranza.cotizado)} />
           <Dato etiqueta="Anticipo esperado" valor={pesos(cobranza.anticipo_esperado)} />
           <Dato etiqueta="Cobrado" valor={pesos(cobranza.cobrado)} />
@@ -393,8 +396,12 @@ function DialogoCobranza({
 function Dato({ etiqueta, valor, destacado }: { etiqueta: string; valor: string; destacado?: boolean }) {
   return (
     <div>
-      <dt className="text-xs text-tinta-500">{etiqueta}</dt>
-      <dd className={`tabular-nums ${destacado ? 'font-semibold text-haaco-700' : 'text-tinta-900'}`}>
+      <dt className="text-xs leading-tight text-tinta-500">{etiqueta}</dt>
+      <dd
+        className={`${tamanoMonto(valor, 'dato')} tabular-nums ${
+          destacado ? 'font-semibold text-haaco-700' : 'text-tinta-900'
+        }`}
+      >
         {valor}
       </dd>
     </div>

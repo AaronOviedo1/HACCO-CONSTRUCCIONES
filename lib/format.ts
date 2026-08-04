@@ -72,6 +72,20 @@ export function porcentaje(valor: number | null | undefined, decimales = 1): str
   return `${Number(valor ?? 0).toFixed(decimales)}%`
 }
 
+/**
+ * Clase de tamaño según lo que mide el monto ya formateado.
+ *
+ * En el teléfono los números van de dos o tres en tres por renglón y un millón
+ * con sus comas no cabe al tamaño base: se cortaba. Aquí baja de tamaño en vez
+ * de recortarse. `kpi` es la tarjeta de indicador; `dato` el renglón de un
+ * concentrado, donde el tamaño de partida ya es chico.
+ */
+export function tamanoMonto(valor: string, escala: 'kpi' | 'dato' = 'kpi'): string {
+  const n = valor.length
+  if (escala === 'dato') return n > 12 ? 'text-[12px]' : n > 10 ? 'text-[13px]' : 'text-sm'
+  return n > 9 ? 'text-[15.5px]' : n > 7 ? 'text-[19px]' : 'text-[22px]'
+}
+
 /** 125.5 m² */
 export function metros(valor: number | null | undefined): string {
   return `${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(Number(valor ?? 0))} m²`

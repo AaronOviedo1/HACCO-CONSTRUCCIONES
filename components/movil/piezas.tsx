@@ -215,6 +215,8 @@ export function ChipsFiltro({
         <Link
           key={o.titulo}
           href={o.href}
+          // Sólo cambia el filtro: la lista se queda donde el pulgar la dejó.
+          scroll={false}
           className={`flex min-h-9 items-center whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:rounded-lg ${
             o.activo
               ? 'border-haaco-700 bg-haaco-700 text-white'

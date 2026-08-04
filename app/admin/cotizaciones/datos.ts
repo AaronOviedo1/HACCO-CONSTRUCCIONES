@@ -8,27 +8,39 @@ import {
   type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 
-/** Catálogos que necesita el editor: clientes, biblioteca de textos y pinturas. */
+/**
+ * Lo que el editor necesita para poder pintarse: clientes, biblioteca de
+ * textos y pinturas. Tres consultas cortas.
+ */
 export async function cargarCatalogos() {
   const supabase = await crearClienteServidor()
-  const [
-    { data: clientes },
-    { data: textos },
-    { data: productos },
-    { data: partidasPrevias },
-    { data: materialesPrevios },
-    { data: procesosPrevios },
-  ] = await Promise.all([
+  const [{ data: clientes }, { data: textos }, { data: productos }] = await Promise.all([
     supabase.from('clientes').select('*').eq('activo', true).order('nombre'),
     supabase.from('textos_proceso').select('*').eq('activo', true).order('orden'),
     supabase.from('productos').select('*').eq('activo', true).neq('tipo', 'insumo_taller').order('nombre'),
-    // Lo ya cotizado (el Excel migrado incluido) alimenta las sugerencias.
-    supabase.from('cotizacion_items').select('descripcion, precio_unitario').is('desglose_id', null).limit(2000),
-    supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
-    supabase.from('cotizacion_procesos').select('contenido_override').is('texto_proceso_id', null).limit(2000),
   ])
 
-  const sugerencias: SugerenciasCotizacion = {
+  return { clientes: clientes ?? [], textos: textos ?? [], productos: productos ?? [] }
+}
+
+/**
+ * Autocompletado del editor, sacado de lo ya cotizado —el Excel migrado
+ * incluido—.
+ *
+ * Son tres barridos de miles de renglones: es lo que hacía que abrir una
+ * cotización se sintiera lento. Va aparte a propósito, para que la pantalla
+ * salga primero y esto llegue después.
+ */
+export async function cargarSugerencias(): Promise<SugerenciasCotizacion> {
+  const supabase = await crearClienteServidor()
+  const [{ data: partidasPrevias }, { data: materialesPrevios }, { data: procesosPrevios }] =
+    await Promise.all([
+      supabase.from('cotizacion_items').select('descripcion, precio_unitario').is('desglose_id', null).limit(2000),
+      supabase.from('cotizacion_materiales').select('material, costo').limit(2000),
+      supabase.from('cotizacion_procesos').select('contenido_override').is('texto_proceso_id', null).limit(2000),
+    ])
+
+  return {
     partidas: masComunes(
       (partidasPrevias ?? []).map((p) => ({ texto: p.descripcion, monto: p.precio_unitario })),
       30,
@@ -43,8 +55,6 @@ export async function cargarCatalogos() {
       8,
     ).map((s) => s.texto),
   }
-
-  return { clientes: clientes ?? [], textos: textos ?? [], productos: productos ?? [], sugerencias }
 }
 
 /** Reconstruye el borrador del editor a partir de lo guardado. */

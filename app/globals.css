@@ -89,9 +89,13 @@
 :root {
   --fondo: var(--color-tinta-50);
   --texto: var(--color-tinta-900);
-  /* Alto real de la barra de pestañas: lo usan las pantallas para no quedar
-     tapadas por ella. */
-  --alto-tabs: calc(4.25rem + env(safe-area-inset-bottom));
+  /* Alto de la pastilla flotante de pestañas. */
+  --alto-pastilla: 3.5rem;
+  /* Huella vertical que reserva la barra: la pastilla, su respiro y el borde
+     seguro del teléfono. Las pantallas y las barras de acción fijas se apoyan
+     en esto para no quedar tapadas. Se mide siempre a tamaño completo, aunque
+     la pastilla se encoja al hacer scroll, para que el contenido no salte. */
+  --alto-tabs: calc(var(--alto-pastilla) + 0.5rem + max(0.5rem, env(safe-area-inset-bottom)));
 }
 
 html {

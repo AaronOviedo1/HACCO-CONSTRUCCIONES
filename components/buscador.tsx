@@ -11,9 +11,12 @@ import { Search, X } from 'lucide-react'
 export function BuscadorTabla({
   marcador = 'Buscar…',
   parametro = 'q',
+  className = '',
 }: {
   marcador?: string
   parametro?: string
+  /** Para compartir renglón con un filtro: `min-w-0 flex-1 lg:flex-none`. */
+  className?: string
 }) {
   const router = useRouter()
   const params = useSearchParams()
@@ -32,7 +35,7 @@ export function BuscadorTabla({
   }, [valor, params, parametro, router])
 
   return (
-    <div className="relative w-full lg:max-w-sm">
+    <div className={`relative w-full lg:max-w-sm ${className}`}>
       <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-400" />
       <input
         type="search"

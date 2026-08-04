@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { LayoutGrid } from 'lucide-react'
 import { requerirRol } from '@/lib/auth'
+import { SelectorMovil } from '@/components/movil/selector-movil'
 import { cargarObra } from '../datos'
 import { EncabezadoObra } from '@/components/obras/encabezado'
 import { PanelResumen } from '@/components/obras/resumen'
@@ -55,10 +57,25 @@ export default async function PaginaObra({
     <>
       <EncabezadoObra concentrado={datos.concentrado} obra={datos.obra} cobranza={datos.cobranza} />
 
-      {/* Las ocho pestañas caben en dos renglones; en un carril que se corre
-          de lado, las últimas no las encuentra nadie. */}
-      <nav className="mb-4 lg:mb-5">
-        <div className="flex flex-wrap gap-1.5 lg:flex-nowrap lg:border-b lg:border-tinta-200 lg:pb-px">
+      {/* Teléfono: las ocho pestañas se comían dos renglones antes de que
+          empezara el panel. En la hoja se ven de un golpe, y con ellas los
+          conteos de pendientes que en la fila de chips había que ir cazando. */}
+      <nav className="mb-4 lg:mb-5" aria-label="Secciones de la obra">
+        <SelectorMovil
+          etiqueta="Sección"
+          titulo="Ir a"
+          activa={activa}
+          icono={<LayoutGrid size={16} />}
+          opciones={PESTANAS.map((p) => ({
+            clave: p.clave,
+            titulo: p.titulo,
+            href: `/admin/obras/${id}?t=${p.clave}`,
+            badge: pendientes[p.clave] || undefined,
+            tonoBadge: p.clave === 'cierre' ? 'ambar' : 'neutro',
+          }))}
+        />
+
+        <div className="hidden lg:flex lg:flex-nowrap lg:gap-1.5 lg:border-b lg:border-tinta-200 lg:pb-px">
           {PESTANAS.map((p) => {
             const es = activa === p.clave
             const n = pendientes[p.clave]
@@ -66,6 +83,7 @@ export default async function PaginaObra({
               <Link
                 key={p.clave}
                 href={`/admin/obras/${id}?t=${p.clave}`}
+                scroll={false}
                 className={`relative flex min-h-9 shrink-0 items-center rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:min-h-0 lg:rounded-none lg:rounded-t-lg lg:border-0 lg:border-b-2 lg:px-3.5 lg:py-2.5 lg:text-sm ${
                   es
                     ? 'border-haaco-700 bg-haaco-700 text-white lg:border-haaco-600 lg:bg-transparent lg:text-haaco-800'
