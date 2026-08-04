@@ -43,3 +43,7 @@ next-env.d.ts
 
 # Excel del cliente arrastrados para importación (no van al repo)
 /*.xlsx
+
+# Notas de actualización que se arman en local para enseñárselas al cliente:
+# capturas, tipografías y el HTML ya construido. Pesan y no son código.
+/docs/
