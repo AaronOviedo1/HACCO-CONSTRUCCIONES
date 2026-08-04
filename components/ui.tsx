@@ -260,6 +260,63 @@ export function Td({
 }
 
 // ---------------------------------------------------------------------------
+// Separadores de mes
+// ---------------------------------------------------------------------------
+const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1)
+
+/** Renglón que abre el bloque de un mes dentro de una tabla. */
+export function FilaMes({
+  etiqueta,
+  detalle,
+  columnas,
+}: {
+  /** "agosto de 2026" — se capitaliza sola. */
+  etiqueta: string
+  /** Conteo y subtotal del mes, a la derecha. */
+  detalle?: ReactNode
+  /** Cuántas columnas tiene la tabla, para estirar el renglón completo. */
+  columnas: number
+}) {
+  return (
+    <tr>
+      <td colSpan={columnas} className="border-b border-tinta-100 bg-tinta-50/80 px-4 py-2">
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="text-xs font-semibold text-tinta-600">{capitalizar(etiqueta)}</span>
+          {detalle && <span className="text-[11px] tabular-nums text-tinta-400">{detalle}</span>}
+        </span>
+      </td>
+    </tr>
+  )
+}
+
+/**
+ * El mismo separador para las listas del teléfono. Con `enTarjeta` se pinta
+ * como banda dentro de la tarjeta-lista; sin ella es un título suelto entre
+ * tarjetas apiladas.
+ */
+export function TituloMes({
+  etiqueta,
+  detalle,
+  enTarjeta = false,
+}: {
+  etiqueta: string
+  detalle?: ReactNode
+  enTarjeta?: boolean
+}) {
+  return enTarjeta ? (
+    <div className="flex items-baseline justify-between gap-3 border-b-[0.5px] border-tinta-100 bg-tinta-50/80 px-4 py-2">
+      <span className="text-xs font-semibold text-tinta-600">{capitalizar(etiqueta)}</span>
+      {detalle && <span className="text-[11px] tabular-nums text-tinta-400">{detalle}</span>}
+    </div>
+  ) : (
+    <div className="mt-1 flex items-baseline justify-between gap-3 px-1 first:mt-0">
+      <span className="text-[13px] font-semibold text-tinta-600">{capitalizar(etiqueta)}</span>
+      {detalle && <span className="text-[11.5px] tabular-nums text-tinta-400">{detalle}</span>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Estados vacíos y módulos por construir
 // ---------------------------------------------------------------------------
 export function EstadoVacio({

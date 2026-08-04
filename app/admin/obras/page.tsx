@@ -1,10 +1,12 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
+import { agruparPorMes } from '@/lib/finanzas'
 import { ESTATUS_OBRA, tonoUtilidad } from '@/lib/obras'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
@@ -65,6 +67,13 @@ export default async function PaginaObras({
     params.set('estatus', clave)
     return `/admin/obras?${params}`
   }
+
+  // Bloques por mes de apertura de la OT: la lista ya viene en ese orden.
+  const meses = agruparPorMes(filas, (o) => o.fecha_apertura)
+  const etiquetaApertura = (grupo: (typeof meses)[number]) =>
+    grupo.mes ? `Abiertas en ${grupo.etiqueta}` : grupo.etiqueta
+  const detalleMes = (grupo: (typeof meses)[number]) =>
+    `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, o) => s + Number(o.cotizado), 0))}`
 
   const nombreCliente = cliente ? candidatas[0]?.cliente : undefined
   const activas = todas.filter((o) => o.estatus !== 'cerrada')
@@ -139,25 +148,30 @@ export default async function PaginaObras({
 
       {/* Teléfono: una tarjeta por orden de trabajo ------------------------- */}
       <div className="flex flex-col gap-3 lg:hidden">
-        {filas.map((o) => {
-          const gastado =
-            Number(o.mano_obra) + Number(o.material_real) +
-            Number(o.viaticos) + Number(o.gastos_adicionales)
+        {meses.map((grupo) => (
+          <Fragment key={grupo.mes}>
+            <TituloMes etiqueta={etiquetaApertura(grupo)} detalle={detalleMes(grupo)} />
+            {grupo.filas.map((o) => {
+              const gastado =
+                Number(o.mano_obra) + Number(o.material_real) +
+                Number(o.viaticos) + Number(o.gastos_adicionales)
 
-          return (
-            <TarjetaObraMovil
-              key={o.obra_id}
-              href={`/admin/obras/${o.obra_id}`}
-              nombre={o.nombre}
-              ot={o.ot_numero}
-              cliente={o.cliente}
-              domicilio={o.domicilio}
-              estatus={o.estatus as EstatusObra}
-              avance={Number(o.avance_pct)}
-              dinero={{ cotizado: Number(o.cotizado), gastado, utilidad: Number(o.utilidad) }}
-            />
-          )
-        })}
+              return (
+                <TarjetaObraMovil
+                  key={o.obra_id}
+                  href={`/admin/obras/${o.obra_id}`}
+                  nombre={o.nombre}
+                  ot={o.ot_numero}
+                  cliente={o.cliente}
+                  domicilio={o.domicilio}
+                  estatus={o.estatus as EstatusObra}
+                  avance={Number(o.avance_pct)}
+                  dinero={{ cotizado: Number(o.cotizado), gastado, utilidad: Number(o.utilidad) }}
+                />
+              )
+            })}
+          </Fragment>
+        ))}
         {filas.length > 0 && (
           <p className="py-1 text-center text-[11.5px] text-tinta-400">
             {filas.length} de {todas.length} órdenes de trabajo
@@ -206,70 +220,75 @@ export default async function PaginaObras({
               </tr>
             </thead>
             <tbody>
-              {filas.map((o) => {
-                const gastado =
-                  Number(o.mano_obra) + Number(o.material_real) +
-                  Number(o.viaticos) + Number(o.gastos_adicionales)
-                const pctUtilidad =
-                  Number(o.cotizado) > 0 ? (Number(o.utilidad) / Number(o.cotizado)) * 100 : 0
+              {meses.map((grupo) => (
+                <Fragment key={grupo.mes}>
+                  <FilaMes columnas={9} etiqueta={etiquetaApertura(grupo)} detalle={detalleMes(grupo)} />
+                  {grupo.filas.map((o) => {
+                    const gastado =
+                      Number(o.mano_obra) + Number(o.material_real) +
+                      Number(o.viaticos) + Number(o.gastos_adicionales)
+                    const pctUtilidad =
+                      Number(o.cotizado) > 0 ? (Number(o.utilidad) / Number(o.cotizado)) * 100 : 0
 
-                return (
-                  <tr key={o.obra_id} className="relative cursor-pointer hover:bg-tinta-50/60">
-                    <Td className="font-medium">
-                      {/* El enlace se estira sobre la fila: se puede dar clic en
-                          cualquier celda y sigue siendo un enlace de verdad. */}
-                      <Link
-                        href={`/admin/obras/${o.obra_id}`}
-                        className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
-                      >
-                        {o.ot_numero}
-                      </Link>
-                      <span className="mt-0.5 block font-mono text-[10px] text-tinta-400">
-                        {o.cotizacion_folio}
-                      </span>
-                    </Td>
-                    <Td>{o.nombre}</Td>
-                    <Td className="text-tinta-500">{o.cliente}</Td>
-                    <Td>
-                      <Etiqueta tono={ESTATUS_OBRA[o.estatus as EstatusObra].tono}>
-                        {ESTATUS_OBRA[o.estatus as EstatusObra].texto}
-                      </Etiqueta>
-                    </Td>
-                    <Td numerico>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-tinta-100 sm:block">
+                    return (
+                      <tr key={o.obra_id} className="relative cursor-pointer hover:bg-tinta-50/60">
+                        <Td className="font-medium">
+                          {/* El enlace se estira sobre la fila: se puede dar clic en
+                              cualquier celda y sigue siendo un enlace de verdad. */}
+                          <Link
+                            href={`/admin/obras/${o.obra_id}`}
+                            className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                          >
+                            {o.ot_numero}
+                          </Link>
+                          <span className="mt-0.5 block font-mono text-[10px] text-tinta-400">
+                            {o.cotizacion_folio}
+                          </span>
+                        </Td>
+                        <Td>{o.nombre}</Td>
+                        <Td className="text-tinta-500">{o.cliente}</Td>
+                        <Td>
+                          <Etiqueta tono={ESTATUS_OBRA[o.estatus as EstatusObra].tono}>
+                            {ESTATUS_OBRA[o.estatus as EstatusObra].texto}
+                          </Etiqueta>
+                        </Td>
+                        <Td numerico>
+                          <span className="inline-flex items-center gap-2">
+                            <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-tinta-100 sm:block">
+                              <span
+                                className="block h-full rounded-full bg-haaco-500"
+                                style={{ width: `${Math.min(100, Number(o.avance_pct))}%` }}
+                              />
+                            </span>
+                            {Number(o.avance_pct)}%
+                          </span>
+                        </Td>
+                        <Td numerico>{pesos(o.cotizado)}</Td>
+                        <Td numerico className="text-tinta-500">{pesos(gastado)}</Td>
+                        <Td numerico>
                           <span
-                            className="block h-full rounded-full bg-haaco-500"
-                            style={{ width: `${Math.min(100, Number(o.avance_pct))}%` }}
-                          />
-                        </span>
-                        {Number(o.avance_pct)}%
-                      </span>
-                    </Td>
-                    <Td numerico>{pesos(o.cotizado)}</Td>
-                    <Td numerico className="text-tinta-500">{pesos(gastado)}</Td>
-                    <Td numerico>
-                      <span
-                        className={
-                          pctUtilidad < 0
-                            ? 'font-semibold text-red-600'
-                            : pctUtilidad < 15
-                              ? 'font-medium text-amber-600'
-                              : 'font-medium text-haaco-700'
-                        }
-                      >
-                        {pesos(o.utilidad)}
-                        <span className="ml-1 text-xs font-normal text-tinta-400">
-                          {porcentaje(pctUtilidad, 0)}
-                        </span>
-                      </span>
-                    </Td>
-                    <Td className="whitespace-nowrap text-tinta-500">
-                      {fecha(o.fecha_ultima_actualizacion)}
-                    </Td>
-                  </tr>
-                )
-              })}
+                            className={
+                              pctUtilidad < 0
+                                ? 'font-semibold text-red-600'
+                                : pctUtilidad < 15
+                                  ? 'font-medium text-amber-600'
+                                  : 'font-medium text-haaco-700'
+                            }
+                          >
+                            {pesos(o.utilidad)}
+                            <span className="ml-1 text-xs font-normal text-tinta-400">
+                              {porcentaje(pctUtilidad, 0)}
+                            </span>
+                          </span>
+                        </Td>
+                        <Td className="whitespace-nowrap text-tinta-500">
+                          {fecha(o.fecha_ultima_actualizacion)}
+                        </Td>
+                      </tr>
+                    )
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </Tabla>
         )}

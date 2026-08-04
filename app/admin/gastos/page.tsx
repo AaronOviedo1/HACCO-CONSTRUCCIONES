@@ -1,10 +1,11 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
-import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, rangoDeUrl } from '@/lib/finanzas'
+import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
 } from '@/components/ui'
 import { BotonEliminarGasto, BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
@@ -108,6 +109,11 @@ export default async function PaginaGastos({
   const enEfectivo = filas.filter((g) => g.metodo === 'efectivo').reduce((s, g) => s + Number(g.monto), 0)
   const aCredito = filas.filter((g) => g.condicion === 'credito').reduce((s, g) => s + Number(g.monto), 0)
 
+  // Cada mes como bloque, con su subtotal: la lista ya viene por fecha.
+  const meses = agruparPorMes(filas, (g) => g.fecha)
+  const detalleMes = (grupo: (typeof meses)[number]) =>
+    `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, g) => s + Number(g.monto), 0))}`
+
   // Concentrado por categoría, que es como lo pide el contador.
   const porCategoria = new Map<CategoriaGasto, number>()
   for (const g of filas) {
@@ -152,25 +158,30 @@ export default async function PaginaGastos({
       {/* Teléfono: el ticket del día, en renglones ------------------------- */}
       {filas.length > 0 && (
         <Tarjeta className="lg:hidden">
-          {filas.map((g) => (
-            <FilaLista
-              key={g.id}
-              href={g.obra_id ? `/admin/obras/${g.obra_id}` : undefined}
-              principal={g.descripcion}
-              secundario={`${fecha(g.fecha)} · ${CATEGORIA_GASTO[g.categoria]}${
-                g.proveedor ? ` · ${g.proveedor}` : ''
-              }`}
-              derecha={
-                <>
-                  <span className="text-sm font-semibold tabular-nums">{pesos(g.monto)}</span>
-                  {g.condicion === 'credito' ? (
-                    <Etiqueta tono="ambar">{CONDICION.credito}</Etiqueta>
-                  ) : (
-                    <span className="text-[10.5px] text-tinta-400">{METODO_PAGO[g.metodo]}</span>
-                  )}
-                </>
-              }
-            />
+          {meses.map((grupo) => (
+            <Fragment key={grupo.mes}>
+              <TituloMes enTarjeta etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+              {grupo.filas.map((g) => (
+                <FilaLista
+                  key={g.id}
+                  href={g.obra_id ? `/admin/obras/${g.obra_id}` : undefined}
+                  principal={g.descripcion}
+                  secundario={`${fecha(g.fecha)} · ${CATEGORIA_GASTO[g.categoria]}${
+                    g.proveedor ? ` · ${g.proveedor}` : ''
+                  }`}
+                  derecha={
+                    <>
+                      <span className="text-sm font-semibold tabular-nums">{pesos(g.monto)}</span>
+                      {g.condicion === 'credito' ? (
+                        <Etiqueta tono="ambar">{CONDICION.credito}</Etiqueta>
+                      ) : (
+                        <span className="text-[10.5px] text-tinta-400">{METODO_PAGO[g.metodo]}</span>
+                      )}
+                    </>
+                  }
+                />
+              ))}
+            </Fragment>
           ))}
         </Tarjeta>
       )}
@@ -201,40 +212,45 @@ export default async function PaginaGastos({
                   </tr>
                 </thead>
                 <tbody>
-                  {filas.map((g) => (
-                    <tr key={g.id} className="hover:bg-tinta-50/60">
-                      <Td className="whitespace-nowrap text-tinta-500">{fecha(g.fecha)}</Td>
-                      <Td>
-                        {g.descripcion}
-                        {Number(g.piezas ?? 1) > 1 && (
-                          <span className="ml-1.5 text-xs text-tinta-400">×{Number(g.piezas)}</span>
-                        )}
-                      </Td>
-                      <Td className="text-tinta-500">{CATEGORIA_GASTO[g.categoria]}</Td>
-                      <Td className="text-tinta-500">
-                        {g.obra_id ? (
-                          <Link href={`/admin/obras/${g.obra_id}`} className="text-haaco-700 hover:underline">
-                            {g.ot_numero}
-                          </Link>
-                        ) : (
-                          <span className="text-tinta-400">General</span>
-                        )}
-                      </Td>
-                      <Td className="text-tinta-500">{g.proveedor ?? '—'}</Td>
-                      <Td numerico className="font-medium">{pesos(g.monto)}</Td>
-                      <Td>
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-xs text-tinta-600">{METODO_PAGO[g.metodo]}</span>
-                          {g.condicion === 'credito' && (
-                            <Etiqueta tono="ambar">{CONDICION.credito}</Etiqueta>
-                          )}
-                        </span>
-                      </Td>
-                      <Td className="font-mono text-xs text-tinta-500">{g.folio_factura ?? '—'}</Td>
-                      <Td className="w-8">
-                        <BotonEliminarGasto id={g.id} descripcion={g.descripcion} />
-                      </Td>
-                    </tr>
+                  {meses.map((grupo) => (
+                    <Fragment key={grupo.mes}>
+                      <FilaMes columnas={9} etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                      {grupo.filas.map((g) => (
+                        <tr key={g.id} className="hover:bg-tinta-50/60">
+                          <Td className="whitespace-nowrap text-tinta-500">{fecha(g.fecha)}</Td>
+                          <Td>
+                            {g.descripcion}
+                            {Number(g.piezas ?? 1) > 1 && (
+                              <span className="ml-1.5 text-xs text-tinta-400">×{Number(g.piezas)}</span>
+                            )}
+                          </Td>
+                          <Td className="text-tinta-500">{CATEGORIA_GASTO[g.categoria]}</Td>
+                          <Td className="text-tinta-500">
+                            {g.obra_id ? (
+                              <Link href={`/admin/obras/${g.obra_id}`} className="text-haaco-700 hover:underline">
+                                {g.ot_numero}
+                              </Link>
+                            ) : (
+                              <span className="text-tinta-400">General</span>
+                            )}
+                          </Td>
+                          <Td className="text-tinta-500">{g.proveedor ?? '—'}</Td>
+                          <Td numerico className="font-medium">{pesos(g.monto)}</Td>
+                          <Td>
+                            <span className="flex items-center gap-1.5">
+                              <span className="text-xs text-tinta-600">{METODO_PAGO[g.metodo]}</span>
+                              {g.condicion === 'credito' && (
+                                <Etiqueta tono="ambar">{CONDICION.credito}</Etiqueta>
+                              )}
+                            </span>
+                          </Td>
+                          <Td className="font-mono text-xs text-tinta-500">{g.folio_factura ?? '—'}</Td>
+                          <Td className="w-8">
+                            <BotonEliminarGasto id={g.id} descripcion={g.descripcion} />
+                          </Td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </Tabla>

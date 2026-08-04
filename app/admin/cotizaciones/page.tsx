@@ -1,12 +1,13 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { ESTATUS_COTIZACION, TIPO_COTIZACION } from '@/lib/cotizaciones'
-import { rangoDeUrl } from '@/lib/finanzas'
+import { agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
 } from '@/components/ui'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
 import { BotonGrande } from '@/components/movil/piezas'
@@ -60,6 +61,11 @@ export default async function PaginaCotizaciones({
   const aprobadas = filas.filter((c) => c.estatus === 'aprobada' || c.estatus === 'terminada')
   const pendientes = filas.filter((c) => c.estatus === 'borrador' || c.estatus === 'enviada')
 
+  // La lista viene ordenada por fecha, así que cada mes sale como un bloque.
+  const meses = agruparPorMes(filas, (c) => c.fecha)
+  const detalleMes = (grupo: (typeof meses)[number]) =>
+    `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, c) => s + Number(c.total), 0))}`
+
   return (
     <>
       <EncabezadoPagina
@@ -108,30 +114,35 @@ export default async function PaginaCotizaciones({
               renglón visible —veinte cotizaciones, ciento ochenta consultas—
               nada más por hacer scroll. */}
           <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
-            {filas.map((c) => (
-              <Link
-                key={c.id}
-                href={`/admin/cotizaciones/${c.id}`}
-                className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
-                  {c.folio ?? '—'}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
-                    {c.cliente}
-                  </span>
-                  <span className="mt-0.5 block truncate text-xs text-tinta-400">
-                    {c.nombre_obra ?? 'Sin nombre de obra'} · {TIPO_COTIZACION[c.tipo]}
-                  </span>
-                </span>
-                <span className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-[14.5px] font-semibold tabular-nums">{pesos(c.total)}</span>
-                  <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
-                    {ESTATUS_COTIZACION[c.estatus].texto}
-                  </Etiqueta>
-                </span>
-              </Link>
+            {meses.map((grupo) => (
+              <Fragment key={grupo.mes}>
+                <TituloMes enTarjeta etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                {grupo.filas.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/admin/cotizaciones/${c.id}`}
+                    className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
+                      {c.folio ?? '—'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
+                        {c.cliente}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-tinta-400">
+                        {c.nombre_obra ?? 'Sin nombre de obra'} · {TIPO_COTIZACION[c.tipo]}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="text-[14.5px] font-semibold tabular-nums">{pesos(c.total)}</span>
+                      <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+                        {ESTATUS_COTIZACION[c.estatus].texto}
+                      </Etiqueta>
+                    </span>
+                  </Link>
+                ))}
+              </Fragment>
             ))}
           </div>
 
@@ -196,31 +207,36 @@ export default async function PaginaCotizaciones({
               </tr>
             </thead>
             <tbody>
-              {filas.map((c) => (
-                /* El enlace del folio se estira sobre toda la fila: se puede
-                   dar clic en cualquier parte y sigue siendo un enlace real. */
-                <tr key={c.id} className="relative cursor-pointer hover:bg-tinta-50/60">
-                  <Td className="font-medium">
-                    <Link
-                      href={`/admin/cotizaciones/${c.id}`}
-                      className="text-haaco-700 after:absolute after:inset-0 hover:underline"
-                    >
-                      {c.folio}
-                    </Link>
-                  </Td>
-                  <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
-                  <Td>{c.cliente}</Td>
-                  <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
-                  <Td className="text-tinta-500">{TIPO_COTIZACION[c.tipo]}</Td>
-                  <Td numerico className="font-medium">{pesos(c.total)}</Td>
-                  <Td>
-                    <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
-                      {ESTATUS_COTIZACION[c.estatus].texto}
-                    </Etiqueta>
-                  </Td>
-                  <Td numerico className="text-tinta-500">{c.obras > 0 ? c.obras : '—'}</Td>
-                  <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
-                </tr>
+              {meses.map((grupo) => (
+                <Fragment key={grupo.mes}>
+                  <FilaMes columnas={9} etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                  {grupo.filas.map((c) => (
+                    /* El enlace del folio se estira sobre toda la fila: se puede
+                       dar clic en cualquier parte y sigue siendo un enlace real. */
+                    <tr key={c.id} className="relative cursor-pointer hover:bg-tinta-50/60">
+                      <Td className="font-medium">
+                        <Link
+                          href={`/admin/cotizaciones/${c.id}`}
+                          className="text-haaco-700 after:absolute after:inset-0 hover:underline"
+                        >
+                          {c.folio}
+                        </Link>
+                      </Td>
+                      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+                      <Td>{c.cliente}</Td>
+                      <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
+                      <Td className="text-tinta-500">{TIPO_COTIZACION[c.tipo]}</Td>
+                      <Td numerico className="font-medium">{pesos(c.total)}</Td>
+                      <Td>
+                        <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+                          {ESTATUS_COTIZACION[c.estatus].texto}
+                        </Etiqueta>
+                      </Td>
+                      <Td numerico className="text-tinta-500">{c.obras > 0 ? c.obras : '—'}</Td>
+                      <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </Tabla>

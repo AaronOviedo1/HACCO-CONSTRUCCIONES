@@ -1,11 +1,12 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
-import { mesActual, rangoMes } from '@/lib/finanzas'
+import { agruparPorMes, mesActual, rangoMes } from '@/lib/finanzas'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { PanelNomina } from '@/components/finanzas/nomina'
 import { FiltroMes } from '@/components/filtro-fechas'
@@ -61,6 +62,9 @@ export default async function PaginaNomina({
     (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
     0,
   )
+
+  // Los préstamos traen todo el historial: se separan por mes para leerlos.
+  const mesesDeducciones = agruparPorMes(deducciones ?? [], (d) => d.fecha)
 
   return (
     <>
@@ -341,23 +345,32 @@ export default async function PaginaNomina({
                 </tr>
               </thead>
               <tbody>
-                {(deducciones ?? []).map((d) => {
-                  const trabajador = (prenomina ?? []).find((p) => p.trabajador_id === d.trabajador_id)
-                  return (
-                    <tr key={d.id} className="hover:bg-tinta-50/60">
-                      <Td className="whitespace-nowrap text-tinta-500">{fecha(d.fecha)}</Td>
-                      <Td className="font-medium text-tinta-900">{trabajador?.trabajador ?? '—'}</Td>
-                      <Td className="capitalize text-tinta-600">{d.tipo}</Td>
-                      <Td numerico className="font-medium">{pesos(d.monto)}</Td>
-                      <Td>
-                        <Etiqueta tono={d.saldado ? 'verde' : 'ambar'}>
-                          {d.saldado ? 'Saldado' : 'Pendiente'}
-                        </Etiqueta>
-                      </Td>
-                      <Td className="text-tinta-500">{d.notas ?? '—'}</Td>
-                    </tr>
-                  )
-                })}
+                {mesesDeducciones.map((grupo) => (
+                  <Fragment key={grupo.mes}>
+                    <FilaMes
+                      columnas={6}
+                      etiqueta={grupo.etiqueta}
+                      detalle={`${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, d) => s + Number(d.monto), 0))}`}
+                    />
+                    {grupo.filas.map((d) => {
+                      const trabajador = (prenomina ?? []).find((p) => p.trabajador_id === d.trabajador_id)
+                      return (
+                        <tr key={d.id} className="hover:bg-tinta-50/60">
+                          <Td className="whitespace-nowrap text-tinta-500">{fecha(d.fecha)}</Td>
+                          <Td className="font-medium text-tinta-900">{trabajador?.trabajador ?? '—'}</Td>
+                          <Td className="capitalize text-tinta-600">{d.tipo}</Td>
+                          <Td numerico className="font-medium">{pesos(d.monto)}</Td>
+                          <Td>
+                            <Etiqueta tono={d.saldado ? 'verde' : 'ambar'}>
+                              {d.saldado ? 'Saldado' : 'Pendiente'}
+                            </Etiqueta>
+                          </Td>
+                          <Td className="text-tinta-500">{d.notas ?? '—'}</Td>
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
             </Tabla>
           )}

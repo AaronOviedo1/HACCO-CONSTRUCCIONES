@@ -1,10 +1,11 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
-import { ESTADO_CXP, vencimientosPorSemana } from '@/lib/finanzas'
+import { ESTADO_CXP, agruparPorMes, vencimientosPorSemana } from '@/lib/finanzas'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
 } from '@/components/ui'
 import {
   AccionesCxp, BotonNuevaCxp, BotonPagoMovil, FiltroProveedorCxp,
@@ -47,6 +48,13 @@ export default async function PaginaCuentasPorPagar({
       (a, b) => new Date(a.vencimiento).getTime() - new Date(b.vencimiento).getTime(),
     )
   }
+
+  // Aquí el mes que importa es el del vencimiento: cuándo hay que pagar.
+  const meses = agruparPorMes(filas, (c) => c.vencimiento)
+  const detalleMes = (grupo: (typeof meses)[number]) =>
+    `${grupo.filas.length} · saldo ${pesos(grupo.filas.reduce((s, c) => s + Number(c.saldo), 0))}`
+  const etiquetaVence = (grupo: (typeof meses)[number]) =>
+    grupo.mes ? `Vencen en ${grupo.etiqueta}` : grupo.etiqueta
 
   const saldoTotal = activas.reduce((s, c) => s + Number(c.saldo), 0)
   const vencido = activas.filter((c) => c.estado === 'vencida').reduce((s, c) => s + Number(c.saldo), 0)
@@ -114,23 +122,28 @@ export default async function PaginaCuentasPorPagar({
           </div>
 
           <Tarjeta>
-            {filas.map((c) => {
-              const estado = ESTADO_CXP[c.estado as EstadoCxp]
-              return (
-                <FilaLista
-                  key={c.id}
-                  principal={c.proveedor}
-                  secundario={`${c.folio_factura ?? 'sin folio'} · vence ${fecha(c.vencimiento)}`}
-                  derecha={
-                    <>
-                      <span className="text-[15px] font-bold tabular-nums">{pesos(c.saldo)}</span>
-                      <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
-                    </>
-                  }
-                  accion={<BotonPagoMovil cuenta={c} />}
-                />
-              )
-            })}
+            {meses.map((grupo) => (
+              <Fragment key={grupo.mes}>
+                <TituloMes enTarjeta etiqueta={etiquetaVence(grupo)} detalle={detalleMes(grupo)} />
+                {grupo.filas.map((c) => {
+                  const estado = ESTADO_CXP[c.estado as EstadoCxp]
+                  return (
+                    <FilaLista
+                      key={c.id}
+                      principal={c.proveedor}
+                      secundario={`${c.folio_factura ?? 'sin folio'} · vence ${fecha(c.vencimiento)}`}
+                      derecha={
+                        <>
+                          <span className="text-[15px] font-bold tabular-nums">{pesos(c.saldo)}</span>
+                          <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
+                        </>
+                      }
+                      accion={<BotonPagoMovil cuenta={c} />}
+                    />
+                  )
+                })}
+              </Fragment>
+            ))}
           </Tarjeta>
         </div>
       )}
@@ -191,38 +204,43 @@ export default async function PaginaCuentasPorPagar({
                   </tr>
                 </thead>
                 <tbody>
-                  {filas.map((c) => {
-                    const estado = ESTADO_CXP[c.estado as EstadoCxp]
-                    const parcial = Number(c.monto_pagado) > 0 && Number(c.saldo) > 0
-                    return (
-                      <tr key={c.id} className="hover:bg-tinta-50/60">
-                        <Td className="font-medium text-tinta-900">{c.proveedor}</Td>
-                        <Td className="font-mono text-xs">{c.folio_factura}</Td>
-                        <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha_factura)}</Td>
-                        <Td numerico className="text-tinta-500">{c.dias_credito}</Td>
-                        <Td className="whitespace-nowrap text-tinta-600">{fecha(c.vencimiento)}</Td>
-                        <Td numerico className={c.cancelada ? 'text-tinta-400 line-through' : ''}>
-                          {c.cancelada ? 'CANCELADA' : pesos(c.monto)}
-                        </Td>
-                        <Td numerico className="text-tinta-500">
-                          {Number(c.monto_pagado) > 0 ? pesos(c.monto_pagado) : '—'}
-                          {parcial && <Etiqueta tono="ambar">parcial</Etiqueta>}
-                        </Td>
-                        <Td numerico className={Number(c.saldo) > 0 ? 'font-semibold' : 'text-tinta-400'}>
-                          {pesos(c.saldo)}
-                        </Td>
-                        <Td numerico className="text-tinta-500">
-                          {c.estado === 'pagada' || c.cancelada ? '—' : `${c.dias_restantes} d`}
-                        </Td>
-                        <Td>
-                          <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
-                        </Td>
-                        <Td>
-                          <AccionesCxp cuenta={c} proveedores={proveedores ?? []} />
-                        </Td>
-                      </tr>
-                    )
-                  })}
+                  {meses.map((grupo) => (
+                    <Fragment key={grupo.mes}>
+                      <FilaMes columnas={11} etiqueta={etiquetaVence(grupo)} detalle={detalleMes(grupo)} />
+                      {grupo.filas.map((c) => {
+                        const estado = ESTADO_CXP[c.estado as EstadoCxp]
+                        const parcial = Number(c.monto_pagado) > 0 && Number(c.saldo) > 0
+                        return (
+                          <tr key={c.id} className="hover:bg-tinta-50/60">
+                            <Td className="font-medium text-tinta-900">{c.proveedor}</Td>
+                            <Td className="font-mono text-xs">{c.folio_factura}</Td>
+                            <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha_factura)}</Td>
+                            <Td numerico className="text-tinta-500">{c.dias_credito}</Td>
+                            <Td className="whitespace-nowrap text-tinta-600">{fecha(c.vencimiento)}</Td>
+                            <Td numerico className={c.cancelada ? 'text-tinta-400 line-through' : ''}>
+                              {c.cancelada ? 'CANCELADA' : pesos(c.monto)}
+                            </Td>
+                            <Td numerico className="text-tinta-500">
+                              {Number(c.monto_pagado) > 0 ? pesos(c.monto_pagado) : '—'}
+                              {parcial && <Etiqueta tono="ambar">parcial</Etiqueta>}
+                            </Td>
+                            <Td numerico className={Number(c.saldo) > 0 ? 'font-semibold' : 'text-tinta-400'}>
+                              {pesos(c.saldo)}
+                            </Td>
+                            <Td numerico className="text-tinta-500">
+                              {c.estado === 'pagada' || c.cancelada ? '—' : `${c.dias_restantes} d`}
+                            </Td>
+                            <Td>
+                              <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
+                            </Td>
+                            <Td>
+                              <AccionesCxp cuenta={c} proveedores={proveedores ?? []} />
+                            </Td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
+                  ))}
                 </tbody>
               </Tabla>
             )}

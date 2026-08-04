@@ -1,10 +1,11 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
-import { TIPO_PAGO_COBRANZA, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
+import { TIPO_PAGO_COBRANZA, agruparPorMes, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
 } from '@/components/ui'
 import { AccionesCobranza, FilaCobranza } from '@/components/finanzas/cobranza'
 import type { PagoCobranza } from '@/types/database'
@@ -69,6 +70,14 @@ export default async function PaginaCobranza({
     ...filas.map((c) => (porCotizacion.get(c.cotizacion_id) ?? []).filter((p) => p.tipo === 'abono').length),
   )
 
+  // Bloques por mes de la cotización, con lo cobrado y lo que falta de cada uno.
+  const meses = agruparPorMes(filas, (c) => c.fecha)
+  const detalleMes = (grupo: (typeof meses)[number]) =>
+    `${pesos(grupo.filas.reduce((s, c) => s + Number(c.cobrado), 0))} cobrado · ${pesos(
+      grupo.filas.reduce((s, c) => s + Number(c.saldo), 0),
+    )} por cobrar`
+  const mesesConSaldo = agruparPorMes(conSaldo, (c) => c.fecha)
+
   return (
     <>
       <EncabezadoPagina
@@ -102,53 +111,58 @@ export default async function PaginaCobranza({
       {/* Teléfono: una tarjeta por obra, con el abono a un toque ------------ */}
       {filas.length > 0 && (
         <div className="flex flex-col gap-3 lg:hidden">
-          {filas.map((c) => {
-            const cobradoPct =
-              Number(c.cotizado) > 0 ? Math.round((Number(c.cobrado) / Number(c.cotizado)) * 100) : 0
-            const suyas = obrasPorCotizacion.get(c.cotizacion_id) ?? []
+          {meses.map((grupo) => (
+            <Fragment key={grupo.mes}>
+              <TituloMes etiqueta={grupo.etiqueta} detalle={`${grupo.filas.length} obras`} />
+              {grupo.filas.map((c) => {
+                const cobradoPct =
+                  Number(c.cotizado) > 0 ? Math.round((Number(c.cobrado) / Number(c.cotizado)) * 100) : 0
+                const suyas = obrasPorCotizacion.get(c.cotizacion_id) ?? []
 
-            return (
-              <article
-                key={c.cotizacion_id}
-                className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta"
-              >
-                <h2 className="text-[15.5px] font-semibold leading-snug -tracking-[0.2px]">
-                  {suyas[0]?.nombre ?? nombreCotizado.get(c.cotizacion_id) ?? `Cotización ${c.folio ?? ''}`}
-                </h2>
-                <p className="mt-0.5 text-xs text-tinta-400">{c.cliente}</p>
+                return (
+                  <article
+                    key={c.cotizacion_id}
+                    className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta"
+                  >
+                    <h2 className="text-[15.5px] font-semibold leading-snug -tracking-[0.2px]">
+                      {suyas[0]?.nombre ?? nombreCotizado.get(c.cotizacion_id) ?? `Cotización ${c.folio ?? ''}`}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-tinta-400">{c.cliente}</p>
 
-                <div className="mb-1.5 mt-3 flex justify-between text-[11.5px]">
-                  <span className="text-tinta-500">Cobrado {pesos(c.cobrado)}</span>
-                  <span className="font-semibold tabular-nums">{cobradoPct}%</span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-tinta-150" aria-hidden>
-                  <div
-                    className={`h-full rounded-full ${
-                      cobradoPct >= 100 ? 'bg-haaco-600' : cobradoPct >= 50 ? 'bg-haaco-500' : 'bg-amber-600'
-                    }`}
-                    style={{ width: `${Math.min(100, cobradoPct)}%` }}
-                  />
-                </div>
+                    <div className="mb-1.5 mt-3 flex justify-between text-[11.5px]">
+                      <span className="text-tinta-500">Cobrado {pesos(c.cobrado)}</span>
+                      <span className="font-semibold tabular-nums">{cobradoPct}%</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-tinta-150" aria-hidden>
+                      <div
+                        className={`h-full rounded-full ${
+                          cobradoPct >= 100 ? 'bg-haaco-600' : cobradoPct >= 50 ? 'bg-haaco-500' : 'bg-amber-600'
+                        }`}
+                        style={{ width: `${Math.min(100, cobradoPct)}%` }}
+                      />
+                    </div>
 
-                <div className="mt-3 flex items-center justify-between">
-                  <span>
-                    <span className="block text-[10px] uppercase tracking-[0.06em] text-tinta-400">
-                      Saldo
-                    </span>
-                    <span className="mt-px block text-base font-bold tabular-nums">
-                      {pesos(c.saldo)}
-                    </span>
-                  </span>
-                  <AccionesCobranza
-                    variante="movil"
-                    cobranza={c}
-                    pagos={porCotizacion.get(c.cotizacion_id) ?? []}
-                    obras={suyas}
-                  />
-                </div>
-              </article>
-            )
-          })}
+                    <div className="mt-3 flex items-center justify-between">
+                      <span>
+                        <span className="block text-[10px] uppercase tracking-[0.06em] text-tinta-400">
+                          Saldo
+                        </span>
+                        <span className="mt-px block text-base font-bold tabular-nums">
+                          {pesos(c.saldo)}
+                        </span>
+                      </span>
+                      <AccionesCobranza
+                        variante="movil"
+                        cobranza={c}
+                        pagos={porCotizacion.get(c.cotizacion_id) ?? []}
+                        obras={suyas}
+                      />
+                    </div>
+                  </article>
+                )
+              })}
+            </Fragment>
+          ))}
         </div>
       )}
 
@@ -205,57 +219,62 @@ export default async function PaginaCobranza({
               </tr>
             </thead>
             <tbody>
-              {filas.map((c) => {
-                const suyos = porCotizacion.get(c.cotizacion_id) ?? []
-                const abonos = suyos.filter((p) => p.tipo === 'abono' || p.tipo === 'liquidacion')
-                const pct = Number(c.pct_pendiente)
+              {meses.map((grupo) => (
+                <Fragment key={grupo.mes}>
+                  <FilaMes columnas={8 + maxAbonos} etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                  {grupo.filas.map((c) => {
+                    const suyos = porCotizacion.get(c.cotizacion_id) ?? []
+                    const abonos = suyos.filter((p) => p.tipo === 'abono' || p.tipo === 'liquidacion')
+                    const pct = Number(c.pct_pendiente)
 
-                return (
-                  <FilaCobranza
-                    key={c.cotizacion_id}
-                    cobranza={c}
-                    pagos={suyos}
-                    obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
-                  >
-                    <Td>
-                      <Link
-                        href={`/admin/cotizaciones/${c.cotizacion_id}`}
-                        className="relative font-mono text-xs text-haaco-700 hover:underline"
+                    return (
+                      <FilaCobranza
+                        key={c.cotizacion_id}
+                        cobranza={c}
+                        pagos={suyos}
+                        obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
                       >
-                        {c.folio}
-                      </Link>
-                    </Td>
-                    <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
-                    <Td numerico>{pesos(c.cotizado)}</Td>
-                    <Td numerico className={Number(c.anticipo) > 0 ? '' : 'text-tinta-300'}>
-                      {Number(c.anticipo) > 0 ? pesos(c.anticipo) : '—'}
-                    </Td>
-                    {Array.from({ length: maxAbonos }, (_, i) => (
-                      <Td key={i} numerico className={abonos[i] ? '' : 'text-tinta-300'}>
-                        {abonos[i] ? pesos(abonos[i].monto) : '—'}
-                      </Td>
-                    ))}
-                    <Td numerico className={Number(c.saldo) > 0 ? 'font-semibold text-amber-700' : 'text-haaco-700'}>
-                      {pesos(c.saldo)}
-                    </Td>
-                    <Td>
-                      <span className="flex items-center gap-2">
-                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-tinta-100">
-                          <span
-                            className={`block h-full rounded-full ${
-                              pct <= 0 ? 'bg-haaco-500' : pct <= 50 ? 'bg-sky-500' : 'bg-amber-500'
-                            }`}
-                            style={{ width: `${Math.min(100, 100 - pct)}%` }}
-                          />
-                        </span>
-                        <span className="text-xs tabular-nums text-tinta-600">
-                          {porcentaje(pct, 0)}
-                        </span>
-                      </span>
-                    </Td>
-                  </FilaCobranza>
-                )
-              })}
+                        <Td>
+                          <Link
+                            href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                            className="relative font-mono text-xs text-haaco-700 hover:underline"
+                          >
+                            {c.folio}
+                          </Link>
+                        </Td>
+                        <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
+                        <Td numerico>{pesos(c.cotizado)}</Td>
+                        <Td numerico className={Number(c.anticipo) > 0 ? '' : 'text-tinta-300'}>
+                          {Number(c.anticipo) > 0 ? pesos(c.anticipo) : '—'}
+                        </Td>
+                        {Array.from({ length: maxAbonos }, (_, i) => (
+                          <Td key={i} numerico className={abonos[i] ? '' : 'text-tinta-300'}>
+                            {abonos[i] ? pesos(abonos[i].monto) : '—'}
+                          </Td>
+                        ))}
+                        <Td numerico className={Number(c.saldo) > 0 ? 'font-semibold text-amber-700' : 'text-haaco-700'}>
+                          {pesos(c.saldo)}
+                        </Td>
+                        <Td>
+                          <span className="flex items-center gap-2">
+                            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-tinta-100">
+                              <span
+                                className={`block h-full rounded-full ${
+                                  pct <= 0 ? 'bg-haaco-500' : pct <= 50 ? 'bg-sky-500' : 'bg-amber-500'
+                                }`}
+                                style={{ width: `${Math.min(100, 100 - pct)}%` }}
+                              />
+                            </span>
+                            <span className="text-xs tabular-nums text-tinta-600">
+                              {porcentaje(pct, 0)}
+                            </span>
+                          </span>
+                        </Td>
+                      </FilaCobranza>
+                    )
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </Tabla>
         </Tarjeta>
@@ -312,33 +331,42 @@ export default async function PaginaCobranza({
               </tr>
             </thead>
             <tbody>
-              {conSaldo.map((c) => (
-                <tr key={c.cotizacion_id} className="relative cursor-pointer hover:bg-tinta-50/60">
-                  <Td className="font-medium text-tinta-900">{c.cliente}</Td>
-                  <Td>
-                    {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
-                    <Link
-                      href={`/admin/cotizaciones/${c.cotizacion_id}`}
-                      className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
-                    >
-                      {c.folio}
-                    </Link>
-                  </Td>
-                  <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
-                  <Td>
-                    <Etiqueta tono={c.requiere_factura ? 'azul' : 'gris'}>
-                      {c.requiere_factura ? 'Sí' : 'No'}
-                    </Etiqueta>
-                  </Td>
-                  <Td numerico>{pesos(c.cotizado)}</Td>
-                  <Td numerico className="text-tinta-500">{pesos(c.cobrado)}</Td>
-                  <Td numerico className="font-semibold text-amber-700">{pesos(c.saldo)}</Td>
-                  <Td numerico>
-                    <Etiqueta tono={tonoCobranza(Number(c.pct_pendiente))}>
-                      {porcentaje(c.pct_pendiente, 0)}
-                    </Etiqueta>
-                  </Td>
-                </tr>
+              {mesesConSaldo.map((grupo) => (
+                <Fragment key={grupo.mes}>
+                  <FilaMes
+                    columnas={8}
+                    etiqueta={grupo.etiqueta}
+                    detalle={`${pesos(grupo.filas.reduce((s, c) => s + Number(c.saldo), 0))} por cobrar`}
+                  />
+                  {grupo.filas.map((c) => (
+                    <tr key={c.cotizacion_id} className="relative cursor-pointer hover:bg-tinta-50/60">
+                      <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                      <Td>
+                        {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
+                        <Link
+                          href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                          className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                        >
+                          {c.folio}
+                        </Link>
+                      </Td>
+                      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+                      <Td>
+                        <Etiqueta tono={c.requiere_factura ? 'azul' : 'gris'}>
+                          {c.requiere_factura ? 'Sí' : 'No'}
+                        </Etiqueta>
+                      </Td>
+                      <Td numerico>{pesos(c.cotizado)}</Td>
+                      <Td numerico className="text-tinta-500">{pesos(c.cobrado)}</Td>
+                      <Td numerico className="font-semibold text-amber-700">{pesos(c.saldo)}</Td>
+                      <Td numerico>
+                        <Etiqueta tono={tonoCobranza(Number(c.pct_pendiente))}>
+                          {porcentaje(c.pct_pendiente, 0)}
+                        </Etiqueta>
+                      </Td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
               <tr className="bg-haaco-50/60">
                 <Td className="font-semibold text-tinta-900">TOTAL GENERAL</Td>

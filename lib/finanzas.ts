@@ -175,6 +175,26 @@ export function etiquetaMes(mes: string): string {
 }
 
 /**
+ * Parte una lista ya ordenada por fecha en bloques de meses consecutivos,
+ * para pintar cada mes con su encabezado y su subtotal. No reordena: respeta
+ * el orden en que llegan las filas (ascendente o descendente, da igual).
+ */
+export function agruparPorMes<T>(
+  filas: T[],
+  fechaDe: (fila: T) => string | null | undefined,
+): { mes: string; etiqueta: string; filas: T[] }[] {
+  const grupos: { mes: string; etiqueta: string; filas: T[] }[] = []
+  for (const fila of filas) {
+    const valor = fechaDe(fila)
+    const mes = valor && /^\d{4}-\d{2}/.test(valor) ? valor.slice(0, 7) : ''
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.mes === mes) ultimo.filas.push(fila)
+    else grupos.push({ mes, etiqueta: mes ? etiquetaMes(mes) : 'Sin fecha', filas: [fila] })
+  }
+  return grupos
+}
+
+/**
  * Lo que vence en las próximas cuatro semanas, contadas desde hoy.
  * Lo ya vencido se acumula en la primera barra: en la calle eso es «esta
  * semana», no historia.
