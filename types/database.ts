@@ -767,6 +767,21 @@ export type ResultadoCierre =
       forzado: boolean
     }
 
+/** Lo que se llevó `eliminar_obra`, para poder contárselo a quien la borró. */
+export type ResultadoBorradoObra = {
+  ot_numero: string | null
+  nombre: string
+  conceptos: number
+  tareas: number
+  materiales: number
+  avances: number
+  contratos: number
+  polizas: number
+  solicitudes: number
+  herramientas_devueltas: number
+  cotizacion_id: string
+}
+
 // ---------------------------------------------------------------------------
 // Mapa que consume supabase-js
 // ---------------------------------------------------------------------------
@@ -864,6 +879,7 @@ export type Database = {
         Args: { p_obra: string; p_fecha: string; p_forzar: boolean }
         Returns: ResultadoCierre
       }
+      eliminar_obra: { Args: { p_obra: string }; Returns: ResultadoBorradoObra }
       registrar_gasto: { Args: { p_datos: GastoSql }; Returns: string }
       eliminar_material_obra: { Args: { p_material: string }; Returns: undefined }
       entrada_inventario_desde_gasto: {

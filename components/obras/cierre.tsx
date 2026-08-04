@@ -13,7 +13,7 @@ import { fecha, pesos } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { REGLAS } from '@/lib/empresa'
 import {
-  agregarDetalle, cerrarObra, eliminarDetalle, guardarPoliza, marcarDetalle,
+  agregarDetalle, cerrarObra, eliminarDetalle, eliminarObra, guardarPoliza, marcarDetalle,
 } from '@/app/admin/obras/acciones'
 import type { ResultadoCierre } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
@@ -32,6 +32,7 @@ export function PanelCierre({ datos }: { datos: DatosObra }) {
   const [error, setError] = useState<string | null>(null)
   const [nuevoDetalle, setNuevoDetalle] = useState('')
   const [editandoPoliza, setEditandoPoliza] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const [diagnostico, setDiagnostico] = useState<ResultadoCierre | null>(null)
 
   const cerrada = datos.concentrado.estatus === 'cerrada'
@@ -305,10 +306,36 @@ export function PanelCierre({ datos }: { datos: DatosObra }) {
             </button>
           </div>
         )}
+
+        {/* Una OT abierta por error, o de prueba, no tiene por qué quedarse
+            estorbando: mientras no haya movido dinero, se borra. */}
+        {!cerrada && (
+          <div className="rounded-xl border border-red-200 bg-red-50/60 p-4">
+            <p className="text-sm font-medium text-red-900">Eliminar la orden de trabajo</p>
+            <p className="mt-1 text-xs text-red-800">
+              Se borra todo lo capturado en esta OT y no se puede deshacer. La herramienta regresa
+              al taller y la cotización {datos.concentrado.cotizacion_folio} se queda con sus
+              anticipos y recibos.
+            </p>
+            <button
+              type="button"
+              onClick={() => setBorrando(true)}
+              disabled={pendiente}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+            >
+              <Trash2 size={15} />
+              Eliminar OT {datos.concentrado.ot_numero}
+            </button>
+          </div>
+        )}
       </div>
 
       {diagnostico && (
         <DialogoDiagnostico resultado={diagnostico} onCerrar={() => setDiagnostico(null)} />
+      )}
+
+      {borrando && (
+        <DialogoBorrarObra datos={datos} onCerrar={() => setBorrando(false)} />
       )}
 
       {editandoPoliza && (
@@ -400,6 +427,97 @@ function DialogoDiagnostico({
           className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
         >
           Entendido
+        </button>
+      </PieDialogo>
+    </Dialogo>
+  )
+}
+
+// ---------------------------------------------------------------------------
+/** Antes de borrar la OT, la lista de lo que se va con ella. */
+function DialogoBorrarObra({ datos, onCerrar }: { datos: DatosObra; onCerrar: () => void }) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const herramientaFuera = datos.pagareItems.filter((i) => !i.devuelta).length
+
+  const seVa = [
+    [datos.conceptos.length, 'conceptos de obra'],
+    [datos.tareas.length, 'tareas del cronograma'],
+    [datos.materiales.length, 'renglones de material'],
+    [datos.avances.length, 'avances con sus fotos'],
+    [datos.contratos.length, 'contratos de mano de obra'],
+    [datos.pagares.length, 'pagarés de herramienta'],
+    [datos.poliza ? 1 : 0, 'póliza de garantía'],
+    [datos.solicitudes.length, 'solicitudes de material'],
+    [datos.detalles.length, 'detalles de entrega'],
+    [datos.bitacora.length, 'notas de la bitácora'],
+  ].filter(([n]) => Number(n) > 0) as [number, string][]
+
+  const borrar = () =>
+    iniciar(async () => {
+      setError(null)
+      const r = await eliminarObra(datos.obra.id)
+      if (!r.ok) return setError(r.error)
+      router.push('/admin/obras')
+    })
+
+  return (
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      titulo={`Eliminar la OT ${datos.concentrado.ot_numero}`}
+      descripcion="No se puede deshacer."
+    >
+      <div className="flex-1 px-5 py-5">
+        <p className="text-sm text-tinta-700">
+          Se borra <span className="font-medium">{datos.concentrado.nombre}</span> y con ella:
+        </p>
+
+        {seVa.length > 0 ? (
+          <ul className="mt-3 space-y-1.5 text-sm text-tinta-700">
+            {seVa.map(([n, que]) => (
+              <li key={que} className="flex items-center gap-2">
+                <span className="w-7 shrink-0 text-right font-semibold tabular-nums text-tinta-900">
+                  {n}
+                </span>
+                {que}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-tinta-500">No tiene nada capturado todavía.</p>
+        )}
+
+        <p className="mt-4 rounded-lg bg-tinta-50 px-3 py-2.5 text-xs text-tinta-600">
+          {herramientaFuera > 0
+            ? `${herramientaFuera} herramientas regresan al taller. `
+            : ''}
+          La cotización {datos.concentrado.cotizacion_folio} no se toca: sus anticipos y recibos se
+          quedan como están. Si quieres borrarla también, hazlo desde la cotización una vez que ésta
+          sea su última OT.
+        </p>
+
+        <MensajeError mensaje={error} />
+      </div>
+
+      <PieDialogo>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={borrar}
+          disabled={pendiente}
+          className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:bg-red-300"
+        >
+          <Trash2 size={15} />
+          {pendiente ? 'Eliminando…' : 'Eliminar la OT'}
         </button>
       </PieDialogo>
     </Dialogo>

@@ -5,7 +5,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import type {
   EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
-  ResultadoCierre, TipoAvance, TipoPagoCobranza,
+  ResultadoBorradoObra, ResultadoCierre, TipoAvance, TipoPagoCobranza,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -632,6 +632,26 @@ export async function cerrarObra(
   revalidatePath('/admin/herramientas')
   revalidatePath('/admin/cotizaciones')
   return { ok: true, datos: data as ResultadoCierre }
+}
+
+/**
+ * Borra la OT completa: conceptos, cronograma, material, avances, bitácora,
+ * contratos con sus pagarés y la póliza. La herramienta regresa al taller
+ * antes del borrado. La función se niega si ya hubo dinero de por medio.
+ */
+export async function eliminarObra(obraId: string): Promise<Resultado<ResultadoBorradoObra>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('eliminar_obra', { p_obra: obraId })
+
+  if (error) return fallo(error)
+
+  const borrado = data as ResultadoBorradoObra
+  revalidatePath('/admin/obras')
+  revalidatePath('/admin')
+  revalidatePath('/admin/herramientas')
+  revalidatePath('/admin/cotizaciones')
+  revalidatePath(`/admin/cotizaciones/${borrado.cotizacion_id}`)
+  return { ok: true, datos: borrado }
 }
 
 // ===========================================================================
