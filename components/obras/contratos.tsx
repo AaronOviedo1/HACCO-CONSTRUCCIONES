@@ -2,19 +2,19 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
-import { FileDown, PenLine, Plus, Trash2, Wrench, X } from 'lucide-react'
+import { FileDown, PenLine, Plus, Trash2, UserRoundCog, Wrench, X } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, pesos, porcentaje } from '@/lib/format'
-import { num, redondear } from '@/lib/cotizaciones'
+import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { GRUPOS_TRABAJOS, leerReparaciones, resumirTrabajos } from '@/lib/obras'
 import { REGLAS } from '@/lib/empresa'
 import {
   cancelarPagare, crearPagare, devolverHerramienta, eliminarContrato, firmarContrato,
-  guardarContrato,
+  guardarContrato, reasignarContrato,
 } from '@/app/admin/obras/acciones'
 import type { ContratoOficial, Profile } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
@@ -25,9 +25,12 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
   const [nuevo, setNuevo] = useState(false)
   const [editando, setEditando] = useState<ContratoOficial | null>(null)
   const [pagareDe, setPagareDe] = useState<ContratoOficial | null>(null)
+  const [reasignando, setReasignando] = useState<ContratoOficial | null>(null)
   const cerrada = datos.concentrado.estatus === 'cerrada'
 
-  const porTrabajador = new Map(datos.oficiales.map((o) => [o.id, o]))
+  // Con `trabajadores` y no con `oficiales`: si un pintor se dio de baja, su
+  // contrato firmado tiene que seguir mostrando su nombre.
+  const porTrabajador = new Map(datos.trabajadores.map((o) => [o.id, o]))
 
   return (
     <div className="space-y-4">
@@ -72,6 +75,7 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
                 cerrada={cerrada}
                 onEditar={() => setEditando(contrato)}
                 onPagare={() => setPagareDe(contrato)}
+                onReasignar={() => setReasignando(contrato)}
               />
             )
           })}
@@ -92,7 +96,7 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
       {(nuevo || editando) && (
         <FormularioContrato
           obraId={datos.obra.id}
-          oficiales={datos.oficiales}
+          trabajadores={datos.trabajadores}
           contrato={editando ?? undefined}
           onCerrar={() => {
             setNuevo(false)
@@ -110,6 +114,17 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
           onCerrar={() => setPagareDe(null)}
         />
       )}
+
+      {reasignando && (
+        <DialogoReasignar
+          obraId={datos.obra.id}
+          contrato={reasignando}
+          sale={porTrabajador.get(reasignando.trabajador_id)}
+          candidatos={datos.oficiales.filter((o) => o.id !== reasignando.trabajador_id)}
+          nomina={datos.nomina.find((n) => n.contrato_id === reasignando.id)}
+          onCerrar={() => setReasignando(null)}
+        />
+      )}
     </div>
   )
 }
@@ -117,7 +132,7 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
 // ---------------------------------------------------------------------------
 function TarjetaContrato({
   contrato, oficial, pagare, items, herramientas, pagado, pctPagado, obraId, cerrada,
-  onEditar, onPagare,
+  onEditar, onPagare, onReasignar,
 }: {
   contrato: ContratoOficial
   oficial?: Profile
@@ -130,6 +145,7 @@ function TarjetaContrato({
   cerrada: boolean
   onEditar: () => void
   onPagare: () => void
+  onReasignar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
@@ -186,6 +202,17 @@ function TarjetaContrato({
                 >
                   <Wrench size={14} />
                   Pagaré
+                </button>
+              )}
+              {contrato.estatus === 'activo' && (
+                <button
+                  type="button"
+                  onClick={onReasignar}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+                  title="Pasarle lo que falta a otro oficial"
+                >
+                  <UserRoundCog size={14} />
+                  Reasignar
                 </button>
               )}
               <button
@@ -419,10 +446,11 @@ function Firma({
 
 // ---------------------------------------------------------------------------
 function FormularioContrato({
-  obraId, oficiales, contrato, onCerrar,
+  obraId, trabajadores, contrato, onCerrar,
 }: {
   obraId: string
-  oficiales: Profile[]
+  /** Los que siguen laborando más quien ya firmó aquí, aunque esté de baja. */
+  trabajadores: Profile[]
   contrato?: ContratoOficial
   onCerrar: () => void
 }) {
@@ -448,7 +476,13 @@ function FormularioContrato({
     })),
   )
 
-  const oficial = oficiales.find((o) => o.id === trabajadorId)
+  // Al editar el contrato de alguien que ya se dio de baja, su nombre tiene que
+  // seguir en la lista: si no, el selector saldría vacío y guardar se lo
+  // reasignaría en silencio al primero de la lista.
+  const elegibles = trabajadores.filter(
+    (t) => t.activo || t.id === contrato?.trabajador_id,
+  )
+  const oficial = elegibles.find((o) => o.id === trabajadorId)
 
   const totales = useMemo(() => {
     const reparacionesImporte = reparaciones.reduce((s, r) => s + num(r.importe), 0)
@@ -511,16 +545,17 @@ function FormularioContrato({
                 const id = e.target.value
                 setTrabajadorId(id)
                 // Los externos normalmente van sin retención.
-                const elegido = oficiales.find((o) => o.id === id)
+                const elegido = elegibles.find((o) => o.id === id)
                 if (elegido) setHaaco(elegido.es_externo ? '0' : String(REGLAS.costoHaacoPct))
               }}
             >
               <option value="">Elegir oficial…</option>
-              {oficiales.map((o) => (
+              {elegibles.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.nombre}
                   {o.oficio ? ` · ${o.oficio}` : ''}
                   {o.es_externo ? ' (externo)' : ''}
+                  {!o.activo ? ' · dado de baja' : ''}
                 </option>
               ))}
             </Seleccion>
@@ -802,6 +837,212 @@ function FormularioPagare({
           </button>
         </PieDialogo>
       </div>
+    </Dialogo>
+  )
+}
+
+// ---------------------------------------------------------------------------
+/**
+ * Pasarle lo que falta de la obra a otro oficial.
+ *
+ * No cambia de nombre el contrato: lo corta. El que se va se queda con los
+ * metros que ejecutó —y con sus recibos—, y el que entra arranca uno nuevo por
+ * el resto. La suma de los dos sigue siendo el trabajo completo.
+ *
+ * Los metros del corte se capturan a mano. Se sugiere lo proporcional a lo ya
+ * pagado, pero es el administrador quien sabe cuánto alcanzó a hacer.
+ */
+function DialogoReasignar({
+  obraId, contrato, sale, candidatos, nomina, onCerrar,
+}: {
+  obraId: string
+  contrato: ContratoOficial
+  sale?: Profile
+  candidatos: Profile[]
+  nomina?: DatosObra['nomina'][number]
+  onCerrar: () => void
+}) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  const pagado = Number(nomina?.pagado ?? 0)
+  const totalContrato = Number(contrato.total_pagar)
+  const m2Total = Number(contrato.m2)
+
+  // Los metros que corresponden a lo que ya se le pagó: el punto de partida.
+  const sugerido =
+    totalContrato > 0 ? redondear((m2Total * pagado) / totalContrato) : 0
+
+  const [entra, setEntra] = useState('')
+  const [fechaCorte, setFechaCorte] = useState(contrato.fecha_finaliza ?? hoyISO())
+  const [m2Corte, setM2Corte] = useState(String(sugerido))
+  const [motivo, setMotivo] = useState('')
+
+  const corte = num(m2Corte)
+  const restante = redondear(m2Total - corte)
+
+  // Espejo de las columnas generadas del contrato, para verlo antes de aplicar.
+  const tarifa = Number(contrato.tarifa_m2)
+  const pct = Number(contrato.costo_haaco_pct)
+  const extras = Number(contrato.otros_importe) + Number(contrato.reparaciones_importe)
+  const totalCerrado = redondear((corte * tarifa + extras) * (1 - pct / 100))
+  const oficialEntra = candidatos.find((c) => c.id === entra)
+  const pctEntra = oficialEntra?.es_externo ? 0 : pct
+  const totalNuevo = redondear(restante * tarifa * (1 - pctEntra / 100))
+
+  const cortaDeMas = totalCerrado < pagado
+  const sinResto = restante <= 0
+
+  const reasignar = () =>
+    iniciar(async () => {
+      setError(null)
+      const r = await reasignarContrato(obraId, {
+        contrato_id: contrato.id,
+        nuevo_trabajador_id: entra,
+        fecha: fechaCorte,
+        m2_ejecutados: corte,
+        motivo: motivo.trim() || null,
+      })
+      if (!r.ok) return setError(r.error)
+      onCerrar()
+      router.refresh()
+    })
+
+  return (
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      ancho="lg"
+      titulo={`Reasignar el contrato de ${sale?.nombre ?? 'el oficial'}`}
+      descripcion="Se le cierra por lo que ejecutó y se abre uno nuevo por lo que falta."
+    >
+      <CuerpoDialogo>
+        <dl className="grid grid-cols-3 gap-3 rounded-xl bg-tinta-50 px-4 py-3 text-sm sm:col-span-2">
+          <div>
+            <dt className="text-xs text-tinta-500">Contratado</dt>
+            <dd className="tabular-nums text-tinta-900">
+              {m2Total} m² · {pesos(totalContrato)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-tinta-500">Ya pagado</dt>
+            <dd className="tabular-nums text-tinta-900">{pesos(pagado)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-tinta-500">Por pagar</dt>
+            <dd className="font-semibold tabular-nums text-haaco-700">
+              {pesos(Number(nomina?.por_pagar ?? totalContrato - pagado))}
+            </dd>
+          </div>
+        </dl>
+
+        <Campo
+          etiqueta="Oficial que entra"
+          hijo={
+            <Seleccion value={entra} onChange={(e) => setEntra(e.target.value)}>
+              <option value="">Elegir oficial…</option>
+              {candidatos.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nombre}
+                  {o.oficio ? ` · ${o.oficio}` : ''}
+                  {o.es_externo ? ' (externo)' : ''}
+                </option>
+              ))}
+            </Seleccion>
+          }
+        />
+        <Campo
+          etiqueta="Fecha del corte"
+          ancho="medio"
+          hijo={<SelectorFecha valor={fechaCorte} onCambio={setFechaCorte} />}
+        />
+        <Campo
+          etiqueta="M² que alcanzó a hacer"
+          ancho="medio"
+          hijo={<Numero value={m2Corte} onChange={(e) => setM2Corte(e.target.value)} />}
+          ayuda={
+            sugerido > 0
+              ? `Sugerido ${sugerido} m², lo que corresponde a lo que ya se le pagó.`
+              : 'Todavía no tiene abonos: si no ejecutó nada, deja 0.'
+          }
+        />
+        <Campo
+          etiqueta="Motivo"
+          hijo={
+            <AreaTexto
+              rows={2}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Se dio de baja; ya no laboró con nosotros…"
+            />
+          }
+          ayuda="Queda en la bitácora y en las notas de los dos contratos."
+        />
+
+        <div className="space-y-2 rounded-xl bg-haaco-50 px-4 py-3 text-sm sm:col-span-2">
+          <p className="flex flex-wrap justify-between gap-2">
+            <span className="text-tinta-600">
+              {sale?.nombre ?? 'El que sale'} queda en <strong>{corte} m²</strong>
+            </span>
+            <span className="tabular-nums text-tinta-900">
+              {pesos(totalCerrado)} · pagado {pesos(pagado)} · por pagar{' '}
+              <strong className={totalCerrado - pagado > 0 ? 'text-amber-700' : 'text-haaco-700'}>
+                {pesos(redondear(Math.max(0, totalCerrado - pagado)))}
+              </strong>
+            </span>
+          </p>
+          <p className="flex flex-wrap justify-between gap-2 border-t border-haaco-200 pt-2">
+            <span className="text-tinta-600">
+              {oficialEntra?.nombre ?? 'El que entra'} arranca con{' '}
+              <strong>{restante > 0 ? restante : 0} m²</strong>
+            </span>
+            <span className="font-semibold tabular-nums text-haaco-700">
+              {pesos(restante > 0 ? totalNuevo : 0)}
+            </span>
+          </p>
+        </div>
+
+        {cortaDeMas && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">
+            Con {corte} m² el contrato queda en {pesos(totalCerrado)}, por debajo de los{' '}
+            {pesos(pagado)} que ya se le pagaron. Sube los metros ejecutados.
+          </p>
+        )}
+        {sinResto && !cortaDeMas && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 sm:col-span-2">
+            No queda nada por reasignar: el corte se lleva los {m2Total} m² completos.
+          </p>
+        )}
+        {contrato.otros_importe > 0 || contrato.reparaciones_importe > 0 ? (
+          <p className="text-xs text-tinta-500 sm:col-span-2">
+            Los {pesos(extras)} de otros trabajos y reparaciones se quedan con{' '}
+            {sale?.nombre ?? 'quien sale'}: ya se ejecutaron. Si hay que moverlos, edita el
+            contrato antes de reasignar.
+          </p>
+        ) : null}
+
+        <MensajeError mensaje={error} />
+      </CuerpoDialogo>
+
+      <PieDialogo>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={reasignar}
+          disabled={pendiente || !entra || cortaDeMas || sinResto}
+          className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+        >
+          <UserRoundCog size={15} />
+          {pendiente ? 'Reasignando…' : 'Reasignar contrato'}
+        </button>
+      </PieDialogo>
     </Dialogo>
   )
 }

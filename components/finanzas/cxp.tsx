@@ -11,7 +11,7 @@ import {
 import { fecha, pesos } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import {
-  abonarCuentaPorPagar, eliminarCuentaPorPagar, guardarCuentaPorPagar,
+  abonarCuentaPorPagar, abonarLoteCuentasPorPagar, eliminarCuentaPorPagar, guardarCuentaPorPagar,
 } from '@/app/admin/finanzas-acciones'
 import type { Proveedor, VCuentaPorPagar } from '@/types/database'
 
@@ -88,6 +88,34 @@ export function BotonPagoMovil({ cuenta }: { cuenta: VCuentaPorPagar }) {
         <Banknote size={18} />
       </button>
       {abonando && <DialogoAbono cuenta={cuenta} onCerrar={() => setAbonando(false)} />}
+    </>
+  )
+}
+
+/**
+ * Liquidar de un jalón todo lo que se le debe al proveedor filtrado.
+ *
+ * Es el sustituto de las casillas de escritorio: en 390 px una columna de
+ * checkboxes se come el renglón y pelea con el toque para pagar una sola.
+ */
+export function BotonPagarProveedor({ cuentas }: { cuentas: VCuentaPorPagar[] }) {
+  const [abierto, setAbierto] = useState(false)
+  if (cuentas.length === 0) return null
+
+  const total = cuentas.reduce((s, c) => s + Number(c.saldo), 0)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        data-tap
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-haaco-700 px-4 text-[15px] font-semibold text-white transition active:bg-haaco-800"
+      >
+        <Banknote size={18} />
+        Pagar las {cuentas.length} · {pesos(total)}
+      </button>
+      {abierto && <DialogoPagoLote cuentas={cuentas} onCerrar={() => setAbierto(false)} />}
     </>
   )
 }
@@ -207,6 +235,150 @@ function DialogoAbono({ cuenta, onCerrar }: { cuenta: VCuentaPorPagar; onCerrar:
           className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
         >
           {pendiente ? 'Registrando…' : 'Registrar pago'}
+        </button>
+      </PieDialogo>
+    </Dialogo>
+  )
+}
+
+/**
+ * Pagar de una sola vez todas las facturas seleccionadas de un proveedor.
+ *
+ * Cada renglón trae su monto editable prellenado con el saldo: casi siempre se
+ * liquida todo, pero a veces se abona a medias en una y completo en las demás.
+ * O entran todas o no entra ninguna.
+ */
+export function DialogoPagoLote({
+  cuentas,
+  onCerrar,
+}: {
+  cuentas: VCuentaPorPagar[]
+  onCerrar: () => void
+}) {
+  const router = useRouter()
+  const [pendiente, iniciar] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  const [fechaPago, setFechaPago] = useState(hoyISO())
+  const [montos, setMontos] = useState<Record<string, string>>(() =>
+    Object.fromEntries(cuentas.map((c) => [c.id, String(Number(c.saldo))])),
+  )
+
+  const proveedor = cuentas[0]?.proveedor ?? 'Proveedor'
+  const total = redondear(cuentas.reduce((s, c) => s + num(montos[c.id] ?? ''), 0))
+  const saldoTotal = redondear(cuentas.reduce((s, c) => s + Number(c.saldo), 0))
+  const excedidas = cuentas.filter((c) => num(montos[c.id] ?? '') > Number(c.saldo))
+  const liquidan = cuentas.filter(
+    (c) => num(montos[c.id] ?? '') > 0 && num(montos[c.id] ?? '') >= Number(c.saldo),
+  ).length
+
+  const pagar = () =>
+    iniciar(async () => {
+      setError(null)
+      const r = await abonarLoteCuentasPorPagar(
+        cuentas
+          .map((c) => ({ id: c.id, monto: num(montos[c.id] ?? '') }))
+          .filter((p) => p.monto > 0),
+        fechaPago,
+      )
+      if (!r.ok) return setError(r.error)
+      onCerrar()
+      router.refresh()
+    })
+
+  return (
+    <Dialogo
+      abierto
+      onCerrar={onCerrar}
+      ancho="lg"
+      titulo={`Pago a ${proveedor}`}
+      descripcion={`${cuentas.length} facturas · saldo total ${pesos(saldoTotal)}`}
+    >
+      <CuerpoDialogo>
+        <Campo
+          etiqueta="Fecha del pago"
+          ancho="medio"
+          hijo={<SelectorFecha valor={fechaPago} onCambio={setFechaPago} />}
+        />
+
+        <div className="sm:col-span-2">
+          <p className="mb-2 text-sm font-medium text-tinta-700">Facturas</p>
+          <ul className="divide-y divide-tinta-100 overflow-hidden rounded-xl border border-tinta-200">
+            {cuentas.map((c) => {
+              const monto = num(montos[c.id] ?? '')
+              const excede = monto > Number(c.saldo)
+              return (
+                <li key={c.id} className="px-3 py-2.5">
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-tinta-900">{c.folio_factura}</span>
+                    <span className="text-xs text-tinta-500">
+                      vence {fecha(c.vencimiento)} · saldo {pesos(c.saldo)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Numero
+                      value={montos[c.id] ?? ''}
+                      onChange={(e) => setMontos((m) => ({ ...m, [c.id]: e.target.value }))}
+                      placeholder="0.00"
+                      className="max-w-36"
+                    />
+                    {monto > 0 && !excede && (
+                      <span className="text-xs text-tinta-500">
+                        {monto >= Number(c.saldo) ? (
+                          <strong className="text-haaco-700">queda liquidada</strong>
+                        ) : (
+                          <>quedarían {pesos(redondear(Number(c.saldo) - monto))}</>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  {excede && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Rebasa el saldo de la factura ({pesos(c.saldo)}).
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+
+        <div className="rounded-xl bg-haaco-50 px-4 py-3 sm:col-span-2">
+          <dl className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-tinta-600">Facturas que se liquidan</dt>
+              <dd className="tabular-nums text-tinta-900">
+                {liquidan} de {cuentas.length}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-tinta-600">Queda pendiente con {proveedor}</dt>
+              <dd className="tabular-nums text-tinta-900">{pesos(redondear(saldoTotal - total))}</dd>
+            </div>
+            <div className="flex justify-between border-t border-haaco-200 pt-1.5">
+              <dt className="font-semibold text-tinta-900">Total a pagar</dt>
+              <dd className="text-lg font-semibold tabular-nums text-haaco-700">{pesos(total)}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <MensajeError mensaje={error} />
+      </CuerpoDialogo>
+
+      <PieDialogo>
+        <button
+          type="button"
+          onClick={onCerrar}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={pagar}
+          disabled={pendiente || total <= 0 || excedidas.length > 0}
+          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+        >
+          {pendiente ? 'Registrando…' : `Pagar ${pesos(total)}`}
         </button>
       </PieDialogo>
     </Dialogo>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { ChevronLeft, Pause, Play, Truck } from 'lucide-react'
 import { Etiqueta } from '@/components/ui'
+import { BotonReabrir } from '@/components/obras/reabrir'
 import { fecha, fechaHora, pesos } from '@/lib/format'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import { actualizarObra, entregarObra } from '@/app/admin/obras/acciones'
@@ -14,10 +15,13 @@ export function EncabezadoObra({
   concentrado,
   obra,
   cobranza,
+  esAdmin,
 }: {
   concentrado: VObraConcentrado
   obra: Obra
   cobranza: VCobranza | null
+  /** Reabrir una OT cerrada es sólo de Dirección. */
+  esAdmin: boolean
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
@@ -86,7 +90,19 @@ export function EncabezadoObra({
           </p>
         </div>
 
-        {!cerrada && (
+        {cerrada ? (
+          esAdmin && (
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+              <BotonReabrir
+                obraId={obra.id}
+                otNumero={concentrado.ot_numero}
+                cotizacionFolio={concentrado.cotizacion_folio}
+                cerradaEl={concentrado.fecha_cierre}
+                variante="encabezado"
+              />
+            </div>
+          )
+        ) : (
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
             {concentrado.estatus === 'pausada' ? (
               <button

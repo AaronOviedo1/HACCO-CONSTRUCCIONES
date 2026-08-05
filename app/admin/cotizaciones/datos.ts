@@ -88,6 +88,7 @@ export async function cargarCotizacion(id: string) {
     requiere_factura: cotizacion.requiere_factura,
     anticipo_pct: String(cotizacion.anticipo_pct ?? base.anticipo_pct),
     iva_pct: String(cotizacion.iva_pct),
+    descuento_pct: String(cotizacion.descuento_pct ?? 0),
     vigencia_dias: String(cotizacion.vigencia_dias),
     viaticos: Number(cotizacion.viaticos) > 0 ? String(cotizacion.viaticos) : '',
     linea_calidad: cotizacion.linea_calidad ?? '',
@@ -104,6 +105,7 @@ export async function cargarCotizacion(id: string) {
       .map((i) => ({
         descripcion: i.descripcion,
         m2: i.m2 == null ? '' : String(i.m2),
+        unidad: i.unidad ?? '',
         precio_unitario: String(i.precio_unitario),
       })),
     desglose: (desglose ?? []).map((d) => ({

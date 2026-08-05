@@ -18,9 +18,10 @@ import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
 import { REGLAS } from '@/lib/empresa'
 import {
-  ESTATUS_COTIZACION, TIPO_COTIZACION, conceptoVacio, costoConcepto, importePartida,
-  notasCotizacion, num, precioConcepto, redondear, sumaMateriales, totalMaterial, totalesCotizacion,
-  type BorradorCotizacion, type ConceptoBorrador, type MaterialBorrador,
+  ESTATUS_COTIZACION, TIPOS_COTIZACION, TIPO_COTIZACION, UNIDADES_PARTIDA, abreviaUnidad,
+  anticipoPorTipo, conceptoVacio, costoConcepto, importePartida, muestraBloque, notasCotizacion,
+  num, precioConcepto, redondear, sumaMateriales, totalMaterial, totalesCotizacion, tituloPartidas,
+  unidadPorTipo, type BorradorCotizacion, type ConceptoBorrador, type MaterialBorrador,
   type Sugerencia, type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import {
@@ -123,8 +124,8 @@ export function EditorCotizacion({
   const escritorio = useEscritorio()
   const nueva = !cotizacionId
   const abiertaEnAlta = escritorio && nueva
-  const muestraPintura = doc.tipo === 'pintura' || doc.tipo === 'mixta'
-  const muestraHerreria = doc.tipo === 'herreria' || doc.tipo === 'mixta'
+  const muestraPintura = muestraBloque(doc.tipo, 'partidas')
+  const muestraHerreria = muestraBloque(doc.tipo, 'herreria')
 
   const cambiar = <C extends keyof BorradorCotizacion>(campo: C, valor: BorradorCotizacion[C]) => {
     setDoc((d) => ({ ...d, [campo]: valor }))
@@ -367,16 +368,12 @@ export function EditorCotizacion({
                     valor={doc.tipo}
                     columnas={3}
                     deshabilitado={bloqueado}
-                    opciones={[
-                      ['pintura', 'Pintura'],
-                      ['herreria', 'Herrería'],
-                      ['mixta', 'Mixta'],
-                    ]}
+                    opciones={TIPOS_COTIZACION.map((t) => [t.valor, t.texto] as [TipoCotizacion, string])}
                     onCambio={(tipo: TipoCotizacion) => {
                       setDoc((d) => ({
                         ...d,
                         tipo,
-                        anticipo_pct: tipo === 'herreria' ? '60' : d.anticipo_pct,
+                        anticipo_pct: String(anticipoPorTipo(tipo)),
                       }))
                       setSucio(true)
                     }}
@@ -422,6 +419,13 @@ export function EditorCotizacion({
                   sufijo="%"
                   value={doc.anticipo_pct}
                   onChange={(e) => cambiar('anticipo_pct', e.target.value)}
+                  disabled={bloqueado}
+                />
+                <NumeroCorto
+                  etiqueta="Descuento"
+                  sufijo="%"
+                  value={doc.descuento_pct}
+                  onChange={(e) => cambiar('descuento_pct', e.target.value)}
                   disabled={bloqueado}
                 />
                 <NumeroCorto
@@ -560,12 +564,19 @@ export function EditorCotizacion({
           >
             <dl className="divide-y divide-tinta-100">
               {muestraPintura && (
-                <Renglon etiqueta="Partidas de pintura" valor={pesos(totales.partidas)} />
+                <Renglon etiqueta={tituloPartidas(doc.tipo)} valor={pesos(totales.partidas)} />
               )}
               {muestraHerreria && (
                 <Renglon etiqueta="Conceptos de herrería" valor={pesos(totales.conceptos)} />
               )}
               <Renglon etiqueta="Subtotal" valor={pesos(totales.subtotal)} fuerte />
+              {totales.descuento > 0 && (
+                <Renglon
+                  etiqueta={`Descuento ${num(doc.descuento_pct)}%`}
+                  valor={`- ${pesos(totales.descuento)}`}
+                  enRojo
+                />
+              )}
               {totales.iva > 0 && <Renglon etiqueta={`IVA ${num(doc.iva_pct)}%`} valor={pesos(totales.iva)} />}
               <Renglon etiqueta="Total" valor={pesos(totales.total)} destacado />
               <Renglon
@@ -698,12 +709,13 @@ export function EditorCotizacion({
 // Bloques
 // ===========================================================================
 function Renglon({
-  etiqueta, valor, fuerte, destacado,
+  etiqueta, valor, fuerte, destacado, enRojo,
 }: {
   etiqueta: string
   valor: string
   fuerte?: boolean
   destacado?: boolean
+  enRojo?: boolean
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-2.5">
@@ -714,9 +726,11 @@ function Renglon({
         className={`tabular-nums ${
           destacado
             ? 'text-lg font-semibold text-haaco-700'
-            : fuerte
-              ? 'text-sm font-semibold text-tinta-900'
-              : 'text-sm text-tinta-700'
+            : enRojo
+              ? 'text-sm font-medium text-red-600'
+              : fuerte
+                ? 'text-sm font-semibold text-tinta-900'
+                : 'text-sm text-tinta-700'
         }`}
       >
         {valor}
@@ -872,7 +886,11 @@ function BloqueProcesos({
 function BloquePartidas({
   doc, setDoc, setSucio, bloqueado, sugerencias, abierta,
 }: BloqueProps & { sugerencias: Sugerencia[]; abierta: boolean }) {
-  const actualizar = (i: number, campo: 'descripcion' | 'm2' | 'precio_unitario', valor: string) => {
+  const actualizar = (
+    i: number,
+    campo: 'descripcion' | 'm2' | 'unidad' | 'precio_unitario',
+    valor: string,
+  ) => {
     setDoc((d) => ({
       ...d,
       items: d.items.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)),
@@ -898,7 +916,7 @@ function BloquePartidas({
 
   return (
     <TarjetaPlegable
-      titulo="Partidas de pintura"
+      titulo={tituloPartidas(doc.tipo)}
       abierta={abierta}
       resumen={
         cuantas === 0
@@ -941,15 +959,20 @@ function BloquePartidas({
               <Numero
                 value={item.m2}
                 onChange={(e) => actualizar(i, 'm2', e.target.value)}
-                placeholder="m²"
+                placeholder={abreviaUnidad(item.unidad)}
                 disabled={bloqueado}
                 className="!text-center"
+              />
+              <SelectorUnidad
+                valor={item.unidad}
+                onCambio={(v) => actualizar(i, 'unidad', v)}
+                disabled={bloqueado}
               />
               <span className="shrink-0 text-tinta-400">×</span>
               <Numero
                 value={item.precio_unitario}
                 onChange={(e) => actualizar(i, 'precio_unitario', e.target.value)}
-                placeholder="$ / m²"
+                placeholder={`$ / ${abreviaUnidad(item.unidad)}`}
                 disabled={bloqueado}
                 className="!text-center"
               />
@@ -967,7 +990,8 @@ function BloquePartidas({
             <tr>
               <th className="w-10 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-tinta-500">#</th>
               <th className="border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-tinta-500">Descripción</th>
-              <th className="w-24 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-tinta-500">M²</th>
+              <th className="w-20 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-tinta-500">Cant.</th>
+              <th className="w-24 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-tinta-500">Unidad</th>
               <th className="w-28 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-tinta-500">P.U.</th>
               <th className="w-32 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-tinta-500">Importe</th>
               <th className="w-10 border-b border-tinta-200 bg-tinta-50/70" />
@@ -993,6 +1017,13 @@ function BloquePartidas({
                     value={item.m2}
                     onChange={(e) => actualizar(i, 'm2', e.target.value)}
                     placeholder="—"
+                    disabled={bloqueado}
+                  />
+                </td>
+                <td className="border-b border-tinta-100 px-3 py-1.5">
+                  <SelectorUnidad
+                    valor={item.unidad}
+                    onCambio={(v) => actualizar(i, 'unidad', v)}
                     disabled={bloqueado}
                   />
                 </td>
@@ -1035,7 +1066,17 @@ function BloquePartidas({
             onClick={() => {
               setDoc((d) => ({
                 ...d,
-                items: [...d.items, { descripcion: '', m2: '', precio_unitario: '' }],
+                // La partida nace con la unidad que use ese tipo de trabajo:
+                // pieza en herrería y otros, metro cuadrado en lo demás.
+                items: [
+                  ...d.items,
+                  {
+                    descripcion: '',
+                    m2: '',
+                    unidad: unidadPorTipo(d.tipo) ?? '',
+                    precio_unitario: '',
+                  },
+                ],
               }))
               setSucio(true)
             }}
@@ -1047,6 +1088,35 @@ function BloquePartidas({
         </div>
       )}
     </TarjetaPlegable>
+  )
+}
+
+/**
+ * La unidad de una partida. En pintura e imper siempre son metros cuadrados y
+ * el selector casi no se toca; en herrería y otros el trabajo se cobra por
+ * pieza y es lo que decide cómo sale la tabla en la carta al cliente.
+ */
+function SelectorUnidad({
+  valor, onCambio, disabled,
+}: {
+  valor: string
+  onCambio: (valor: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <select
+      value={valor}
+      onChange={(e) => onCambio(e.target.value)}
+      disabled={disabled}
+      aria-label="Unidad de la partida"
+      className="min-h-11 w-full rounded-lg border border-tinta-300 bg-white px-2 text-sm text-tinta-700 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200 disabled:bg-tinta-50 disabled:text-tinta-400 lg:min-h-0 lg:py-2"
+    >
+      {UNIDADES_PARTIDA.map((u) => (
+        <option key={u.valor} value={u.valor}>
+          {u.texto}
+        </option>
+      ))}
+    </select>
   )
 }
 

@@ -1,21 +1,12 @@
 import { redirect } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/server'
+import { RUTA_POR_ROL } from '@/lib/roles'
 import type { Profile, RolUsuario } from '@/types/database'
 
-/** A dónde manda la app a cada rol al entrar. */
-export const RUTA_POR_ROL: Record<RolUsuario, string> = {
-  admin: '/admin',
-  administracion: '/admin',
-  contador: '/admin/reportes',
-  cuadrilla: '/obra',
-}
-
-export const NOMBRE_ROL: Record<RolUsuario, string> = {
-  admin: 'Dirección',
-  administracion: 'Administración',
-  cuadrilla: 'Cuadrilla',
-  contador: 'Contador',
-}
+// Las etiquetas y rutas de cada rol viven en lib/roles.ts, que no depende del
+// servidor: así los formularios del navegador las pueden usar. Se reexportan
+// aquí porque es donde las busca el resto de la app.
+export { NOMBRE_ROL, RUTA_POR_ROL, esStaff } from '@/lib/roles'
 
 /** Perfil del usuario de la sesión actual, o null si no hay sesión. */
 export async function obtenerPerfil(): Promise<Profile | null> {
@@ -46,5 +37,3 @@ export async function requerirRol(roles: RolUsuario[]): Promise<Profile> {
   if (!roles.includes(perfil.rol)) redirect(RUTA_POR_ROL[perfil.rol])
   return perfil
 }
-
-export const esStaff = (rol: RolUsuario) => rol === 'admin' || rol === 'administracion'

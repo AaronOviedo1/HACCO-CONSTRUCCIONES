@@ -1,13 +1,14 @@
-import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { agruparPorMes } from '@/lib/finanzas'
+import { mesesPlegados } from '@/lib/meses-plegados'
 import { ESTATUS_OBRA, tonoUtilidad } from '@/lib/obras'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
+  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
+import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { SelectorMovil } from '@/components/movil/selector-movil'
@@ -70,6 +71,7 @@ export default async function PaginaObras({
 
   // Bloques por mes de apertura de la OT: la lista ya viene en ese orden.
   const meses = agruparPorMes(filas, (o) => o.fecha_apertura)
+  const plegados = await mesesPlegados('obras', meses.map((g) => g.mes))
   const etiquetaApertura = (grupo: (typeof meses)[number]) =>
     grupo.mes ? `Abiertas en ${grupo.etiqueta}` : grupo.etiqueta
   const detalleMes = (grupo: (typeof meses)[number]) =>
@@ -148,9 +150,14 @@ export default async function PaginaObras({
 
       {/* Teléfono: una tarjeta por orden de trabajo ------------------------- */}
       <div className="flex flex-col gap-3 lg:hidden">
+        <MesesPlegables lista="obras" plegados={plegados}>
         {meses.map((grupo) => (
-          <Fragment key={grupo.mes}>
-            <TituloMes etiqueta={etiquetaApertura(grupo)} detalle={detalleMes(grupo)} />
+          <SeccionMes
+            key={grupo.mes}
+            mes={grupo.mes}
+            etiqueta={etiquetaApertura(grupo)}
+            detalle={detalleMes(grupo)}
+          >
             {grupo.filas.map((o) => {
               const gastado =
                 Number(o.mano_obra) + Number(o.material_real) +
@@ -170,8 +177,9 @@ export default async function PaginaObras({
                 />
               )
             })}
-          </Fragment>
+          </SeccionMes>
         ))}
+        </MesesPlegables>
         {filas.length > 0 && (
           <p className="py-1 text-center text-[11.5px] text-tinta-400">
             {filas.length} de {todas.length} órdenes de trabajo
@@ -219,10 +227,15 @@ export default async function PaginaObras({
                 <Th>Actualizada</Th>
               </tr>
             </thead>
-            <tbody>
+            <MesesPlegables lista="obras" plegados={plegados}>
               {meses.map((grupo) => (
-                <Fragment key={grupo.mes}>
-                  <FilaMes columnas={9} etiqueta={etiquetaApertura(grupo)} detalle={detalleMes(grupo)} />
+                <CuerpoMes
+                  key={grupo.mes}
+                  mes={grupo.mes}
+                  columnas={9}
+                  etiqueta={etiquetaApertura(grupo)}
+                  detalle={detalleMes(grupo)}
+                >
                   {grupo.filas.map((o) => {
                     const gastado =
                       Number(o.mano_obra) + Number(o.material_real) +
@@ -287,9 +300,9 @@ export default async function PaginaObras({
                       </tr>
                     )
                   })}
-                </Fragment>
+                </CuerpoMes>
               ))}
-            </tbody>
+            </MesesPlegables>
           </Tabla>
         )}
       </Tarjeta>

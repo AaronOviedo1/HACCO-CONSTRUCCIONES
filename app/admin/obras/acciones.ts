@@ -5,7 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import type {
   EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
-  ResultadoBorradoObra, ResultadoCierre, TipoAvance, TipoPagoCobranza,
+  ResultadoBorradoObra, ResultadoCierre, ResultadoReapertura, ResultadoReasignacion,
+  TipoAvance, TipoPagoCobranza,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -197,6 +198,43 @@ export async function firmarContrato(
   if (error) return fallo(error)
   refrescar(obraId)
   return { ok: true }
+}
+
+/**
+ * El oficial se va a media obra y otro la termina. El contrato del que sale se
+ * ajusta a los metros que ejecutó y se cierra; se abre uno nuevo, a nombre del
+ * que entra, por lo que falta. Así cada quien se queda con sus recibos.
+ */
+export async function reasignarContrato(
+  obraId: string,
+  datos: {
+    contrato_id: string
+    nuevo_trabajador_id: string
+    fecha: string
+    /** Metros ya ejecutados por quien se va. Nulo = lo proporcional a lo pagado. */
+    m2_ejecutados: number | null
+    motivo: string | null
+  },
+): Promise<Resultado<ResultadoReasignacion>> {
+  const supabase = await staff()
+
+  if (!datos.nuevo_trabajador_id) {
+    return { ok: false, error: 'Elige al oficial que se queda con la obra.' }
+  }
+
+  const { data, error } = await supabase.rpc('reasignar_contrato', {
+    p_contrato: datos.contrato_id,
+    p_nuevo_trabajador: datos.nuevo_trabajador_id,
+    p_fecha: datos.fecha,
+    p_m2_ejecutados: datos.m2_ejecutados,
+    p_motivo: datos.motivo,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin/herramientas')
+  return { ok: true, datos: data as ResultadoReasignacion }
 }
 
 export async function eliminarContrato(obraId: string, id: string): Promise<Resultado> {
@@ -632,6 +670,35 @@ export async function cerrarObra(
   revalidatePath('/admin/herramientas')
   revalidatePath('/admin/cotizaciones')
   return { ok: true, datos: data as ResultadoCierre }
+}
+
+/**
+ * Devuelve a «en obra» una OT que se cerró: por error, o porque salió trabajo
+ * adicional después de entregar. Los contratos de mano de obra vuelven a la
+ * nómina y la cotización deja de estar terminada. Los pagarés no reviven.
+ *
+ * Es de Dirección, no del staff en general: reabrir mueve saldos de cliente y
+ * de nómina que ya se habían dado por cerrados.
+ */
+export async function reabrirObra(
+  obraId: string,
+  motivo: string,
+): Promise<Resultado<ResultadoReapertura>> {
+  await requerirRol(['admin'])
+  const supabase = await crearClienteServidor()
+
+  if (!motivo.trim()) return { ok: false, error: 'Escribe por qué se reabre la OT.' }
+
+  const { data, error } = await supabase.rpc('reabrir_obra', {
+    p_obra: obraId,
+    p_motivo: motivo.trim(),
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/cotizaciones')
+  revalidatePath('/admin/nomina')
+  return { ok: true, datos: data as ResultadoReapertura }
 }
 
 /**

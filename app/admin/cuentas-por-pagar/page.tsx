@@ -1,15 +1,15 @@
-import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
 import { ESTADO_CXP, agruparPorMes, vencimientosPorSemana } from '@/lib/finanzas'
+import { mesesPlegados } from '@/lib/meses-plegados'
+import { EncabezadoPagina, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
+import { MesesPlegables, SeccionMes } from '@/components/meses'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
-} from '@/components/ui'
-import {
-  AccionesCxp, BotonNuevaCxp, BotonPagoMovil, FiltroProveedorCxp,
+  BotonNuevaCxp, BotonPagarProveedor, BotonPagoMovil, FiltroProveedorCxp,
 } from '@/components/finanzas/cxp'
+import { TablaCxp } from '@/components/finanzas/tabla-cxp'
 import { BarrasSemanas, FilaLista } from '@/components/movil/piezas'
 import type { EstadoCxp } from '@/types/database'
 
@@ -55,6 +55,12 @@ export default async function PaginaCuentasPorPagar({
     `${grupo.filas.length} · saldo ${pesos(grupo.filas.reduce((s, c) => s + Number(c.saldo), 0))}`
   const etiquetaVence = (grupo: (typeof meses)[number]) =>
     grupo.mes ? `Vencen en ${grupo.etiqueta}` : grupo.etiqueta
+  const plegados = await mesesPlegados('cxp', meses.map((g) => g.mes))
+
+  // Lo que se le puede liquidar de un jalón al proveedor filtrado, en el móvil.
+  const porPagarDelProveedor = proveedor
+    ? filas.filter((c) => !c.cancelada && Number(c.saldo) > 0)
+    : []
 
   const saldoTotal = activas.reduce((s, c) => s + Number(c.saldo), 0)
   const vencido = activas.filter((c) => c.estado === 'vencida').reduce((s, c) => s + Number(c.saldo), 0)
@@ -113,18 +119,29 @@ export default async function PaginaCuentasPorPagar({
             </div>
           </Tarjeta>
 
-          <div className="mb-3.5">
+          <div className="mb-3.5 flex flex-col gap-2.5">
             <FiltroProveedorCxp
               proveedores={proveedores ?? []}
               valor={proveedor ?? ''}
               vista={vista}
             />
+            {/* En el teléfono no hay casillas: se filtra por proveedor y se
+                liquida todo lo suyo de un botón, que es el mismo resultado. */}
+            {proveedor && porPagarDelProveedor.length > 1 && (
+              <BotonPagarProveedor cuentas={porPagarDelProveedor} />
+            )}
           </div>
 
           <Tarjeta>
+            <MesesPlegables lista="cxp" plegados={plegados}>
             {meses.map((grupo) => (
-              <Fragment key={grupo.mes}>
-                <TituloMes enTarjeta etiqueta={etiquetaVence(grupo)} detalle={detalleMes(grupo)} />
+              <SeccionMes
+                key={grupo.mes}
+                mes={grupo.mes}
+                enTarjeta
+                etiqueta={etiquetaVence(grupo)}
+                detalle={detalleMes(grupo)}
+              >
                 {grupo.filas.map((c) => {
                   const estado = ESTADO_CXP[c.estado as EstadoCxp]
                   return (
@@ -142,8 +159,9 @@ export default async function PaginaCuentasPorPagar({
                     />
                   )
                 })}
-              </Fragment>
+              </SeccionMes>
             ))}
+            </MesesPlegables>
           </Tarjeta>
         </div>
       )}
@@ -172,116 +190,22 @@ export default async function PaginaCuentasPorPagar({
         )}
       </nav>
 
-      <div className={`grid gap-4 xl:grid-cols-4 ${activas.length > 0 ? 'hidden lg:grid' : ''}`}>
-        <div className="xl:col-span-3">
-          <Tarjeta pie={`${filas.length} facturas · saldo ${pesos(filas.reduce((s, c) => s + Number(c.saldo), 0))}`}>
-            {error ? (
-              <EstadoVacio titulo="No se pudo leer la lista" descripcion="Revisa las migraciones." />
-            ) : filas.length === 0 ? (
-              <EstadoVacio
-                titulo={todas.length === 0 ? 'Sin cuentas por pagar' : 'Nada pendiente aquí'}
-                descripcion={
-                  todas.length === 0
-                    ? 'Se abren solas cuando registras un gasto a crédito, o puedes capturarlas a mano.'
-                    : 'Todo al corriente con este filtro.'
-                }
-              />
-            ) : (
-              <Tabla>
-                <thead>
-                  <tr>
-                    <Th>Proveedor</Th>
-                    <Th>Factura</Th>
-                    <Th>Fecha</Th>
-                    <Th numerico>Días</Th>
-                    <Th>Vencimiento</Th>
-                    <Th numerico>Importe</Th>
-                    <Th numerico>Pagado</Th>
-                    <Th numerico>Saldo</Th>
-                    <Th numerico>Restan</Th>
-                    <Th>Estado</Th>
-                    <Th> </Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {meses.map((grupo) => (
-                    <Fragment key={grupo.mes}>
-                      <FilaMes columnas={11} etiqueta={etiquetaVence(grupo)} detalle={detalleMes(grupo)} />
-                      {grupo.filas.map((c) => {
-                        const estado = ESTADO_CXP[c.estado as EstadoCxp]
-                        const parcial = Number(c.monto_pagado) > 0 && Number(c.saldo) > 0
-                        return (
-                          <tr key={c.id} className="hover:bg-tinta-50/60">
-                            <Td className="font-medium text-tinta-900">{c.proveedor}</Td>
-                            <Td className="font-mono text-xs">{c.folio_factura}</Td>
-                            <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha_factura)}</Td>
-                            <Td numerico className="text-tinta-500">{c.dias_credito}</Td>
-                            <Td className="whitespace-nowrap text-tinta-600">{fecha(c.vencimiento)}</Td>
-                            <Td numerico className={c.cancelada ? 'text-tinta-400 line-through' : ''}>
-                              {c.cancelada ? 'CANCELADA' : pesos(c.monto)}
-                            </Td>
-                            <Td numerico className="text-tinta-500">
-                              {Number(c.monto_pagado) > 0 ? pesos(c.monto_pagado) : '—'}
-                              {parcial && <Etiqueta tono="ambar">parcial</Etiqueta>}
-                            </Td>
-                            <Td numerico className={Number(c.saldo) > 0 ? 'font-semibold' : 'text-tinta-400'}>
-                              {pesos(c.saldo)}
-                            </Td>
-                            <Td numerico className="text-tinta-500">
-                              {c.estado === 'pagada' || c.cancelada ? '—' : `${c.dias_restantes} d`}
-                            </Td>
-                            <Td>
-                              <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
-                            </Td>
-                            <Td>
-                              <AccionesCxp cuenta={c} proveedores={proveedores ?? []} />
-                            </Td>
-                          </tr>
-                        )
-                      })}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </Tabla>
-            )}
-          </Tarjeta>
-        </div>
-
-        <Tarjeta titulo="Por proveedor" pie="Toca un proveedor para filtrar la lista.">
-          {(dashboard ?? []).filter((d) => Number(d.saldo_total) > 0).length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-tinta-500">Nada pendiente.</p>
-          ) : (
-            <ul className="divide-y divide-tinta-100">
-              {(dashboard ?? [])
-                .filter((d) => Number(d.saldo_total) > 0)
-                .map((d) => (
-                  <li key={d.proveedor_id}>
-                    <Link
-                      href={`/admin/cuentas-por-pagar?t=${vista}&proveedor=${d.proveedor_id}`}
-                      className="block px-4 py-3 transition hover:bg-tinta-50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-tinta-900">{d.proveedor}</span>
-                        <span className="font-medium tabular-nums text-tinta-900">
-                          {pesos(d.saldo_total)}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs">
-                        {Number(d.vencido) > 0 && (
-                          <span className="text-red-600">Vencido {pesos(d.vencido)}</span>
-                        )}
-                        {Number(d.por_vencer) > 0 && (
-                          <span className="text-amber-600">Por vencer {pesos(d.por_vencer)}</span>
-                        )}
-                        <span className="text-tinta-400">{d.dias_credito_default} días crédito</span>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </Tarjeta>
-      </div>
+      <TablaCxp
+        plegados={plegados}
+        grupos={meses.map((g) => ({
+          mes: g.mes,
+          etiqueta: etiquetaVence(g),
+          detalle: detalleMes(g),
+          filas: g.filas,
+        }))}
+        proveedores={proveedores ?? []}
+        porProveedor={dashboard ?? []}
+        vista={vista}
+        totalFilas={filas.length}
+        saldoVisible={filas.reduce((s, c) => s + Number(c.saldo), 0)}
+        sinDatos={todas.length === 0}
+        error={Boolean(error)}
+      />
     </>
   )
 }

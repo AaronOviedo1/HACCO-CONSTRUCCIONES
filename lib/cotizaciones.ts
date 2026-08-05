@@ -17,9 +17,25 @@ export const redondear = (n: number) => Math.round(n * 100) / 100
 
 export type PartidaBorrador = {
   descripcion: string
+  /** La cantidad. Se llama m2 por historia; vacío se toma como 1. */
   m2: string
+  /** Unidad de la cantidad. Vacío = metros cuadrados. */
+  unidad: string
   precio_unitario: string
 }
+
+/** Unidades que se pueden elegir por partida. La primera es la de siempre. */
+export const UNIDADES_PARTIDA: { valor: string; texto: string; abrevia: string }[] = [
+  { valor: '',        texto: 'm²',       abrevia: 'm²' },
+  { valor: 'pza',     texto: 'Pieza',    abrevia: 'pza' },
+  { valor: 'ml',      texto: 'Metro lineal', abrevia: 'ml' },
+  { valor: 'lote',    texto: 'Lote',     abrevia: 'lote' },
+  { valor: 'servicio', texto: 'Servicio', abrevia: 'serv' },
+]
+
+/** Cómo se escribe la unidad de una partida en la carta al cliente. */
+export const abreviaUnidad = (unidad: string | null | undefined) =>
+  UNIDADES_PARTIDA.find((u) => u.valor === (unidad ?? ''))?.abrevia ?? unidad ?? 'm²'
 
 export type MaterialBorrador = {
   rubro: RubroMaterial
@@ -68,6 +84,8 @@ export type BorradorCotizacion = {
   requiere_factura: boolean
   anticipo_pct: string
   iva_pct: string
+  /** Descuento comercial sobre el subtotal, antes de IVA. */
+  descuento_pct: string
   vigencia_dias: string
   /** Viáticos presupuestados: no salen en el PDF, van al concentrado de la OT. */
   viaticos: string
@@ -84,7 +102,7 @@ export type BorradorCotizacion = {
 // Cálculos
 // ---------------------------------------------------------------------------
 
-/** Importe de una partida: si no lleva m² se toma el precio unitario tal cual. */
+/** Importe de una partida: si no lleva cantidad se toma el precio tal cual. */
 export function importePartida(partida: PartidaBorrador): number {
   const m2 = partida.m2.trim() === '' ? 1 : num(partida.m2)
   return redondear(m2 * num(partida.precio_unitario))
@@ -119,14 +137,25 @@ export function totalesCotizacion(borrador: BorradorCotizacion) {
   const partidas = borrador.items.reduce((s, i) => s + importePartida(i), 0)
   const conceptos = borrador.desglose.reduce((s, c) => s + precioConcepto(c), 0)
   const subtotal = redondear(partidas + conceptos)
-  const iva = redondear(subtotal * (num(borrador.iva_pct) / 100))
-  const total = redondear(subtotal + iva)
+
+  const descuentoPct = num(borrador.descuento_pct)
+  const descuento = redondear(subtotal * (descuentoPct / 100))
+  const base = redondear(subtotal - descuento)
+  const iva = redondear(base * (num(borrador.iva_pct) / 100))
+
+  // El total se calcula de un tirón, con un solo redondeo, para que cuadre al
+  // centavo con la columna generada de la base de datos. Descuento, base e IVA
+  // son cifras de presentación: encadenar sus redondeos podría desviar un peso.
+  const total = redondear(subtotal * (1 - descuentoPct / 100) * (1 + num(borrador.iva_pct) / 100))
   const anticipo = redondear(total * (num(borrador.anticipo_pct) / 100))
 
   const costoDirecto = borrador.desglose.reduce((s, c) => s + costoConcepto(c), 0)
   const utilidadHerreria = redondear(conceptos - costoDirecto)
 
-  return { partidas, conceptos, subtotal, iva, total, anticipo, costoDirecto, utilidadHerreria }
+  return {
+    partidas, conceptos, subtotal, descuento, base, iva, total, anticipo,
+    costoDirecto, utilidadHerreria,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -139,11 +168,10 @@ export function borradorVacio(tipo: TipoCotizacion = 'pintura'): BorradorCotizac
     domicilio_obra: '',
     tipo,
     requiere_factura: false,
-    anticipo_pct: String(
-      tipo === 'herreria' ? REGLAS.anticipoHerreriaPct : REGLAS.anticipoPinturaPct,
-    ),
+    anticipo_pct: String(anticipoPorTipo(tipo)),
     // El IVA no se captura: si el cliente pide factura son los 16 de siempre.
     iva_pct: '0',
+    descuento_pct: '0',
     vigencia_dias: String(REGLAS.vigenciaCotizacionDias),
     viaticos: '',
     linea_calidad: LINEA_CALIDAD,
@@ -183,6 +211,7 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
     requiere_factura: borrador.requiere_factura,
     anticipo_pct: num(borrador.anticipo_pct),
     iva_pct: num(borrador.iva_pct),
+    descuento_pct: num(borrador.descuento_pct),
     vigencia_dias: num(borrador.vigencia_dias) || 30,
     viaticos: num(borrador.viaticos),
     linea_calidad: borrador.linea_calidad.trim() || null,
@@ -200,6 +229,7 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
       .map((i) => ({
         descripcion: i.descripcion.trim(),
         m2: i.m2.trim() === '' ? null : num(i.m2),
+        unidad: i.unidad.trim() || null,
         precio_unitario: num(i.precio_unitario),
       })),
     desglose: borrador.desglose
@@ -245,11 +275,55 @@ export const ESTATUS_COTIZACION: Record<
   terminada: { texto: 'Terminada', tono: 'verde' },
 }
 
-export const TIPO_COTIZACION: Record<TipoCotizacion, string> = {
-  pintura: 'Pintura',
-  herreria: 'Herrería',
-  mixta: 'Mixta',
-}
+/**
+ * Los cinco tipos de trabajo, con lo que cada uno arrastra: el anticipo que se
+ * pide de costumbre, qué bloques del editor tiene sentido enseñar y en qué se
+ * mide la partida. Es la única lista: el selector del editor, el del cotizador
+ * rápido y el filtro del listado salen todos de aquí.
+ *
+ * Pintura e imper se cotizan m² × precio; herrería y otros se cobran por pieza
+ * y el cálculo del precio es interno, así que al cliente sólo le llega la
+ * cantidad y el importe.
+ */
+export type BloqueCotizacion = 'partidas' | 'herreria'
+
+export const TIPOS_COTIZACION: readonly {
+  valor: TipoCotizacion
+  texto: string
+  nota: string
+  anticipoPct: number
+  unidad: string | null
+  bloques: readonly BloqueCotizacion[]
+}[] = [
+  { valor: 'pintura',  texto: 'Pintura',  nota: 'Anticipo 50%',       anticipoPct: REGLAS.anticipoPinturaPct,  unidad: null,  bloques: ['partidas'] },
+  { valor: 'imper',    texto: 'Imper',    nota: 'Anticipo 50%',       anticipoPct: REGLAS.anticipoPinturaPct,  unidad: null,  bloques: ['partidas'] },
+  { valor: 'herreria', texto: 'Herrería', nota: 'Anticipo 60%',       anticipoPct: REGLAS.anticipoHerreriaPct, unidad: 'pza', bloques: ['herreria'] },
+  { valor: 'otros',    texto: 'Otros',    nota: 'Por cantidad',       anticipoPct: REGLAS.anticipoPinturaPct,  unidad: 'pza', bloques: ['partidas'] },
+  { valor: 'mixta',    texto: 'Mixta',    nota: 'Pintura + herrería', anticipoPct: REGLAS.anticipoPinturaPct,  unidad: null,  bloques: ['partidas', 'herreria'] },
+]
+
+const porTipo = (tipo: TipoCotizacion) =>
+  TIPOS_COTIZACION.find((t) => t.valor === tipo) ?? TIPOS_COTIZACION[0]
+
+export const TIPO_COTIZACION: Record<TipoCotizacion, string> = Object.fromEntries(
+  TIPOS_COTIZACION.map((t) => [t.valor, t.texto]),
+) as Record<TipoCotizacion, string>
+
+/** Anticipo que se pide de costumbre para ese tipo de trabajo. */
+export const anticipoPorTipo = (tipo: TipoCotizacion) => porTipo(tipo).anticipoPct
+
+/** Si el editor debe enseñar las partidas sueltas o el cotizador de herrería. */
+export const muestraBloque = (tipo: TipoCotizacion, bloque: BloqueCotizacion) =>
+  porTipo(tipo).bloques.includes(bloque)
+
+/** Unidad con la que nacen las partidas de ese tipo. Nulo = metros cuadrados. */
+export const unidadPorTipo = (tipo: TipoCotizacion) => porTipo(tipo).unidad
+
+/** Título del bloque de partidas: "de pintura" sólo cuando de verdad lo es. */
+export const tituloPartidas = (tipo: TipoCotizacion) =>
+  tipo === 'pintura' || tipo === 'mixta' ? 'Partidas de pintura'
+  : tipo === 'imper' ? 'Partidas de impermeabilización'
+  : 'Partidas'
 
 export const LINEA_CALIDAD =
   'Se utilizarán productos de la más alta calidad en el mercado, garantizando la durabilidad y el acabado del trabajo.'

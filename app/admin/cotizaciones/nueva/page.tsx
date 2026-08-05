@@ -21,7 +21,7 @@ export default async function NuevaCotizacion() {
   // pasos y es más rápido agregarlos de la biblioteca que borrar los que sobran.
   const inicial = {
     ...borradorVacio('pintura'),
-    items: [{ descripcion: '', m2: '', precio_unitario: '' }],
+    items: [{ descripcion: '', m2: '', unidad: '', precio_unitario: '' }],
   }
 
   return (

@@ -43,10 +43,16 @@ export async function GET(
     partidas: (items ?? []).map((i) => ({
       descripcion: i.descripcion,
       m2: i.m2,
+      unidad: i.unidad,
       precio_unitario: i.precio_unitario,
       importe: i.importe,
     })),
+    // Se decide por lo que traen las partidas, no por el tipo de cotización:
+    // una mixta con partidas en metros sigue saliendo con su columna M².
+    usaM2: (items ?? []).every((i) => !i.unidad || i.unidad === 'm2'),
     subtotal: cotizacion.subtotal,
+    descuentoPct: cotizacion.descuento_pct,
+    descuento: Math.round(cotizacion.subtotal * (cotizacion.descuento_pct / 100) * 100) / 100,
     ivaPct: cotizacion.iva_pct,
     total: cotizacion.total,
     anticipoPct: cotizacion.anticipo_pct ?? 50,

@@ -6,8 +6,8 @@ import { ArrowLeft, Check, Plus, Search, Send, Trash2, UserPlus } from 'lucide-r
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { pesos } from '@/lib/format'
 import {
-  borradorVacio, importePartida, num, totalesCotizacion,
-  type BorradorCotizacion, type PartidaBorrador,
+  TIPOS_COTIZACION, anticipoPorTipo, borradorVacio, importePartida, num, totalesCotizacion,
+  unidadPorTipo, type BorradorCotizacion, type PartidaBorrador,
 } from '@/lib/cotizaciones'
 import { cambiarEstatus, guardarCotizacion } from '@/app/admin/cotizaciones/acciones'
 import type { Cliente, TextoProceso, TipoCotizacion } from '@/types/database'
@@ -16,11 +16,7 @@ type Paso = 'cliente' | 'tipo' | 'proceso' | 'partidas'
 
 const PASOS: Paso[] = ['cliente', 'tipo', 'proceso', 'partidas']
 
-const TIPOS: { valor: TipoCotizacion; titulo: string; nota: string }[] = [
-  { valor: 'pintura', titulo: 'Pintura', nota: 'Anticipo 50%' },
-  { valor: 'herreria', titulo: 'Herrería', nota: 'Anticipo 60%' },
-  { valor: 'mixta', titulo: 'Mixta', nota: 'Pintura + herrería' },
-]
+const TIPOS = TIPOS_COTIZACION
 
 /**
  * Levantamiento en sitio desde el iPad: cliente → tipo → bullets → partidas.
@@ -37,7 +33,7 @@ export function CotizadorRapido({
   const [paso, setPaso] = useState<Paso>('cliente')
   const [doc, setDoc] = useState<BorradorCotizacion>(() => ({
     ...borradorVacio('pintura'),
-    items: [{ descripcion: '', m2: '', precio_unitario: '' }],
+    items: [{ descripcion: '', m2: '', unidad: '', precio_unitario: '' }],
   }))
   const [busqueda, setBusqueda] = useState('')
   const [nuevoCliente, setNuevoCliente] = useState(false)
@@ -46,6 +42,9 @@ export function CotizadorRapido({
 
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
   const cliente = clientes.find((c) => c.id === doc.cliente_id)
+  // En el levantamiento en sitio no se cambia unidad partida por partida: todas
+  // van con la del tipo. Si hace falta afinar alguna, se abre la cotización.
+  const unidad = unidadPorTipo(doc.tipo) ?? ''
 
   const filtrados = busqueda.trim()
     ? clientes.filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
@@ -55,7 +54,9 @@ export function CotizadorRapido({
     setDoc((d) => ({
       ...d,
       tipo,
-      anticipo_pct: tipo === 'herreria' ? '60' : '50',
+      anticipo_pct: String(anticipoPorTipo(tipo)),
+      // Herrería y otros se cobran por pieza; pintura e imper por metro.
+      items: d.items.map((i) => ({ ...i, unidad: unidadPorTipo(tipo) ?? '' })),
       procesos: textos.slice(0, 5).map((t) => ({ texto_proceso_id: t.id, contenido: t.contenido })),
     }))
     setPaso('proceso')
@@ -111,7 +112,7 @@ export function CotizadorRapido({
           </div>
           <p className="truncate text-sm text-tinta-500">
             {cliente ? cliente.nombre : 'Levantamiento en sitio'}
-            {paso !== 'cliente' && paso !== 'tipo' && ` · ${TIPOS.find((t) => t.valor === doc.tipo)?.titulo}`}
+            {paso !== 'cliente' && paso !== 'tipo' && ` · ${TIPOS.find((t) => t.valor === doc.tipo)?.texto}`}
           </p>
         </div>
       </header>
@@ -190,7 +191,7 @@ export function CotizadorRapido({
                   : 'border-tinta-200 bg-white hover:border-haaco-300'
               }`}
             >
-              <span className="block text-xl font-semibold text-tinta-900">{t.titulo}</span>
+              <span className="block text-xl font-semibold text-tinta-900">{t.texto}</span>
               <span className="mt-1 block text-sm text-tinta-500">{t.nota}</span>
             </button>
           ))}
@@ -270,12 +271,12 @@ export function CotizadorRapido({
 
               <div className="grid grid-cols-3 gap-2">
                 <CampoGrande
-                  etiqueta="M²"
+                  etiqueta={unidad === 'pza' ? 'Cant.' : 'M²'}
                   valor={item.m2}
                   onCambio={(v) => actualizarPartida(i, 'm2', v)}
                 />
                 <CampoGrande
-                  etiqueta="Precio m²"
+                  etiqueta={unidad === 'pza' ? 'Precio pza' : 'Precio m²'}
                   valor={item.precio_unitario}
                   onCambio={(v) => actualizarPartida(i, 'precio_unitario', v)}
                 />
@@ -294,7 +295,10 @@ export function CotizadorRapido({
             onClick={() =>
               setDoc((d) => ({
                 ...d,
-                items: [...d.items, { descripcion: '', m2: '', precio_unitario: '' }],
+                items: [
+                  ...d.items,
+                  { descripcion: '', m2: '', unidad: unidadPorTipo(d.tipo) ?? '', precio_unitario: '' },
+                ],
               }))
             }
             className="flex min-h-[50px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-tinta-300 px-5 text-[15.5px] font-medium text-tinta-600 transition hover:bg-tinta-50"

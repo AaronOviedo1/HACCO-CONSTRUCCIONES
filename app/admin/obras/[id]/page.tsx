@@ -35,7 +35,9 @@ export default async function PaginaObra({
   params: Promise<{ id: string }>
   searchParams: Promise<{ t?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  // Se guarda el perfil: reabrir una OT cerrada es sólo de Dirección.
+  const perfil = await requerirRol(['admin', 'administracion'])
+  const esAdmin = perfil.rol === 'admin'
   const { id } = await params
   const { t } = await searchParams
   const activa = (PESTANAS.find((p) => p.clave === t)?.clave ?? 'resumen') as Pestana
@@ -55,7 +57,12 @@ export default async function PaginaObra({
 
   return (
     <>
-      <EncabezadoObra concentrado={datos.concentrado} obra={datos.obra} cobranza={datos.cobranza} />
+      <EncabezadoObra
+        concentrado={datos.concentrado}
+        obra={datos.obra}
+        cobranza={datos.cobranza}
+        esAdmin={esAdmin}
+      />
 
       {/* Teléfono: las ocho pestañas se comían dos renglones antes de que
           empezara el panel. En la hoja se ven de un golpe, y con ellas los
@@ -117,7 +124,7 @@ export default async function PaginaObra({
       {activa === 'conceptos' && <PanelConceptos datos={datos} />}
       {activa === 'cronograma' && <PanelCronograma datos={datos} />}
       {activa === 'documentos' && <PanelDocumentos datos={datos} />}
-      {activa === 'cierre' && <PanelCierre datos={datos} />}
+      {activa === 'cierre' && <PanelCierre datos={datos} esAdmin={esAdmin} />}
     </>
   )
 }

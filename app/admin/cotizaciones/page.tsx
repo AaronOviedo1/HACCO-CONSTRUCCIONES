@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
@@ -6,9 +5,11 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { ESTATUS_COTIZACION, TIPO_COTIZACION } from '@/lib/cotizaciones'
 import { agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
+import { mesesPlegados } from '@/lib/meses-plegados'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
+  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
+import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
 import { BotonGrande } from '@/components/movil/piezas'
 import type { EstatusCotizacion, TipoCotizacion } from '@/types/database'
@@ -65,6 +66,7 @@ export default async function PaginaCotizaciones({
   const meses = agruparPorMes(filas, (c) => c.fecha)
   const detalleMes = (grupo: (typeof meses)[number]) =>
     `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, c) => s + Number(c.total), 0))}`
+  const plegados = await mesesPlegados('cotizaciones', meses.map((g) => g.mes))
 
   return (
     <>
@@ -114,9 +116,15 @@ export default async function PaginaCotizaciones({
               renglón visible —veinte cotizaciones, ciento ochenta consultas—
               nada más por hacer scroll. */}
           <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
+            <MesesPlegables lista="cotizaciones" plegados={plegados}>
             {meses.map((grupo) => (
-              <Fragment key={grupo.mes}>
-                <TituloMes enTarjeta etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+              <SeccionMes
+                key={grupo.mes}
+                mes={grupo.mes}
+                enTarjeta
+                etiqueta={grupo.etiqueta}
+                detalle={detalleMes(grupo)}
+              >
                 {grupo.filas.map((c) => (
                   <Link
                     key={c.id}
@@ -142,8 +150,9 @@ export default async function PaginaCotizaciones({
                     </span>
                   </Link>
                 ))}
-              </Fragment>
+              </SeccionMes>
             ))}
+            </MesesPlegables>
           </div>
 
           <BotonGrande
@@ -206,10 +215,15 @@ export default async function PaginaCotizaciones({
                 <Th>Factura</Th>
               </tr>
             </thead>
-            <tbody>
+            <MesesPlegables lista="cotizaciones" plegados={plegados}>
               {meses.map((grupo) => (
-                <Fragment key={grupo.mes}>
-                  <FilaMes columnas={9} etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                <CuerpoMes
+                  key={grupo.mes}
+                  mes={grupo.mes}
+                  columnas={9}
+                  etiqueta={grupo.etiqueta}
+                  detalle={detalleMes(grupo)}
+                >
                   {grupo.filas.map((c) => (
                     /* El enlace del folio se estira sobre toda la fila: se puede
                        dar clic en cualquier parte y sigue siendo un enlace real. */
@@ -236,9 +250,9 @@ export default async function PaginaCotizaciones({
                       <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
                     </tr>
                   ))}
-                </Fragment>
+                </CuerpoMes>
               ))}
-            </tbody>
+            </MesesPlegables>
           </Tabla>
         )}
       </Tarjeta>

@@ -1,12 +1,13 @@
-import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO, agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
+import { mesesPlegados } from '@/lib/meses-plegados'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th, TituloMes,
+  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
+import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { BotonEliminarGasto, BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
 import { FilaLista } from '@/components/movil/piezas'
@@ -111,6 +112,7 @@ export default async function PaginaGastos({
 
   // Cada mes como bloque, con su subtotal: la lista ya viene por fecha.
   const meses = agruparPorMes(filas, (g) => g.fecha)
+  const plegados = await mesesPlegados('gastos', meses.map((g) => g.mes))
   const detalleMes = (grupo: (typeof meses)[number]) =>
     `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, g) => s + Number(g.monto), 0))}`
 
@@ -158,9 +160,15 @@ export default async function PaginaGastos({
       {/* Teléfono: el ticket del día, en renglones ------------------------- */}
       {filas.length > 0 && (
         <Tarjeta className="lg:hidden">
+          <MesesPlegables lista="gastos" plegados={plegados}>
           {meses.map((grupo) => (
-            <Fragment key={grupo.mes}>
-              <TituloMes enTarjeta etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+            <SeccionMes
+              key={grupo.mes}
+              mes={grupo.mes}
+              enTarjeta
+              etiqueta={grupo.etiqueta}
+              detalle={detalleMes(grupo)}
+            >
               {grupo.filas.map((g) => (
                 <FilaLista
                   key={g.id}
@@ -181,8 +189,9 @@ export default async function PaginaGastos({
                   }
                 />
               ))}
-            </Fragment>
+            </SeccionMes>
           ))}
+          </MesesPlegables>
         </Tarjeta>
       )}
 
@@ -211,10 +220,15 @@ export default async function PaginaGastos({
                     <Th> </Th>
                   </tr>
                 </thead>
-                <tbody>
+                <MesesPlegables lista="gastos" plegados={plegados}>
                   {meses.map((grupo) => (
-                    <Fragment key={grupo.mes}>
-                      <FilaMes columnas={9} etiqueta={grupo.etiqueta} detalle={detalleMes(grupo)} />
+                    <CuerpoMes
+                      key={grupo.mes}
+                      mes={grupo.mes}
+                      columnas={9}
+                      etiqueta={grupo.etiqueta}
+                      detalle={detalleMes(grupo)}
+                    >
                       {grupo.filas.map((g) => (
                         <tr key={g.id} className="hover:bg-tinta-50/60">
                           <Td className="whitespace-nowrap text-tinta-500">{fecha(g.fecha)}</Td>
@@ -250,9 +264,9 @@ export default async function PaginaGastos({
                           </Td>
                         </tr>
                       ))}
-                    </Fragment>
+                    </CuerpoMes>
                   ))}
-                </tbody>
+                </MesesPlegables>
               </Tabla>
             )}
           </Tarjeta>

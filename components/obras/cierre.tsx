@@ -7,6 +7,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta, Tarjeta } from '@/components/ui'
+import { BotonReabrir } from '@/components/obras/reabrir'
 import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, pesos } from '@/lib/format'
@@ -26,7 +27,7 @@ const CONDICIONES_DEFECTO =
 const DESLINDES_DEFECTO =
   'No quedan amparados: daños por humedad, filtraciones o fugas ajenas al recubrimiento; golpes, rayaduras o maltrato posterior a la entrega; movimientos estructurales o asentamientos del inmueble; intervención de terceros sobre la superficie; ni fenómenos naturales extraordinarios. La garantía se pierde si se aplica cualquier producto adicional sobre la superficie sin autorización de HAACO PRO RECUBRIMIENTOS.'
 
-export function PanelCierre({ datos }: { datos: DatosObra }) {
+export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boolean }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -278,7 +279,23 @@ export function PanelCierre({ datos }: { datos: DatosObra }) {
 
           {cerrada && (
             <div className="border-t border-tinta-100 bg-haaco-50 p-4 text-sm text-haaco-800">
-              OT cerrada el {fecha(datos.obra.fecha_cierre)}.
+              <p>OT cerrada el {fecha(datos.obra.fecha_cierre)}.</p>
+              {esAdmin && (
+                <>
+                  <p className="mt-1 text-xs text-haaco-700">
+                    Si salió trabajo adicional —o se cerró antes de tiempo— se puede volver a abrir.
+                  </p>
+                  <div className="mt-3">
+                    <BotonReabrir
+                      obraId={datos.obra.id}
+                      otNumero={datos.concentrado.ot_numero}
+                      cotizacionFolio={datos.concentrado.cotizacion_folio}
+                      cerradaEl={datos.obra.fecha_cierre}
+                      variante="panel"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </Tarjeta>

@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 export type RolUsuario = 'admin' | 'administracion' | 'cuadrilla' | 'contador'
 export type OficioTrabajador = 'pintor' | 'herrero' | 'ayudante' | 'otro'
-export type TipoCotizacion = 'pintura' | 'herreria' | 'mixta'
+export type TipoCotizacion = 'pintura' | 'imper' | 'herreria' | 'otros' | 'mixta'
 export type EstatusCotizacion = 'borrador' | 'enviada' | 'aprobada' | 'rechazada' | 'terminada'
 export type EstatusObra = 'agendada' | 'en_obra' | 'pausada' | 'en_entrega' | 'terminada' | 'cerrada'
 export type TipoProducto = 'pintura' | 'herreria' | 'insumo_taller' | 'otro'
@@ -36,7 +36,7 @@ export type EstadoCxp = 'pagada' | 'vencida' | 'urgente' | 'proxima' | 'al_corri
 export type RubroMaterial = 'herreria' | 'pintura' | 'otro'
 export type EventoObra =
   | 'apertura' | 'estatus' | 'cronograma' | 'avance' | 'contrato'
-  | 'pagare' | 'material' | 'entrega' | 'cierre' | 'nota'
+  | 'pagare' | 'material' | 'entrega' | 'cierre' | 'reapertura' | 'nota'
 
 // ---------------------------------------------------------------------------
 // FILAS
@@ -129,6 +129,8 @@ export type Cotizacion = {
   requiere_factura: boolean
   anticipo_pct: number | null
   subtotal: number
+  /** Descuento comercial sobre el subtotal, antes de IVA. */
+  descuento_pct: number
   iva_pct: number
   total: number
   /** Viáticos presupuestados: no salen en el PDF, se comparan en la OT. */
@@ -157,7 +159,10 @@ export type CotizacionItem = {
   cotizacion_id: string
   desglose_id: string | null
   descripcion: string
+  /** Cantidad de la partida. Se llama m2 por historia; nulo se toma como 1. */
   m2: number | null
+  /** Unidad de la cantidad. Nulo o 'm2' = metros cuadrados; 'pza', 'ml'… */
+  unidad: string | null
   precio_unitario: number
   importe: number
   producto_id: string | null
@@ -544,6 +549,8 @@ export type VCotizacion = {
   requiere_factura: boolean
   nombre_obra: string | null
   subtotal: number
+  descuento_pct: number
+  descuento: number
   iva_pct: number
   total: number
   anticipo_pct: number | null
@@ -567,6 +574,8 @@ export type VCobranza = {
   cliente_id: string
   cliente: string
   subtotal: number
+  descuento_pct: number
+  descuento: number
   cotizado: number
   anticipo_pct: number | null
   anticipo_esperado: number
@@ -575,6 +584,8 @@ export type VCobranza = {
   liquidacion: number
   cobrado: number
   saldo: number
+  /** Fecha del último pago recibido. Nulo si todavía no cobra nada. */
+  ultimo_pago: string | null
   pct_pendiente: number
 }
 
@@ -694,6 +705,7 @@ export type DocumentoCotizacionSql = {
   requiere_factura?: boolean
   anticipo_pct?: number | null
   iva_pct?: number
+  descuento_pct?: number
   vigencia_dias?: number
   viaticos?: number
   linea_calidad?: string | null
@@ -703,6 +715,7 @@ export type DocumentoCotizacionSql = {
   items: {
     descripcion: string
     m2?: number | null
+    unidad?: string | null
     precio_unitario: number
     producto_id?: string | null
   }[]
@@ -766,6 +779,44 @@ export type ResultadoCierre =
       cotizacion_terminada: boolean
       forzado: boolean
     }
+
+/** Una factura del lote que se va a pagar de un jalón. */
+export type PagoCxpLote = { id: string; monto: number }
+
+/** Resumen del pago en lote, para confirmárselo a quien lo hizo. */
+export type ResultadoPagoLote = {
+  proveedor: string
+  facturas: number
+  pagado: number
+  liquidadas: number
+  /** Lo que se le sigue debiendo a ese proveedor después del pago. */
+  saldo_restante: number
+}
+
+/** Lo que deshizo `reabrir_obra`, para poder confirmárselo a quien la reabrió. */
+export type ResultadoReapertura = {
+  reabierta: true
+  contratos_reactivados: number
+  cotizacion_reabierta: boolean
+  /** Los pagarés que canceló el cierre y que NO se reactivan. */
+  pagares_cancelados: number
+}
+
+/** El corte que hizo `reasignar_contrato` al pasarle la obra a otro oficial. */
+export type ResultadoReasignacion = {
+  contrato_anterior: string
+  contrato_nuevo: string
+  sale: string
+  entra: string
+  m2_corte: number
+  m2_nuevo: number
+  total_anterior: number
+  /** Lo que queda valiendo el contrato del que se va, ya cortado. */
+  total_cerrado: number
+  total_nuevo: number
+  pagado: number
+  pagares_cancelados: number
+}
 
 /** Lo que se llevó `eliminar_obra`, para poder contárselo a quien la borró. */
 export type ResultadoBorradoObra = {
@@ -879,6 +930,20 @@ export type Database = {
         Args: { p_obra: string; p_fecha: string; p_forzar: boolean }
         Returns: ResultadoCierre
       }
+      reabrir_obra: {
+        Args: { p_obra: string; p_motivo: string }
+        Returns: ResultadoReapertura
+      }
+      reasignar_contrato: {
+        Args: {
+          p_contrato: string
+          p_nuevo_trabajador: string
+          p_fecha: string
+          p_m2_ejecutados: number | null
+          p_motivo: string | null
+        }
+        Returns: ResultadoReasignacion
+      }
       eliminar_obra: { Args: { p_obra: string }; Returns: ResultadoBorradoObra }
       registrar_gasto: { Args: { p_datos: GastoSql }; Returns: string }
       eliminar_material_obra: { Args: { p_material: string }; Returns: undefined }
@@ -896,6 +961,10 @@ export type Database = {
       abonar_cxp: {
         Args: { p_id: string; p_monto: number; p_fecha: string }
         Returns: { pagado: number; saldo: number; liquidada: boolean }
+      }
+      abonar_cxp_lote: {
+        Args: { p_pagos: PagoCxpLote[]; p_fecha: string }
+        Returns: ResultadoPagoLote
       }
       pagar_nomina: {
         Args: {

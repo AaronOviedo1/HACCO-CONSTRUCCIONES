@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { HandCoins, Wallet } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, PieDialogo, Seleccion,
@@ -84,14 +84,18 @@ function DialogoPago({
 
   const suyos = contratos.filter((c) => c.trabajador_id === trabajadorId)
   const susDeducciones = deducciones.filter((d) => d.trabajador_id === trabajadorId)
+  // Lo que se le sigue debiendo a este trabajador antes de capturar el abono.
+  const suSaldo = redondear(suyos.reduce((s, c) => s + Number(c.por_pagar), 0))
 
-  const totales = useMemo(() => {
+  // Sin useMemo: el compilador de React ya memoiza esto solo, y hacerlo a mano
+  // le impedía optimizar el componente completo.
+  const totales = (() => {
     const subtotal = suyos.reduce((s, c) => s + num(montos[c.contrato_id] ?? ''), 0)
     const descuento = susDeducciones
       .filter((d) => elegidas.includes(d.id))
       .reduce((s, d) => s + Number(d.monto), 0)
     return { subtotal: redondear(subtotal), descuento, total: redondear(subtotal - descuento) }
-  }, [suyos, montos, susDeducciones, elegidas])
+  })()
 
   const cambiarTrabajador = (id: string) => {
     setTrabajadorId(id)
@@ -151,7 +155,8 @@ function DialogoPago({
               {prenomina.map((p) => (
                 <option key={p.trabajador_id} value={p.trabajador_id}>
                   {p.trabajador}
-                  {p.es_externo ? ' (externo)' : ''} · disponible {pesos(p.disponible)}
+                  {p.es_externo ? ' (externo)' : ''} · disponible {pesos(p.disponible)} · pendiente{' '}
+                  {pesos(p.pendiente)}
                 </option>
               ))}
             </Seleccion>
@@ -177,8 +182,15 @@ function DialogoPago({
         />
 
         <div className="sm:col-span-2">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-tinta-700">Abono por obra</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <p className="text-sm font-medium text-tinta-700">
+              Abono por obra
+              {suSaldo > 0 && (
+                <span className="ml-2 font-normal text-tinta-500">
+                  se le deben <strong className="text-tinta-700">{pesos(suSaldo)}</strong>
+                </span>
+              )}
+            </p>
             <button
               type="button"
               onClick={sugerir}
@@ -203,7 +215,8 @@ function DialogoPago({
                       <span className="text-sm font-medium text-tinta-900">{c.obra}</span>
                       <span className="text-xs text-tinta-500">
                         avance {Number(c.avance_pct)}% · devengado {pesos(c.devengado)} · pagado{' '}
-                        {pesos(c.pagado)}
+                        {pesos(c.pagado)} · por pagar{' '}
+                        <strong className="text-tinta-700">{pesos(c.por_pagar)}</strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -218,6 +231,9 @@ function DialogoPago({
                       <span className="text-xs text-tinta-500">
                         de {pesos(c.total)} · disponible{' '}
                         <strong className="text-haaco-700">{pesos(c.disponible)}</strong>
+                        {monto > 0 && !excede && (
+                          <> · quedan {pesos(redondear(Number(c.por_pagar) - monto))}</>
+                        )}
                       </span>
                       {monto > 0 && (
                         <Etiqueta tono={excede ? 'rojo' : 'gris'}>
@@ -293,7 +309,20 @@ function DialogoPago({
                 {pesos(totales.total)}
               </dd>
             </div>
+            {/* Se resta el subtotal, no el total: las deducciones bajan el
+                efectivo que se entrega, no lo que se le debe del contrato. */}
+            <div className="flex justify-between border-t border-haaco-200 pt-1.5">
+              <dt className="text-tinta-600">Le quedará pendiente</dt>
+              <dd className="font-medium tabular-nums text-tinta-900">
+                {pesos(redondear(suSaldo - totales.subtotal))}
+              </dd>
+            </div>
           </dl>
+          {totales.descuento > 0 && (
+            <p className="mt-1.5 text-xs text-tinta-500">
+              Las deducciones bajan el efectivo que se le entrega, no lo que se le debe del contrato.
+            </p>
+          )}
           {totales.total > 0 && (
             <p className="mt-1.5 text-xs uppercase text-tinta-500">{montoEnLetra(totales.total)}</p>
           )}

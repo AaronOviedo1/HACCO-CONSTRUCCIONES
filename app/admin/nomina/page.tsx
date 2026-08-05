@@ -1,13 +1,14 @@
-import { Fragment } from 'react'
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { agruparPorMes, mesActual, rangoMes } from '@/lib/finanzas'
+import { mesesPlegados } from '@/lib/meses-plegados'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, FilaMes, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
+import { CuerpoMes, MesesPlegables } from '@/components/meses'
 import { PanelNomina } from '@/components/finanzas/nomina'
 import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
@@ -55,6 +56,9 @@ export default async function PaginaNomina({
   const totalRetencion = filas.reduce((s, c) => s + Number(c.retencion_haaco), 0)
   const totalPagado = filas.reduce((s, c) => s + Number(c.pagado), 0)
   const totalDisponible = filas.reduce((s, c) => s + Number(c.disponible), 0)
+  // Lo que se le sigue debiendo a la cuadrilla por lo ya contratado, sin
+  // importar el avance: es la deuda completa, no lo que toca pagar hoy.
+  const totalPorPagar = filas.reduce((s, c) => s + Number(c.por_pagar), 0)
   const alTope = filas.filter((c) => Number(c.pct_pagado) >= 100)
 
   // Lo que de verdad sale de la caja esta semana: devengado menos préstamos.
@@ -65,6 +69,7 @@ export default async function PaginaNomina({
 
   // Los préstamos traen todo el historial: se separan por mes para leerlos.
   const mesesDeducciones = agruparPorMes(deducciones ?? [], (d) => d.fecha)
+  const plegados = await mesesPlegados('prestamos', mesesDeducciones.map((g) => g.mes))
 
   return (
     <>
@@ -118,10 +123,9 @@ export default async function PaginaNomina({
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-tinta-400">
-                        {p.contratos_activos} {p.contratos_activos === 1 ? 'obra' : 'obras'} ·{' '}
-                        {Number(p.deducciones) > 0
-                          ? `${pesosCortos(p.deducciones)} en préstamos`
-                          : 'sin deducciones'}
+                        {p.contratos_activos} {p.contratos_activos === 1 ? 'obra' : 'obras'} ·
+                        pendiente {pesosCortos(p.pendiente)}
+                        {Number(p.deducciones) > 0 && ` · ${pesosCortos(p.deducciones)} en préstamos`}
                       </p>
                     </li>
                   )
@@ -133,12 +137,17 @@ export default async function PaginaNomina({
       )}
 
       <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
-        <Indicador etiqueta="Mano de obra contratada" valor={pesosCortos(totalMO)} nota={`${filas.length} contratos activos`} />
+        <Indicador
+          etiqueta="Mano de obra contratada"
+          valor={pesosCortos(totalMO)}
+          nota={`${filas.length} contratos · retención ${pesosCortos(totalRetencion)}`}
+        />
         <Indicador etiqueta="Pagado" valor={pesosCortos(totalPagado)} tono="verde" />
         <Indicador
-          etiqueta="Retención Costo Haaco"
-          valor={pesosCortos(totalRetencion)}
-          className="hidden lg:block"
+          etiqueta="Por pagar"
+          valor={pesosCortos(totalPorPagar)}
+          nota="lo que falta de todos los contratos"
+          tono={totalPorPagar > 0 ? 'ambar' : 'neutro'}
         />
         <Indicador
           etiqueta="Se puede pagar hoy"
@@ -344,14 +353,15 @@ export default async function PaginaNomina({
                   <Th>Notas</Th>
                 </tr>
               </thead>
-              <tbody>
+              <MesesPlegables lista="prestamos" plegados={plegados}>
                 {mesesDeducciones.map((grupo) => (
-                  <Fragment key={grupo.mes}>
-                    <FilaMes
-                      columnas={6}
-                      etiqueta={grupo.etiqueta}
-                      detalle={`${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, d) => s + Number(d.monto), 0))}`}
-                    />
+                  <CuerpoMes
+                    key={grupo.mes}
+                    mes={grupo.mes}
+                    columnas={6}
+                    etiqueta={grupo.etiqueta}
+                    detalle={`${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, d) => s + Number(d.monto), 0))}`}
+                  >
                     {grupo.filas.map((d) => {
                       const trabajador = (prenomina ?? []).find((p) => p.trabajador_id === d.trabajador_id)
                       return (
@@ -369,9 +379,9 @@ export default async function PaginaNomina({
                         </tr>
                       )
                     })}
-                  </Fragment>
+                  </CuerpoMes>
                 ))}
-              </tbody>
+              </MesesPlegables>
             </Tabla>
           )}
         </Tarjeta>

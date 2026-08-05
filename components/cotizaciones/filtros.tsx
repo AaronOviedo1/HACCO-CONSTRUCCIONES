@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
 import { FiltroRango } from '@/components/filtro-fechas'
 import { SelectorMovil } from '@/components/movil/selector-movil'
+import { TIPOS_COTIZACION } from '@/lib/cotizaciones'
 
 const ESTATUS = [
   { valor: '', texto: 'Todos los estatus' },
@@ -18,9 +19,7 @@ const ESTATUS = [
 
 const TIPOS = [
   { valor: '', texto: 'Todos los tipos' },
-  { valor: 'pintura', texto: 'Pintura' },
-  { valor: 'herreria', texto: 'Herrería' },
-  { valor: 'mixta', texto: 'Mixta' },
+  ...TIPOS_COTIZACION.map((t) => ({ valor: t.valor as string, texto: t.texto })),
 ]
 
 const CLASE =

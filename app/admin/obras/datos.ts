@@ -42,7 +42,14 @@ export async function cargarObra(id: string) {
   const idsContrato = new Set((contratos.data ?? []).map((c) => c.id))
   const pagaresDeLaObra = (pagares.data ?? []).filter((p) => idsContrato.has(p.contrato_id))
 
-  const [items, herramientas, nomina, materialesPrevios, productos] = await Promise.all([
+  // Los oficiales de la consulta anterior son sólo los que siguen laborando:
+  // ésos son los que se pueden elegir para un contrato nuevo. Pero las tarjetas
+  // de los contratos ya firmados necesitan el perfil de quien los firmó, aunque
+  // se haya dado de baja, o perderían el nombre y la etiqueta de externo.
+  const idsTrabajador = [...new Set((contratos.data ?? []).map((c) => c.trabajador_id))]
+
+  const [items, herramientas, nomina, materialesPrevios, productos, perfilesContrato] =
+    await Promise.all([
     pagaresDeLaObra.length > 0
       ? supabase
           .from('pagare_items')
@@ -55,7 +62,15 @@ export async function cargarObra(id: string) {
     // o cotización, más el catálogo de productos con su costo.
     supabase.from('obra_materiales').select('material, costo').limit(2000),
     supabase.from('productos').select('nombre, costo').eq('activo', true).neq('tipo', 'insumo_taller'),
+    idsTrabajador.length > 0
+      ? supabase.from('profiles').select('*').in('id', idsTrabajador)
+      : Promise.resolve({ data: [] as never[] }),
   ])
+
+  // Los que se pueden elegir, más los que ya firmaron algo aquí, sin repetir.
+  const porId = new Map((oficiales.data ?? []).map((p) => [p.id, p]))
+  for (const p of perfilesContrato.data ?? []) if (!porId.has(p.id)) porId.set(p.id, p)
+  const trabajadores = [...porId.values()]
 
   const [materialesCotizados, partidasCotizacion, conceptosPrevios, polizasPrevias] =
     await Promise.all([
@@ -123,7 +138,10 @@ export async function cargarObra(id: string) {
     poliza: (polizas.data ?? [])[0] ?? null,
     recibos: recibos.data ?? [],
     cobranza: cobranza.data ?? null,
+    /** Sólo los que siguen laborando: alimenta el selector de un contrato nuevo. */
     oficiales: oficiales.data ?? [],
+    /** Los anteriores más los que ya firmaron un contrato de esta OT, de baja o no. */
+    trabajadores,
     insumos: insumos.data ?? [],
     pagares: pagaresDeLaObra,
     pagareItems: items.data ?? [],

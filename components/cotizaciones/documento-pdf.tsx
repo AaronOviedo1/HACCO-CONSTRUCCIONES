@@ -3,7 +3,7 @@ import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fechaLarga, pesos } from '@/lib/format'
-import { notasCotizacion } from '@/lib/cotizaciones'
+import { abreviaUnidad, notasCotizacion } from '@/lib/cotizaciones'
 
 const VERDE = MARCA.verde
 const VERDE_MEDIO = MARCA.verdeMedio
@@ -133,6 +133,8 @@ const e = StyleSheet.create({
   cDesc: { flex: 1, paddingRight: 8, lineHeight: 1.35 },
   cDescEncabezado: { flex: 1, paddingRight: 8 },
   cM2: { width: 52, textAlign: 'right' },
+  /** Más ancha que M² porque lleva el número y su unidad: «120 m²», «3 pza». */
+  cCant: { width: 64, textAlign: 'right' },
   cPU: { width: 66, textAlign: 'right' },
   cImp: { width: 78, textAlign: 'right' },
   importeFila: { fontFamily: 'Helvetica-Bold' },
@@ -225,8 +227,23 @@ export type DatosPdf = {
   domicilioObra: string | null
   procesos: string[]
   lineaCalidad: string | null
-  partidas: { descripcion: string; m2: number | null; precio_unitario: number; importe: number }[]
+  partidas: {
+    descripcion: string
+    m2: number | null
+    unidad: string | null
+    precio_unitario: number
+    importe: number
+  }[]
+  /**
+   * Si todas las partidas se miden en metros cuadrados. Cuando lo son, la
+   * tabla sale como siempre (M² · P.U. · IMPORTE). Si no —herrería, «otros»—
+   * el precio unitario es un cálculo interno y al cliente sólo le corresponde
+   * ver la cantidad y el importe.
+   */
+  usaM2: boolean
   subtotal: number
+  descuentoPct: number
+  descuento: number
   ivaPct: number
   total: number
   anticipoPct: number
@@ -237,6 +254,10 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
   const tratamiento = datos.tituloCortesia ? `${datos.tituloCortesia} ` : ''
   const anticipo = Math.round(datos.total * (datos.anticipoPct / 100) * 100) / 100
   const contacto = [EMPRESA.telefono, EMPRESA.correo].filter(Boolean).join(' · ')
+  // El IVA se saca del total real, no se recalcula: así el PDF no puede
+  // desviarse ni un centavo de lo que dice la base de datos.
+  const base = Math.round((datos.subtotal - datos.descuento) * 100) / 100
+  const iva = Math.round((datos.total - base) * 100) / 100
 
   return (
     <Document
@@ -309,8 +330,14 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
           <View style={e.encabezadoTabla}>
             <Text style={e.cNumEncabezado}>#</Text>
             <Text style={e.cDescEncabezado}>DESCRIPCIÓN</Text>
-            <Text style={e.cM2}>M²</Text>
-            <Text style={e.cPU}>P.U.</Text>
+            {datos.usaM2 ? (
+              <>
+                <Text style={e.cM2}>M²</Text>
+                <Text style={e.cPU}>P.U.</Text>
+              </>
+            ) : (
+              <Text style={e.cCant}>CANT.</Text>
+            )}
             <Text style={e.cImp}>IMPORTE</Text>
           </View>
 
@@ -318,8 +345,16 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
             <View key={i} style={i % 2 === 1 ? [e.fila, e.filaAlterna] : e.fila} wrap={false}>
               <Text style={e.cNum}>{i + 1}</Text>
               <Text style={e.cDesc}>{p.descripcion}</Text>
-              <Text style={e.cM2}>{p.m2 == null ? '—' : p.m2.toLocaleString('es-MX')}</Text>
-              <Text style={e.cPU}>{pesos(p.precio_unitario)}</Text>
+              {datos.usaM2 ? (
+                <>
+                  <Text style={e.cM2}>{p.m2 == null ? '—' : p.m2.toLocaleString('es-MX')}</Text>
+                  <Text style={e.cPU}>{pesos(p.precio_unitario)}</Text>
+                </>
+              ) : (
+                <Text style={e.cCant}>
+                  {(p.m2 ?? 1).toLocaleString('es-MX')} {abreviaUnidad(p.unidad)}
+                </Text>
+              )}
               <Text style={[e.cImp, e.importeFila]}>{pesos(p.importe)}</Text>
             </View>
           ))}
@@ -331,10 +366,16 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
             <Text style={e.etiquetaTotal}>Subtotal</Text>
             <Text style={e.valorTotal}>{pesos(datos.subtotal)}</Text>
           </View>
+          {datos.descuento > 0 && (
+            <View style={e.filaTotal}>
+              <Text style={e.etiquetaTotal}>Descuento {datos.descuentoPct}%</Text>
+              <Text style={e.valorTotal}>- {pesos(datos.descuento)}</Text>
+            </View>
+          )}
           {datos.ivaPct > 0 && (
             <View style={e.filaTotal}>
               <Text style={e.etiquetaTotal}>IVA {datos.ivaPct}%</Text>
-              <Text style={e.valorTotal}>{pesos(datos.total - datos.subtotal)}</Text>
+              <Text style={e.valorTotal}>{pesos(iva)}</Text>
             </View>
           )}
           <View style={e.granTotal}>

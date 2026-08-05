@@ -5,8 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
 import type {
-  EstadoPagoFijo, GastoSql, MetodoPago, TipoDeduccion, TipoMovimientoCaja,
-  TipoPagoCobranza, TipoProducto,
+  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, ResultadoPagoLote, TipoDeduccion,
+  TipoMovimientoCaja, TipoPagoCobranza, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -262,6 +262,32 @@ export async function abonarCuentaPorPagar(
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin')
   return { ok: true, datos: data as { pagado: number; saldo: number; liquidada: boolean } }
+}
+
+/**
+ * Liquida de un jalón varias facturas del mismo proveedor. Es lo que pasa de
+ * verdad cuando se le paga a un proveedor: una sola transferencia cubre todo
+ * lo que se le debe. O entran todas o no entra ninguna.
+ */
+export async function abonarLoteCuentasPorPagar(
+  pagos: PagoCxpLote[],
+  fecha: string,
+): Promise<Resultado<ResultadoPagoLote>> {
+  if (pagos.length === 0) return { ok: false, error: 'Elige al menos una factura.' }
+  if (pagos.some((p) => !(p.monto > 0))) {
+    return { ok: false, error: 'Todos los montos tienen que ser mayores a cero.' }
+  }
+
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('abonar_cxp_lote', {
+    p_pagos: pagos,
+    p_fecha: fecha,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/cuentas-por-pagar')
+  revalidatePath('/admin')
+  return { ok: true, datos: data as ResultadoPagoLote }
 }
 
 export async function eliminarCuentaPorPagar(id: string): Promise<Resultado> {

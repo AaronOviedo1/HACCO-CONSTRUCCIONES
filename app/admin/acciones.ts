@@ -4,30 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { casilla, explicar, numero, opcional, texto, type EstadoAccion } from '@/lib/acciones'
 import type { EstadoHerramienta, TipoMovimiento, TipoProducto } from '@/types/database'
 
-export type EstadoAccion = { error?: string; ok?: boolean; id?: string }
-
-const texto = (d: FormData, campo: string) => String(d.get(campo) ?? '').trim()
-const opcional = (d: FormData, campo: string) => texto(d, campo) || null
-const numero = (d: FormData, campo: string) => {
-  const bruto = texto(d, campo).replace(/[^\d.-]/g, '')
-  const n = Number(bruto)
-  return bruto === '' || !Number.isFinite(n) ? null : n
-}
-const casilla = (d: FormData, campo: string) => d.get(campo) === 'on' || d.get(campo) === 'true'
+export type { EstadoAccion }
 
 async function staff() {
   await requerirRol(['admin', 'administracion'])
   return crearClienteServidor()
-}
-
-/** Traduce los errores de Postgres a algo que Pati pueda entender. */
-function explicar(error: { message: string; code?: string }): string {
-  if (error.code === '23505') return 'Ya existe un registro con ese código o nombre.'
-  if (error.code === '23503') return 'No se puede borrar: hay movimientos que dependen de este registro.'
-  if (error.code === '42501') return 'Tu usuario no tiene permiso para esta operación.'
-  return error.message
 }
 
 // ===========================================================================
