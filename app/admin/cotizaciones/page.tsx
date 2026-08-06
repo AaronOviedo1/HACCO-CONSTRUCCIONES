@@ -7,7 +7,7 @@ import { ESTATUS_COTIZACION, TIPO_COTIZACION } from '@/lib/cotizaciones'
 import { agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
@@ -232,14 +232,15 @@ export default async function PaginaCotizaciones({
                   detalle={detalleMes(grupo)}
                 >
                   {grupo.filas.map((c) => (
-                    /* El enlace del folio se estira sobre toda la fila: se puede
-                       dar clic en cualquier parte y sigue siendo un enlace real. */
-                    <tr key={c.id} className="relative cursor-pointer hover:bg-tinta-50/60">
+                    /* Se puede dar clic en cualquier celda: la fila le pasa el
+                       toque al enlace del folio, que es un enlace de verdad. */
+                    <FilaEnlace key={c.id}>
                       <Td className="font-medium">
                         <Link
                           href={`/admin/cotizaciones/${c.id}`}
                           prefetch={false}
-                          className="text-haaco-700 after:absolute after:inset-0 hover:underline"
+                          data-enlace-fila
+                          className="text-haaco-700 hover:underline"
                         >
                           {c.folio}
                           <PuntoAbriendo />
@@ -257,7 +258,7 @@ export default async function PaginaCotizaciones({
                       </Td>
                       <Td numerico className="text-tinta-500">{c.obras > 0 ? c.obras : '—'}</Td>
                       <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
-                    </tr>
+                    </FilaEnlace>
                   ))}
                 </CuerpoMes>
               ))}

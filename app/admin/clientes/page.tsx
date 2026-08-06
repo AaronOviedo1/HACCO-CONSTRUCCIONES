@@ -148,7 +148,7 @@ export default async function PaginaClientes({
                       {datos.n > 0 ? (
                         <Link
                           href={`/admin/cotizaciones?cliente=${c.id}`}
-                          className="relative font-medium text-haaco-700 hover:underline"
+                          className="font-medium text-haaco-700 hover:underline"
                         >
                           {datos.n}
                         </Link>
@@ -161,7 +161,7 @@ export default async function PaginaClientes({
                         // Sin `estatus` para no esconder las obras ya cerradas.
                         <Link
                           href={`/admin/obras?cliente=${c.id}&estatus=`}
-                          className="relative font-medium text-haaco-700 hover:underline"
+                          className="font-medium text-haaco-700 hover:underline"
                         >
                           {nObras}
                         </Link>

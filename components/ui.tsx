@@ -270,6 +270,15 @@ export function Td({
 export { FilaMes, TituloMes } from '@/components/meses'
 
 // ---------------------------------------------------------------------------
+// Renglones que se tocan enteros
+//
+// Mismo caso que los separadores: escuchan el toque, así que corren en el
+// cliente y viven aparte, pero se exportan desde aquí porque es donde se
+// buscan las piezas de tabla.
+// ---------------------------------------------------------------------------
+export { FilaAccion, FilaEnlace } from '@/components/fila-tocable'
+
+// ---------------------------------------------------------------------------
 // Estados vacíos y módulos por construir
 // ---------------------------------------------------------------------------
 export function EstadoVacio({

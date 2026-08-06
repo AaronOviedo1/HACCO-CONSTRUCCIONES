@@ -49,8 +49,16 @@ export function BarraLateral({
 }) {
   const pathname = usePathname()
 
+  /*
+   * El `z-10` de la barra no es decorativo. Sin él se queda en el nivel de
+   * apilamiento del contenido, y cualquier cosa posicionada que venga después
+   * en el documento —una tabla entera, por ejemplo— le pasa por encima y le
+   * roba los toques. Ya ocurrió: los renglones de las listas se llevaban por
+   * delante los botones de aquí. Las barras de acción fijas no compiten,
+   * porque se apartan con `lg:pl-72` en vez de subirse encima.
+   */
   return (
-    <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 bg-haaco-900 lg:block">
+    <aside className="sticky top-0 z-10 hidden h-dvh w-72 shrink-0 bg-haaco-900 lg:block">
       <div className="flex h-full flex-col">
         <div className="flex items-center border-b border-haaco-950 px-4 py-4">
           <Membrete compacto tono="claro" />

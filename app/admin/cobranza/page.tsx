@@ -5,7 +5,7 @@ import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { TIPO_PAGO_COBRANZA, agruparPorMes, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import {
-  EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
+  EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { AccionesCobranza, FilaCobranza } from '@/components/finanzas/cobranza'
@@ -350,7 +350,7 @@ export default async function PaginaCobranza({
                           <Link
                             href={`/admin/cotizaciones/${c.cotizacion_id}`}
                             prefetch={false}
-                            className="relative font-mono text-xs text-haaco-700 hover:underline"
+                            className="font-mono text-xs text-haaco-700 hover:underline"
                           >
                             {c.folio}
                             <PuntoAbriendo />
@@ -428,13 +428,14 @@ export default async function PaginaCobranza({
                     )}`}
                   >
                     {grupo.filas.map((c) => (
-                      <tr key={c.cotizacion_id} className="relative hover:bg-tinta-50/60">
+                      <FilaEnlace key={c.cotizacion_id}>
                         <Td className="font-medium text-tinta-900">{c.cliente}</Td>
                         <Td>
                           <Link
                             href={`/admin/cotizaciones/${c.cotizacion_id}`}
                             prefetch={false}
-                            className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                            data-enlace-fila
+                            className="font-mono text-xs text-haaco-700 hover:underline"
                           >
                             {c.folio}
                             <PuntoAbriendo />
@@ -454,7 +455,7 @@ export default async function PaginaCobranza({
                         <Td numerico className="text-tinta-500">
                           {(obrasPorCotizacion.get(c.cotizacion_id) ?? []).length || '—'}
                         </Td>
-                      </tr>
+                      </FilaEnlace>
                     ))}
                   </CuerpoMes>
                 ))}
@@ -524,14 +525,15 @@ export default async function PaginaCobranza({
                   detalle={`${pesos(grupo.filas.reduce((s, c) => s + Number(c.saldo), 0))} por cobrar`}
                 >
                   {grupo.filas.map((c) => (
-                    <tr key={c.cotizacion_id} className="relative cursor-pointer hover:bg-tinta-50/60">
+                    <FilaEnlace key={c.cotizacion_id}>
                       <Td className="font-medium text-tinta-900">{c.cliente}</Td>
                       <Td>
                         {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
                         <Link
                           href={`/admin/cotizaciones/${c.cotizacion_id}`}
                           prefetch={false}
-                          className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
+                          data-enlace-fila
+                          className="font-mono text-xs text-haaco-700 hover:underline"
                         >
                           {c.folio}
                           <PuntoAbriendo />
@@ -551,7 +553,7 @@ export default async function PaginaCobranza({
                           {porcentaje(c.pct_pendiente, 0)}
                         </Etiqueta>
                       </Td>
-                    </tr>
+                    </FilaEnlace>
                   ))}
                 </CuerpoMes>
               ))}

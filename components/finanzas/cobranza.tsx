@@ -7,7 +7,7 @@ import { Paperclip, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, Opciones, PieDialogo,
 } from '@/components/formulario'
-import { Etiqueta, Td } from '@/components/ui'
+import { Etiqueta, FilaAccion, Td } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { fecha, montoEnLetra, pesos, tamanoMonto } from '@/lib/format'
@@ -69,9 +69,9 @@ export function AccionesCobranza({
  * Un renglón del registro de cobranza.
  *
  * Lo que se hace aquí es cobrar, así que tocar el renglón —en cualquier
- * celda— abre el estado de cuenta de esa cotización con el alta de pago.
- * El nombre del cliente es el botón, y su área invisible cubre la fila; el
- * botón «Pago» se queda a la derecha para que la acción siga siendo visible.
+ * celda— abre el estado de cuenta de esa cotización con el alta de pago. De
+ * eso se encarga `FilaAccion`; el botón «Pago» se queda a la derecha para que
+ * la acción siga siendo visible, y el folio sigue llevando a la cotización.
  */
 export function FilaCobranza({
   cobranza,
@@ -87,13 +87,9 @@ export function FilaCobranza({
   const [abierto, setAbierto] = useState(false)
 
   return (
-    <tr className="relative cursor-pointer hover:bg-tinta-50/60">
+    <FilaAccion alActivar={() => setAbierto(true)}>
       <Td className="font-medium text-tinta-900">
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          className="text-left after:absolute after:inset-0"
-        >
+        <button type="button" onClick={() => setAbierto(true)} className="text-left">
           {cobranza.cliente}
         </button>
       </Td>
@@ -104,7 +100,7 @@ export function FilaCobranza({
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="relative inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
         >
           <Plus size={14} />
           Pago
@@ -118,7 +114,7 @@ export function FilaCobranza({
           />
         )}
       </Td>
-    </tr>
+    </FilaAccion>
   )
 }
 

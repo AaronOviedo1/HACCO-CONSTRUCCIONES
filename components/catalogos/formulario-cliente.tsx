@@ -7,7 +7,7 @@ import {
   PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { CampoDomicilio } from '@/components/campo-domicilio'
-import { Etiqueta, Td } from '@/components/ui'
+import { Etiqueta, FilaAccion, Td } from '@/components/ui'
 import { pesos } from '@/lib/format'
 import { eliminarCliente, guardarCliente } from '@/app/admin/acciones'
 import type { EstadoAccion } from '@/lib/acciones'
@@ -117,20 +117,20 @@ export function FilaClienteMovil({
  * Un renglón de la tabla de clientes.
  *
  * El cliente no tiene pantalla propia: su ficha es este formulario, así que
- * tocar cualquier parte del renglón lo abre. El nombre es un botón de verdad
- * —se llega con el tabulador— y su área invisible cubre toda la fila; el lápiz
- * se queda para que se vea que el renglón hace algo.
+ * tocar cualquier parte del renglón lo abre —de eso se encarga `FilaAccion`—.
+ * El nombre es un botón de verdad, para llegar con el tabulador, y el lápiz se
+ * queda para que se vea que el renglón hace algo.
  */
 export function FilaCliente({ cliente, children }: { cliente: Cliente; children: ReactNode }) {
   const [abierto, setAbierto] = useState(false)
 
   return (
-    <tr className="relative cursor-pointer hover:bg-tinta-50/60">
+    <FilaAccion alActivar={() => setAbierto(true)}>
       <Td className="font-medium text-tinta-900">
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="flex items-center gap-2 text-left after:absolute after:inset-0"
+          className="flex items-center gap-2 text-left"
         >
           {cliente.titulo_cortesia ? `${cliente.titulo_cortesia} ` : ''}
           {cliente.nombre}
@@ -144,14 +144,14 @@ export function FilaCliente({ cliente, children }: { cliente: Cliente; children:
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="relative rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
+          className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
           aria-label={`Editar ${cliente.nombre}`}
         >
           <Pencil size={15} />
         </button>
         <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
       </Td>
-    </tr>
+    </FilaAccion>
   )
 }
 
