@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from 'react'
+import { useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import {
   ArrowUpRight, Check, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2, Trash2, X,
 } from 'lucide-react'
 import {
   AreaTexto, Campo, Casilla, Entrada, Numero, NumeroCorto, Opciones, Seleccion,
 } from '@/components/formulario'
-import { EntradaSugerencias } from '@/components/entrada-sugerencias'
+import { EntradaSugerencias, useSugerenciasDiferidas } from '@/components/entrada-sugerencias'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { CampoDomicilio } from '@/components/campo-domicilio'
@@ -50,31 +50,6 @@ function useEscritorio() {
     () => window.matchMedia(ESCRITORIO).matches,
     () => false,
   )
-}
-
-const SUGERENCIAS_VACIAS: SugerenciasCotizacion = { partidas: [], materiales: [], procesos: [] }
-
-/**
- * El autocompletado no bloquea el pintado.
- *
- * Las sugerencias salen de barrer miles de renglones ya cotizados: es lo más
- * lento de abrir una cotización y lo menos urgente. La pantalla sale de
- * inmediato con las listas vacías y se rellenan solas cuando el servidor
- * termina, sin quitarle el foco a quien ya está capturando.
- */
-function useSugerenciasDiferidas(promesa: Promise<SugerenciasCotizacion>) {
-  const [valor, setValor] = useState(SUGERENCIAS_VACIAS)
-
-  useEffect(() => {
-    let vivo = true
-    promesa.then(
-      (s) => { if (vivo) setValor(s) },
-      () => {},
-    )
-    return () => { vivo = false }
-  }, [promesa])
-
-  return valor
 }
 
 type Props = {

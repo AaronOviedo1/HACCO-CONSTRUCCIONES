@@ -7,8 +7,6 @@ import { REGLAS } from '@/lib/empresa'
 import { casilla, explicar, numero, opcional, texto, type EstadoAccion } from '@/lib/acciones'
 import type { EstadoHerramienta, TipoMovimiento, TipoProducto } from '@/types/database'
 
-export type { EstadoAccion }
-
 async function staff() {
   await requerirRol(['admin', 'administracion'])
   return crearClienteServidor()

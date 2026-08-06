@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, Check, Plus, Search, Send, Trash2, UserPlus } from 'lucide-react'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
+import { EntradaSugerencias, useSugerenciasDiferidas } from '@/components/entrada-sugerencias'
 import { pesos } from '@/lib/format'
 import {
   TIPOS_COTIZACION, anticipoPorTipo, borradorVacio, importePartida, num, totalesCotizacion,
-  unidadPorTipo, type BorradorCotizacion, type PartidaBorrador,
+  unidadPorTipo, type BorradorCotizacion, type PartidaBorrador, type Sugerencia,
+  type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import { cambiarEstatus, guardarCotizacion } from '@/app/admin/cotizaciones/acciones'
 import type { Cliente, TextoProceso, TipoCotizacion } from '@/types/database'
@@ -25,11 +27,14 @@ const TIPOS = TIPOS_COTIZACION
 export function CotizadorRapido({
   clientes,
   textos,
+  sugerencias: promesaSugerencias,
 }: {
   clientes: Cliente[]
   textos: TextoProceso[]
+  sugerencias: Promise<SugerenciasCotizacion>
 }) {
   const router = useRouter()
+  const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
   const [paso, setPaso] = useState<Paso>('cliente')
   const [doc, setDoc] = useState<BorradorCotizacion>(() => ({
     ...borradorVacio('pintura'),
@@ -74,6 +79,19 @@ export function CotizadorRapido({
     setDoc((d) => ({
       ...d,
       items: d.items.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)),
+    }))
+
+  // Al elegir una partida ya cotizada se pone también su último precio: en un
+  // levantamiento en sitio eso es la mitad de la captura, y el precio queda
+  // editable por si esta obra se cobra distinto.
+  const elegirPartida = (i: number, s: Sugerencia) =>
+    setDoc((d) => ({
+      ...d,
+      items: d.items.map((x, j) =>
+        j === i
+          ? { ...x, descripcion: s.texto, ...(s.monto ? { precio_unitario: String(s.monto) } : {}) }
+          : x,
+      ),
     }))
 
   const guardar = (enviar: boolean) =>
@@ -251,12 +269,16 @@ export function CotizadorRapido({
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tinta-100 text-sm font-semibold text-tinta-500">
                   {i + 1}
                 </span>
-                <input
-                  value={item.descripcion}
-                  onChange={(e) => actualizarPartida(i, 'descripcion', e.target.value)}
-                  placeholder="Exterior fachada"
-                  className="min-w-0 flex-1 rounded-lg border border-tinta-300 px-3 py-2.5 text-base outline-none focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
-                />
+                <div className="min-w-0 flex-1">
+                  <EntradaSugerencias
+                    valor={item.descripcion}
+                    onCambio={(v) => actualizarPartida(i, 'descripcion', v)}
+                    onElegir={(s) => elegirPartida(i, s)}
+                    sugerencias={sugerencias.partidas}
+                    placeholder="Exterior fachada"
+                    className="!text-base"
+                  />
+                </div>
                 {doc.items.length > 1 && (
                   <button
                     type="button"

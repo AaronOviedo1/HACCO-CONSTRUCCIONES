@@ -1,10 +1,10 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AreaTexto, Entrada } from '@/components/formulario'
 import { pesos } from '@/lib/format'
-import type { Sugerencia } from '@/lib/cotizaciones'
+import type { Sugerencia, SugerenciasCotizacion } from '@/lib/cotizaciones'
 
 /**
  * Entrada de texto con sugerencias de lo ya cotizado: van apareciendo conforme
@@ -16,6 +16,33 @@ import type { Sugerencia } from '@/lib/cotizaciones'
 /** Minúsculas y sin acentos, para que «Herrería» encuentre «herreria». */
 const normalizar = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+const SUGERENCIAS_VACIAS: SugerenciasCotizacion = { partidas: [], materiales: [], procesos: [] }
+
+/**
+ * El autocompletado no bloquea el pintado.
+ *
+ * Las sugerencias salen de barrer miles de renglones ya cotizados: es lo más
+ * lento de abrir un cotizador y lo menos urgente. La pantalla sale de
+ * inmediato con las listas vacías y se rellenan solas cuando el servidor
+ * termina, sin quitarle el foco a quien ya está capturando.
+ *
+ * La promesa cruza sin resolver desde el Server Component y se espera aquí.
+ */
+export function useSugerenciasDiferidas(promesa: Promise<SugerenciasCotizacion>) {
+  const [valor, setValor] = useState(SUGERENCIAS_VACIAS)
+
+  useEffect(() => {
+    let vivo = true
+    promesa.then(
+      (s) => { if (vivo) setValor(s) },
+      () => {},
+    )
+    return () => { vivo = false }
+  }, [promesa])
+
+  return valor
+}
 
 export function EntradaSugerencias({
   valor,

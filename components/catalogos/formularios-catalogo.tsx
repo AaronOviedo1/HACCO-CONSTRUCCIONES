@@ -9,8 +9,8 @@ import {
 import {
   eliminarHerramienta, eliminarProducto, eliminarProveedor, eliminarTexto,
   guardarHerramienta, guardarProducto, guardarProveedor, guardarTexto, moverKardex,
-  type EstadoAccion,
 } from '@/app/admin/acciones'
+import type { EstadoAccion } from '@/lib/acciones'
 import { hoyISO } from '@/lib/cotizaciones'
 import type { Herramienta, Producto, Proveedor, TextoProceso } from '@/types/database'
 

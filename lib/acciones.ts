@@ -6,6 +6,13 @@
  * Viven aquí y no dentro de un `acciones.ts` porque un módulo marcado con
  * 'use server' sólo puede exportar funciones asíncronas: cualquier helper
  * síncrono que se quiera compartir tiene que salirse.
+ *
+ * `EstadoAccion` se importa siempre desde aquí, nunca reexportado desde un
+ * `acciones.ts`: al compilar un módulo 'use server', un `export type { X }`
+ * no se borra —se registra como server reference— y el bundle acaba llamando
+ * a `registerServerReference(EstadoAccion, …)` sobre un nombre que ya no
+ * existe. El módulo revienta al cargarse con «EstadoAccion is not defined» y
+ * se lleva por delante cualquier pantalla que use uno de sus formularios.
  */
 
 export type EstadoAccion = { error?: string; ok?: boolean; id?: string }

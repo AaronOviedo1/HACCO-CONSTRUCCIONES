@@ -6,8 +6,6 @@ import { requerirRol } from '@/lib/auth'
 import { casilla, explicar, opcional, texto, type EstadoAccion } from '@/lib/acciones'
 import type { OficioTrabajador, RolUsuario } from '@/types/database'
 
-export type { EstadoAccion }
-
 /**
  * El alta no está aquí a propósito. Un perfil cuelga de un usuario de Auth
  * (profiles.id es llave foránea a auth.users), y crearlo necesita la llave de

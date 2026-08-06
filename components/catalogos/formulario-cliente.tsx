@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState, type ReactNode } from 'react'
+import { useActionState, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   AreaTexto, BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
@@ -9,7 +9,8 @@ import {
 import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, Td } from '@/components/ui'
 import { pesos } from '@/lib/format'
-import { eliminarCliente, guardarCliente, type EstadoAccion } from '@/app/admin/acciones'
+import { eliminarCliente, guardarCliente } from '@/app/admin/acciones'
+import type { EstadoAccion } from '@/lib/acciones'
 import type { Cliente } from '@/types/database'
 
 const TITULOS = ['Sr.', 'Sra.', 'Srita.', 'Lic.', 'Arq.', 'Ing.', 'Dr.', 'Empresa']
@@ -171,15 +172,27 @@ export function FormularioCliente({
   // en un campo oculto para no cambiar la acción.
   const [domicilio, setDomicilio] = useState(cliente?.domicilio ?? '')
 
+  // Quién llama a este formulario le pasa los callbacks como funciones sueltas
+  // en el JSX, así que cambian de identidad en cada pintado del padre y el
+  // efecto se volvería a disparar con el mismo resultado ya atendido. Cuando
+  // `onGuardado` toca el estado del padre —el cotizador mete el cliente en el
+  // borrador— eso es un rebote sin fin: guarda, el padre se repinta, el efecto
+  // vuelve a correr. `useActionState` entrega un objeto distinto por cada
+  // envío, y esa identidad es justo la marca de agua que hace falta.
+  const atendido = useRef<EstadoAccion | null>(null)
+  const atendidoBorrar = useRef<EstadoAccion | null>(null)
+
   useEffect(() => {
-    if (estado.ok) {
-      if (estado.id) onGuardado?.(estado.id)
-      onCerrar()
-    }
+    if (!estado.ok || atendido.current === estado) return
+    atendido.current = estado
+    if (estado.id) onGuardado?.(estado.id)
+    onCerrar()
   }, [estado, onCerrar, onGuardado])
 
   useEffect(() => {
-    if (estadoBorrar.ok) onCerrar()
+    if (!estadoBorrar.ok || atendidoBorrar.current === estadoBorrar) return
+    atendidoBorrar.current = estadoBorrar
+    onCerrar()
   }, [estadoBorrar, onCerrar])
 
   return (

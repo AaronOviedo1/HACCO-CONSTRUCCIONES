@@ -7,7 +7,8 @@ import {
   Seleccion,
 } from '@/components/formulario'
 import { NOMBRE_ROL } from '@/lib/roles'
-import { guardarTrabajador, type EstadoAccion } from '@/app/admin/usuarios/acciones'
+import { guardarTrabajador } from '@/app/admin/usuarios/acciones'
+import type { EstadoAccion } from '@/lib/acciones'
 import type { OficioTrabajador, Profile, RolUsuario } from '@/types/database'
 
 const ROLES: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
