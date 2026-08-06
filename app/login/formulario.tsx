@@ -1,29 +1,70 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Entrada } from '@/components/formulario'
+import { Boton } from '@/components/ui'
 import { iniciarSesion, type EstadoLogin } from './acciones'
+
+/**
+ * Sólo se recuerda el correo —nunca la contraseña—: es una comodidad para la
+ * computadora de la oficina, no un guardado de credenciales.
+ */
+const CLAVE_CORREO = 'haacopro:correo'
+
+/* Los campos del login son más altos que los de un formulario denso. */
+const CLASE_ENTRADA = 'lg:py-2.5 lg:text-[15px]'
 
 function BotonEntrar() {
   const { pending } = useFormStatus()
   return (
-    <button
+    <Boton
       type="submit"
       disabled={pending}
-      className="min-h-[50px] w-full rounded-[14px] bg-haaco-700 px-4 text-[17px] font-semibold text-white transition hover:bg-haaco-800 active:bg-haaco-800 disabled:bg-haaco-300 lg:min-h-0 lg:rounded-lg lg:py-3 lg:text-sm"
+      className="min-h-[50px] w-full text-[17px] lg:min-h-[44px] lg:text-[15px] lg:font-semibold"
     >
+      {pending && <Loader2 size={17} className="animate-spin" />}
       {pending ? 'Entrando…' : 'Entrar'}
-    </button>
+    </Boton>
   )
 }
 
 export function FormularioLogin({ aviso }: { aviso?: string }) {
   const [estado, accion] = useActionState<EstadoLogin, FormData>(iniciarSesion, {})
+  const [verClave, setVerClave] = useState(false)
+  const [recordar, setRecordar] = useState(false)
+  const correoRef = useRef<HTMLInputElement>(null)
+  const claveRef = useRef<HTMLInputElement>(null)
+
+  /*
+   * El correo guardado se lee ya montado el componente: en el servidor no hay
+   * localStorage y la hidratación tiene que coincidir con el HTML.
+   */
+  useEffect(() => {
+    const guardado = localStorage.getItem(CLAVE_CORREO)
+    if (guardado && correoRef.current) {
+      correoRef.current.value = guardado
+      setRecordar(true)
+    }
+
+    // En el teléfono no se enfoca nada: abriría el teclado nada más entrar.
+    if (!window.matchMedia('(min-width: 1024px)').matches) return
+    const destino = guardado ? claveRef.current : correoRef.current
+    destino?.focus()
+  }, [])
+
+  // Corre antes de la server action; sin preventDefault, el envío sigue su curso.
+  function guardarCorreo() {
+    const correo = correoRef.current?.value.trim() ?? ''
+    if (recordar && correo) localStorage.setItem(CLAVE_CORREO, correo)
+    else localStorage.removeItem(CLAVE_CORREO)
+  }
 
   return (
-    <form action={accion} className="space-y-4">
+    <form action={accion} onSubmit={guardarCorreo} className="space-y-4">
       {aviso && (
-        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200">
+        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200 lg:rounded-lg lg:text-[13px]">
           {aviso}
         </p>
       )}
@@ -32,7 +73,8 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
         <label htmlFor="correo" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
           Correo
         </label>
-        <input
+        <Entrada
+          ref={correoRef}
           id="correo"
           name="correo"
           type="email"
@@ -40,7 +82,8 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
           inputMode="email"
           autoCapitalize="none"
           required
-          className="w-full rounded-[12px] border border-tinta-300 bg-white px-3.5 py-3 text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
+          aria-invalid={estado.error ? true : undefined}
+          className={CLASE_ENTRADA}
           placeholder="nombre@haacopro.com"
         />
       </div>
@@ -49,19 +92,46 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
         <label htmlFor="contrasena" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
           Contraseña
         </label>
-        <input
-          id="contrasena"
-          name="contrasena"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="w-full rounded-[12px] border border-tinta-300 bg-white px-3.5 py-3 text-tinta-900 outline-none transition focus:border-haaco-600 focus:ring-2 focus:ring-haaco-200"
-          placeholder="••••••••"
-        />
+        <div className="relative">
+          <Entrada
+            ref={claveRef}
+            id="contrasena"
+            name="contrasena"
+            type={verClave ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+            aria-invalid={estado.error ? true : undefined}
+            className={`pr-11 ${CLASE_ENTRADA}`}
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setVerClave((v) => !v)}
+            aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-pressed={verClave}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-tinta-400 transition hover:text-haaco-700"
+          >
+            {verClave ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
       </div>
 
+      <label className="flex items-center gap-2.5 text-[13px] text-tinta-600">
+        <input
+          type="checkbox"
+          checked={recordar}
+          onChange={(e) => setRecordar(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-haaco-700"
+        />
+        Recordar mi correo
+      </label>
+
       {estado.error && (
-        <p role="alert" className="rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
+        <p
+          role="alert"
+          className="flex items-start gap-2 rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200 lg:rounded-lg lg:text-[13px]"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
           {estado.error}
         </p>
       )}
