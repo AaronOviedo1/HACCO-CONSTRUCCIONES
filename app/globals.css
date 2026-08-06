@@ -44,6 +44,11 @@
   --animate-entra: entra 0.28s ease;
   --animate-sube: sube 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
   --animate-pulso: pulso 1.6s ease-in-out infinite;
+  --animate-girar: girar 0.7s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes entra {
@@ -110,6 +115,27 @@ body {
 /* Evita el zoom automático de Safari iOS al enfocar un campo */
 @media (max-width: 767px) {
   input, select, textarea { font-size: 16px; }
+}
+
+/*
+ * Acuse de recibo del toque en las listas largas (ver components/enlace-abriendo).
+ *
+ * El punto ya ocupa su lugar desde el principio —`invisible`, no `hidden`— así
+ * que encenderlo no recorre el renglón. Los 120 ms de retraso son para que una
+ * navegación que sí fue rápida no deje un parpadeo.
+ */
+.pista-abriendo {
+  animation: aparece 160ms ease 120ms both, pulso 1.1s ease-in-out 120ms infinite;
+}
+
+@keyframes aparece {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pista-abriendo { animation: aparece 1ms linear both; }
+  .animate-girar  { animation: none; }
 }
 
 /* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */

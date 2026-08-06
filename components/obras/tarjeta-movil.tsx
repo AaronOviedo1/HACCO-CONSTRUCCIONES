@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Etiqueta } from '@/components/ui'
 import { BarraProgreso } from '@/components/movil/piezas'
+import { PuntoAbriendo } from '@/components/enlace-abriendo'
 import { pesosCortos, porcentaje } from '@/lib/format'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import type { EstatusObra } from '@/types/database'
@@ -39,7 +40,10 @@ export function TarjetaObraMovil({
 
   return (
     <div className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
-      <Link href={href} className="block rounded-[20px] px-4 pb-3.5 pt-4 transition active:bg-tinta-50">
+      {/* Sin prefetch: la pantalla de la obra es dinámica, así que cada tarjeta
+          que asoma se renderizaría entera nada más por hacer scroll. Se pide al
+          tocarla, y el «OT» acusa el toque mientras llega. */}
+      <Link href={href} prefetch={false} className="block rounded-[20px] px-4 pb-3.5 pt-4 transition active:bg-tinta-50">
         <div className="flex items-start justify-between gap-2.5">
           <span className="min-w-0">
             <span className="block text-base font-semibold leading-snug -tracking-[0.3px]">
@@ -47,6 +51,7 @@ export function TarjetaObraMovil({
             </span>
             <span className="mt-0.5 block font-mono text-[11px] text-tinta-400">
               OT {ot ?? '—'}
+              <PuntoAbriendo />
               {cliente && ` · ${cliente}`}
             </span>
           </span>

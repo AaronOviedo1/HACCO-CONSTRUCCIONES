@@ -11,6 +11,7 @@ import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { AccionesCobranza, FilaCobranza } from '@/components/finanzas/cobranza'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
+import { PuntoAbriendo } from '@/components/enlace-abriendo'
 import type { PagoCobranza } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -348,9 +349,11 @@ export default async function PaginaCobranza({
                         <Td>
                           <Link
                             href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                            prefetch={false}
                             className="relative font-mono text-xs text-haaco-700 hover:underline"
                           >
                             {c.folio}
+                            <PuntoAbriendo />
                           </Link>
                         </Td>
                         <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
@@ -430,9 +433,11 @@ export default async function PaginaCobranza({
                         <Td>
                           <Link
                             href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                            prefetch={false}
                             className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
                           >
                             {c.folio}
+                            <PuntoAbriendo />
                           </Link>
                         </Td>
                         <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
@@ -525,9 +530,11 @@ export default async function PaginaCobranza({
                         {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
                         <Link
                           href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                          prefetch={false}
                           className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
                         >
                           {c.folio}
+                          <PuntoAbriendo />
                         </Link>
                       </Td>
                       <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>

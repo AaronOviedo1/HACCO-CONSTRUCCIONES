@@ -11,6 +11,7 @@ import {
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
+import { FolioAbriendo, PuntoAbriendo } from '@/components/enlace-abriendo'
 import { BotonGrande } from '@/components/movil/piezas'
 import type { EstatusCotizacion, TipoCotizacion } from '@/types/database'
 
@@ -110,11 +111,16 @@ export default async function PaginaCotizaciones({
       {/* Teléfono: renglón tocable con el folio como ancla visual ----------- */}
       {filas.length > 0 && (
         <div className="lg:hidden">
-          {/* Sin `prefetch` forzado: con el loading.tsx del segmento, el
-              prefetch de siempre ya trae la cáscara y el toque se siente
-              inmediato. Forzarlo cargaría la cotización entera de cada
-              renglón visible —veinte cotizaciones, ciento ochenta consultas—
-              nada más por hacer scroll. */}
+          {/* Sin prefetch, y no sólo sin forzarlo.
+              La idea era que el prefetch de siempre trajera la cáscara del
+              loading.tsx y el toque se sintiera inmediato, pero la pantalla de
+              la cotización es `force-dynamic`: no hay cáscara que traer, así
+              que cada renglón que asoma se renderiza entero, con sus nueve
+              consultas. Medido con el año desplegado: 43 peticiones y 11,5 s
+              de servidor nada más por abrir la lista, que es precisamente lo
+              que dejaba los toques de verdad esperando entre 2 y 7 segundos.
+              Ahora la cotización se pide al tocarla y el renglón lo acusa de
+              recibo —ver components/enlace-abriendo—. */}
           <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
             <MesesPlegables lista="cotizaciones" plegados={plegados}>
             {meses.map((grupo) => (
@@ -129,10 +135,11 @@ export default async function PaginaCotizaciones({
                   <Link
                     key={c.id}
                     href={`/admin/cotizaciones/${c.id}`}
+                    prefetch={false}
                     className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
-                      {c.folio ?? '—'}
+                      <FolioAbriendo folio={c.folio} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
@@ -231,9 +238,11 @@ export default async function PaginaCotizaciones({
                       <Td className="font-medium">
                         <Link
                           href={`/admin/cotizaciones/${c.id}`}
+                          prefetch={false}
                           className="text-haaco-700 after:absolute after:inset-0 hover:underline"
                         >
                           {c.folio}
+                          <PuntoAbriendo />
                         </Link>
                       </Td>
                       <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>

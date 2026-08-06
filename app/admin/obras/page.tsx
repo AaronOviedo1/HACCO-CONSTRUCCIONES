@@ -13,6 +13,7 @@ import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { SelectorMovil } from '@/components/movil/selector-movil'
 import { TarjetaObraMovil } from '@/components/obras/tarjeta-movil'
+import { PuntoAbriendo } from '@/components/enlace-abriendo'
 import type { EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -250,9 +251,11 @@ export default async function PaginaObras({
                               cualquier celda y sigue siendo un enlace de verdad. */}
                           <Link
                             href={`/admin/obras/${o.obra_id}`}
+                            prefetch={false}
                             className="font-mono text-xs text-haaco-700 after:absolute after:inset-0 hover:underline"
                           >
                             {o.ot_numero}
+                            <PuntoAbriendo />
                           </Link>
                           <span className="mt-0.5 block font-mono text-[10px] text-tinta-400">
                             {o.cotizacion_folio}
