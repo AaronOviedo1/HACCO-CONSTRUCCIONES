@@ -9,10 +9,10 @@ import {
 import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
-import { hoyISO, num, type Sugerencia } from '@/lib/cotizaciones'
+import { hoyISO, num, redondear, type Sugerencia } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
-import { prepararTicket, type LecturaTicket } from '@/lib/ticket'
+import { prepararTicket, type DesgloseComprobante, type LecturaTicket } from '@/lib/ticket'
 import {
   actualizarGasto, agregarProductoAlCatalogo, eliminarGasto, entradaInventario, registrarGasto,
 } from '@/app/admin/finanzas-acciones'
@@ -142,6 +142,9 @@ function FormularioGasto({
   const [leyendo, setLeyendo] = useState(false)
   const [llenados, setLlenados] = useState<string[] | null>(null)
   const [avisoTicket, setAvisoTicket] = useState<string | null>(null)
+  // El pie del comprobante: se enseña y sirve para comparar contra la suma de
+  // los conceptos, que se puede corregir a mano.
+  const [desgloseTicket, setDesgloseTicket] = useState<DesgloseComprobante | null>(null)
 
   const proveedor = proveedores.find((p) => p.id === proveedorId)
   const conceptosDeObra = conceptos.filter(() => Boolean(obraId))
@@ -171,6 +174,7 @@ function FormularioGasto({
     setLeyendo(true)
     setLlenados(null)
     setAvisoTicket(null)
+    setDesgloseTicket(null)
     // Pedir la lectura es decir «llénalo tú»: lo tecleado hasta aquí deja de
     // considerarse definitivo. Sin esto bastaba con haber escrito una letra en
     // la descripción —que abre enfocada— para que la foto ya no pisara nada y
@@ -221,6 +225,10 @@ function FormularioGasto({
           monto: String(r.monto),
         })),
       )
+      // El desglose acompaña a los renglones que salieron de ESTA lectura: si
+      // los conceptos son los que alguien capturó a mano, compararlos contra el
+      // pie de otro comprobante no diría nada.
+      setDesgloseTicket(l.desglose)
       puestos.push(l.renglones.length === 1 ? 'el concepto' : `${l.renglones.length} conceptos`)
     } else if (renglones === null) {
       poner('descripción', l.descripcion, setDescripcion)
@@ -247,6 +255,18 @@ function FormularioGasto({
     setRenglones((lista) => (lista ?? []).map((r, j) => (j === i ? { ...r, ...parche } : r)))
   }
 
+  const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && num(r.monto) > 0)
+  // Se redondea la suma porque 13,908 + 9,150.06 en coma flotante da
+  // 23,058.059999999998 y encendería el aviso de descuadre por nada.
+  const totalRenglones = redondear(filasValidas.reduce((s, r) => s + num(r.monto), 0))
+  // Contra el total del comprobante, en vivo: si se corrige una casilla, el
+  // aviso aparece o se va solo.
+  const totalTicket = desgloseTicket?.total ?? null
+  const descuadre =
+    renglones && totalTicket !== null && filasValidas.length > 0
+      ? redondear(totalRenglones - totalTicket)
+      : 0
+
   /** De la captura sencilla al modo por conceptos y de regreso. */
   const dividir = () => {
     mio('conceptos')
@@ -260,13 +280,12 @@ function FormularioGasto({
     if (primero) {
       setDescripcion(primero.descripcion)
       setPiezas(primero.piezas)
-      setMonto(primero.monto)
+      // Un solo gasto por lo que costó todo, no por lo del primer renglón.
+      setMonto(String(totalRenglones || num(primero.monto)))
     }
     setRenglones(null)
+    setDesgloseTicket(null)
   }
-
-  const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && num(r.monto) > 0)
-  const totalRenglones = filasValidas.reduce((s, r) => s + num(r.monto), 0)
 
   const guardar = () =>
     iniciar(async () => {
@@ -417,6 +436,7 @@ function FormularioGasto({
                   setVista(null)
                   setLlenados(null)
                   setAvisoTicket(null)
+                  setDesgloseTicket(null)
                   if (entrada.current) entrada.current.value = ''
                 }}
                 className="absolute right-2 top-2 rounded-full bg-tinta-950/70 p-1.5 text-white"
@@ -551,6 +571,24 @@ function FormularioGasto({
                 Total {pesos(totalRenglones)}
               </span>
             </div>
+
+            {desgloseTicket && (
+              <p className="mt-1 text-xs tabular-nums text-tinta-400">
+                Del comprobante: {resumenComprobante(desgloseTicket)}
+              </p>
+            )}
+
+            {Math.abs(descuadre) >= 0.01 && (
+              <p className="mt-1.5 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <TriangleAlert size={14} className="mt-px shrink-0" />
+                <span>
+                  La suma de los conceptos {descuadre > 0 ? 'se pasa por' : 'queda corta por'}{' '}
+                  <strong className="font-semibold tabular-nums">{pesos(Math.abs(descuadre))}</strong>{' '}
+                  del total del comprobante. Revísalos contra el papel antes de guardar.
+                </span>
+              </p>
+            )}
+
             <p className="mt-1 text-xs text-tinta-400">
               Se registra un gasto por concepto; comparten ticket, folio, proveedor y forma de pago.
             </p>
@@ -948,6 +986,22 @@ function FormularioGasto({
 function lista(palabras: string[]) {
   if (palabras.length === 1) return palabras[0]
   return `${palabras.slice(0, -1).join(', ')} y ${palabras[palabras.length - 1]}`
+}
+
+/**
+ * «subtotal $31,807.69 · descuento −$11,930.05 · IVA $3,180.42 · total $23,058.06»
+ *
+ * Se arma por piezas y no de corrido porque las cifras que el comprobante no
+ * trae vienen en null, y un «descuento −$0.00» en un ticket sin descuento es
+ * ruido que confunde.
+ */
+function resumenComprobante(d: DesgloseComprobante) {
+  const partes: string[] = []
+  if (d.subtotal !== null) partes.push(`subtotal ${pesos(d.subtotal)}`)
+  if (d.descuento !== null) partes.push(`descuento −${pesos(d.descuento)}`)
+  if (d.impuesto !== null) partes.push(`IVA ${pesos(d.impuesto)}`)
+  if (d.total !== null) partes.push(`total ${pesos(d.total)}`)
+  return partes.join(' · ')
 }
 
 /**

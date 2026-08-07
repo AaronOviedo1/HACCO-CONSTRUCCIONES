@@ -1,7 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { obtenerPerfil } from '@/lib/auth'
 import { CATEGORIA_GASTO, METODO_PAGO } from '@/lib/finanzas'
-import type { LecturaTicket } from '@/lib/ticket'
+import {
+  cuadrarRenglones,
+  type DesgloseComprobante,
+  type LecturaTicket,
+  type RenglonLeido,
+} from '@/lib/ticket'
 import type { CategoriaGasto, MetodoPago } from '@/types/database'
 
 export const runtime = 'nodejs'
@@ -24,12 +29,22 @@ const TIPOS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'applicatio
 const INSTRUCCIONES = `Eres el capturista de una empresa de pintura y herrería en Hermosillo, Sonora.
 Te llega la foto de un ticket, una nota de remisión o una factura y llenas la captura del gasto.
 
+Tu trabajo es COPIAR las cifras que el papel ya trae, no sacarlas. No sumes, no restes, no
+prorratees, no cuadres nada: de eso se encarga el sistema. Lo que no esté impreso va en null.
+
 Reglas:
-- «monto» es el TOTAL que se pagó, con IVA incluido. Nunca el subtotal ni un renglón suelto.
-- «renglones»: un renglón por cada artículo distinto del ticket, con su descripción corta, sus piezas
-  y el importe de ese renglón (lo que costó en total ese artículo, tal como lo dice el ticket).
-  Si el ticket es de un solo artículo, la lista lleva ese único renglón. Ignora renglones de
-  descuentos, redondeos o propinas.
+- «monto» es el TOTAL a pagar del comprobante: el descuento ya restado y el IVA ya sumado. Es la
+  cifra grande del pie, la que se firma. Nunca el subtotal ni un renglón suelto.
+- «renglones»: un renglón por cada artículo distinto del ticket, con su descripción corta y sus
+  piezas. Su «importe» es lo que dice la columna de importe, tal cual, ANTES de descuento e
+  impuesto. Si el ticket es de un solo artículo, la lista lleva ese único renglón. Las líneas que
+  no son un artículo —descuentos, redondeos, propinas— no van en la lista.
+- «descuento» e «impuesto» del renglón: sólo cuando el comprobante los desglosa renglón por
+  renglón, como hacen las facturas. Cópialos en positivo, cada uno con el suyo. Si el comprobante
+  no los separa así, van en null y ya: el sistema los reparte.
+- «desglose» son las cifras del pie, tal como están impresas: «subtotal», «descuento» (la suma de
+  los descuentos, en positivo), «impuesto» (el IVA) y «total». Lo que no venga impreso va en null.
+  Un ticket de tiendita casi siempre trae nada más el total: los demás en null y ya.
 - «piezas»: si el ticket es de un solo artículo, su cantidad. Si trae varios artículos distintos, pon 1
   (el sistema divide monto entre piezas para sacar el costo unitario, y esa cuenta sólo sirve con un artículo).
 - «descripcion»: corta y en el español de la obra, como la escribiría el maestro. Ej. «4 cubetas Rivinol 7 blanco».
@@ -84,7 +99,10 @@ export async function POST(peticion: Request) {
     properties: {
       descripcion: { type: ['string', 'null'], description: 'Qué se compró, en pocas palabras' },
       piezas: { type: ['number', 'null'] },
-      monto: { type: ['number', 'null'], description: 'Total pagado con IVA' },
+      monto: {
+        type: ['number', 'null'],
+        description: 'El TOTAL a pagar, con el descuento restado y el IVA sumado',
+      },
       renglones: {
         type: 'array',
         description: 'Un renglón por artículo distinto del ticket',
@@ -93,10 +111,34 @@ export async function POST(peticion: Request) {
           properties: {
             descripcion: { type: 'string' },
             piezas: { type: 'number' },
-            importe: { type: 'number', description: 'Lo que costó ese renglón en total' },
+            importe: {
+              type: 'number',
+              description: 'El importe del renglón tal cual, antes de descuento e impuesto',
+            },
+            descuento: {
+              type: ['number', 'null'],
+              description: 'El descuento DE ESE RENGLÓN, en positivo, si el comprobante lo desglosa',
+            },
+            impuesto: {
+              type: ['number', 'null'],
+              description: 'El IVA DE ESE RENGLÓN, si el comprobante lo desglosa',
+            },
           },
-          required: ['descripcion', 'piezas', 'importe'],
+          required: ['descripcion', 'piezas', 'importe', 'descuento', 'impuesto'],
         },
+      },
+      // Requerido y sin null: así el modelo tiene que mirar el pie y decir «aquí
+      // no hay nada», en vez de saltárselo.
+      desglose: {
+        type: 'object',
+        description: 'Las cifras del pie del comprobante, tal como están impresas',
+        properties: {
+          subtotal: { type: ['number', 'null'] },
+          descuento: { type: ['number', 'null'], description: 'La suma de los descuentos, en positivo' },
+          impuesto: { type: ['number', 'null'], description: 'El IVA del comprobante' },
+          total: { type: ['number', 'null'] },
+        },
+        required: ['subtotal', 'descuento', 'impuesto', 'total'],
       },
       metodo: { type: ['string', 'null'], enum: [...Object.keys(METODO_PAGO), null] },
       categoria: { type: ['string', 'null'], enum: [...Object.keys(CATEGORIA_GASTO), null] },
@@ -105,7 +147,7 @@ export async function POST(peticion: Request) {
       proveedor: { type: ['string', 'null'], enum: [...proveedores.map((p) => p.nombre), null] },
       aviso: { type: ['string', 'null'] },
     },
-    required: ['descripcion', 'piezas', 'monto', 'renglones', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'aviso'],
+    required: ['descripcion', 'piezas', 'monto', 'renglones', 'desglose', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'aviso'],
   }
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -151,25 +193,39 @@ export async function POST(peticion: Request) {
     const leido = bloque.input as Record<string, unknown>
     const nombre = typeof leido.proveedor === 'string' ? leido.proveedor : null
 
-    // Renglones del ticket: sólo pasan los que traen descripción e importe.
-    const renglones = (Array.isArray(leido.renglones) ? leido.renglones : [])
+    // Renglones del ticket tal como vienen impresos: sólo pasan los que traen
+    // descripción e importe, que es lo mínimo para poder cuadrarlos.
+    const leidos = (Array.isArray(leido.renglones) ? leido.renglones : [])
       .map((r) => {
         const fila = r as Record<string, unknown>
         return {
           descripcion: texto(fila.descripcion),
           piezas: entero(fila.piezas) ?? 1,
-          monto: numero(fila.importe),
+          importe: numero(fila.importe),
+          descuento: positivo(fila.descuento),
+          impuesto: positivo(fila.impuesto),
         }
       })
-      .filter((r): r is { descripcion: string; piezas: number; monto: number } =>
-        Boolean(r.descripcion && r.monto),
-      )
+      .filter((r): r is RenglonLeido => Boolean(r.descripcion && r.importe))
+
+    // El pie del comprobante. Si el modelo puso el total sólo en «monto» —o al
+    // revés—, la cifra que sí leyó cubre a la que se le fue.
+    const pie = (leido.desglose ?? {}) as Record<string, unknown>
+    const desglose: DesgloseComprobante = {
+      subtotal: numero(pie.subtotal),
+      descuento: positivo(pie.descuento),
+      impuesto: positivo(pie.impuesto),
+      total: numero(pie.total) ?? numero(leido.monto),
+    }
+    const { renglones } = cuadrarRenglones(leidos, desglose)
 
     const lectura: LecturaTicket = {
       descripcion: texto(leido.descripcion),
       piezas: entero(leido.piezas),
-      monto: numero(leido.monto),
+      monto: numero(leido.monto) ?? desglose.total,
       renglones,
+      // Sin una sola cifra del pie no hay nada que enseñar ni con qué comparar.
+      desglose: Object.values(desglose).some((v) => v !== null) ? desglose : null,
       metodo: clave<MetodoPago>(leido.metodo, METODO_PAGO),
       categoria: clave<CategoriaGasto>(leido.categoria, CATEGORIA_GASTO),
       folio: texto(leido.folio),
@@ -190,6 +246,8 @@ const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : nu
 const clave = <T extends string>(v: unknown, catalogo: Record<string, string>) =>
   typeof v === 'string' && v in catalogo ? (v as T) : null
 const numero = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null)
+/** Descuentos e IVA se copian en positivo; si vienen con signo, se endereza. */
+const positivo = (v: unknown) => (typeof v === 'number' ? numero(Math.abs(v)) : null)
 const entero = (v: unknown) => {
   const n = numero(v)
   return n ? Math.max(1, Math.round(n)) : null
