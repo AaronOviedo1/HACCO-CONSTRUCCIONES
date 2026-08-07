@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Pestana } from '@/lib/nav'
 
 /**
@@ -16,10 +16,22 @@ import type { Pestana } from '@/lib/nav'
  * Va como pastilla flotante y no como franja pegada al borde: así el contenido
  * se ve correr por debajo y la barra se puede quitar de en medio al leer, que
  * es lo que hacen las apps del teléfono desde iOS 26.
+ *
+ * El movimiento es lo que la hace sentir de cristal y no de papel: la cápsula
+ * se pasa un poco de su destino y se asienta, se estira mientras viaja, y cada
+ * destino se hunde bajo el dedo. Todo con transiciones y `element.animate()`,
+ * sin una sola dependencia de animación.
  */
 
-/** Ancho de cada destino. Es constante a propósito: ver `Capsula`. */
-const ANCHO = 52
+/**
+ * Ancho al que aspira cada destino, en rem.
+ *
+ * Es un techo y no una medida: la pastilla toma este ancho por pestaña
+ * mientras quepa, y si no cabe —cinco destinos en un iPhone SE— se reparte lo
+ * que haya. Por eso no hay ningún número de píxeles en el posicionamiento de
+ * la cápsula: ver `Cápsula`, abajo.
+ */
+const ANCHO = 4.75
 
 /** Gana la pestaña cuya coincidencia con la ruta sea más específica. */
 function indiceActivo(pathname: string, pestanas: Pestana[]) {
@@ -47,7 +59,7 @@ function indiceActivo(pathname: string, pestanas: Pestana[]) {
 }
 
 /**
- * Encoge la pastilla mientras se baja y la devuelve entera al subir.
+ * Pliega las etiquetas mientras se baja y las devuelve al subir.
  *
  * El umbral no es para ahorrar trabajo sino para tener histéresis: `anterior`
  * sólo avanza cuando el gesto pasa de doce píxeles, así el temblor del pulgar
@@ -90,12 +102,56 @@ function useMinimizarAlBajar(reinicio: unknown, umbral = 12) {
   return minimizada
 }
 
+/**
+ * Estira la cápsula en la dirección del viaje y le devuelve su forma al llegar.
+ *
+ * Una transición de CSS no puede ir y volver en un solo tramo, así que el
+ * estirón se dispara a mano cuando cambia el destino. `element.animate()` es
+ * nativo desde Safari 13.1 y no deja rastro al terminar, que es justo lo que
+ * hace falta: la deformación es del viaje, no del estado.
+ *
+ * El achatamiento vertical conserva el volumen —es lo que vende el efecto de
+ * goma— y el estirón se topa a dos destinos, porque más allá se vuelve
+ * caricatura en vez de física.
+ */
+function useEstiron(activa: number) {
+  const nodo = useRef<HTMLSpanElement>(null)
+  const previa = useRef(activa)
+
+  useEffect(() => {
+    const antes = previa.current
+    previa.current = activa
+
+    if (!nodo.current || antes < 0 || activa < 0 || antes === activa) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const salto = Math.min(Math.abs(activa - antes), 2)
+
+    nodo.current.animate(
+      [
+        { transform: 'scaleX(1) scaleY(1)' },
+        { transform: `scaleX(${1 + 0.07 * salto}) scaleY(${1 - 0.05 * salto})`, offset: 0.35 },
+        { transform: 'scaleX(1) scaleY(1)' },
+      ],
+      { duration: 420, easing: 'ease-out' },
+    )
+  }, [activa])
+
+  return nodo
+}
+
 export function BarraTabs({ pestanas }: { pestanas: Pestana[] }) {
   const pathname = usePathname()
   const activa = indiceActivo(pathname, pestanas)
   // La ruta reinicia el estado al cambiar de pantalla y relee la preferencia
   // de movimiento por si se cambió desde ajustes.
   const minimizada = useMinimizarAlBajar(pathname)
+  const estiron = useEstiron(activa)
+
+  // El `:active` de Safari iOS no se dispara en un enlace si nadie escucha el
+  // tacto, así que el hundido se lleva a mano en vez de fiarse de la pseudo.
+  const [presionada, setPresionada] = useState(-1)
+  const soltar = () => setPresionada(-1)
 
   return (
     <nav
@@ -106,49 +162,117 @@ export function BarraTabs({ pestanas }: { pestanas: Pestana[] }) {
       aria-label="Secciones"
     >
       <div
-        className="pointer-events-auto relative flex origin-bottom items-center rounded-full border-[0.5px] border-tinta-200/80 bg-white/70 p-1.5 shadow-[0_10px_34px_rgba(7,12,20,0.16)] backdrop-blur-2xl backdrop-saturate-[1.8] transition-[transform,opacity] duration-300 ease-out will-change-transform motion-reduce:transition-none"
+        className="cristal cristal-brillo pointer-events-auto relative origin-bottom rounded-[1.625rem] p-1.5 transition-transform duration-[320ms] ease-suave will-change-transform motion-reduce:transition-none"
         style={{
-          transform: minimizada ? 'scale(0.84)' : 'scale(1)',
-          opacity: minimizada ? 0.78 : 1,
-        }}
+          // Cuántos destinos hay es lo único que necesita saber el CSS para
+          // repartir el ancho y colocar la cápsula. Va como variable y no como
+          // clase porque el número cambia por rol —y en obra, hasta por si hay
+          // trabajo abierto.
+          '--n': String(pestanas.length),
+          width: `min(100%, calc(var(--n) * ${ANCHO}rem + 0.75rem))`,
+          // Al bajar se encoge un pelo. Nada de bajarle la opacidad: en obra,
+          // a pleno sol, es lo que vuelve la barra ilegible.
+          transform: minimizada ? 'scale(0.97)' : 'scale(1)',
+        } as React.CSSProperties}
       >
-        {/* La cápsula se desliza en vez de parpadear de un destino a otro.
-            Como todos los destinos miden lo mismo —para eso se quitaron las
-            etiquetas—, su posición es una multiplicación y no hace falta medir
-            el DOM: ni parpadeo en el primer pintado, ni desfase cuando cambia
-            el número de pestañas por rol. */}
-        {activa >= 0 && (
-          <span
-            aria-hidden
-            className="absolute left-1.5 top-1.5 h-11 rounded-full bg-haaco-700 transition-transform duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-            style={{ width: ANCHO, transform: `translateX(${activa * ANCHO}px)` }}
-          />
-        )}
-
-        {pestanas.map((p, i) => {
-          const esta = i === activa
-          return (
-            <Link
-              key={p.href + p.etiqueta}
-              href={p.href}
-              // Sin texto visible, el nombre del destino vive aquí.
-              aria-label={p.etiqueta}
-              aria-current={esta ? 'page' : undefined}
-              className="relative z-10 flex h-11 items-center justify-center"
-              style={{ width: ANCHO }}
+        <div className="relative flex w-full">
+          {/* La cápsula se desliza en vez de parpadear de un destino a otro.
+              Todo el posicionamiento es en porcentaje y no en píxeles: los
+              destinos se reparten el ancho a partes iguales, así que la
+              cápsula mide un enésimo y `translateX` en porcentaje —que se
+              resuelve contra su propio ancho— la deja clavada en su sitio.
+              Ni medir el DOM, ni parpadeo en el primer pintado, ni desfase
+              cuando cambia el número de pestañas. */}
+          {activa >= 0 && (
+            <span
+              aria-hidden
+              className="absolute inset-y-0 left-0 transition-transform duration-[420ms] ease-capsula motion-reduce:transition-none"
+              style={{
+                width: 'calc(100% / var(--n))',
+                transform: `translateX(${activa * 100}%)`,
+              }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d={p.icono}
-                  stroke={esta ? '#fff' : 'var(--color-tinta-500)'}
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {/* Tres capas anidadas porque son tres movimientos distintos y
+                  cada uno necesita su propio `transform`: arriba el viaje,
+                  aquí el estirón que dispara `useEstiron`, y abajo el hundido
+                  al tocar la pestaña en la que ya se está. */}
+              <span ref={estiron} className="block h-full w-full">
+                <span
+                  className="block h-full w-full rounded-[1.25rem] bg-haaco-700 shadow-[inset_0_1px_0_rgb(255_255_255/0.22),0_2px_6px_-1px_rgb(20_88_54/0.45)] transition-transform motion-reduce:transition-none"
+                  style={{
+                    transform: presionada === activa ? 'scale(0.94)' : 'scale(1)',
+                    transitionDuration: presionada === activa ? '110ms' : '420ms',
+                    transitionTimingFunction:
+                      presionada === activa ? 'ease-out' : 'var(--ease-toque)',
+                  }}
                 />
-              </svg>
-            </Link>
-          )
-        })}
+              </span>
+            </span>
+          )}
+
+          {pestanas.map((p, i) => {
+            const esta = i === activa
+            return (
+              <Link
+                key={p.href + p.etiqueta}
+                href={p.href}
+                aria-current={esta ? 'page' : undefined}
+                onPointerDown={() => setPresionada(i)}
+                onPointerUp={soltar}
+                onPointerCancel={soltar}
+                onPointerLeave={soltar}
+                // Red de seguridad: si la navegación se lleva el `pointerup`
+                // por delante, el destino se quedaría hundido para siempre.
+                onClick={soltar}
+                className="relative z-10 flex flex-1 basis-0 flex-col items-center justify-center py-2 [touch-action:manipulation]"
+                style={{
+                  // El color entrante espera a que la cápsula llegue; el que
+                  // se apaga se va enseguida. Si ambos cambiaran a la vez, el
+                  // icono se pondría blanco sobre el cristal claro y
+                  // desaparecería medio recorrido.
+                  color: esta ? '#fff' : 'var(--color-tinta-600)',
+                  transitionProperty: 'color',
+                  transitionDuration: '200ms',
+                  transitionDelay: esta ? '130ms' : '0ms',
+                }}
+              >
+                <span
+                  className="flex flex-col items-center gap-0.5 transition-transform motion-reduce:transition-none"
+                  style={{
+                    transform: presionada === i ? 'scale(0.88)' : 'scale(1)',
+                    // Entra rápido y seco, sale con rebote: así se siente el
+                    // acuse de recibo del dedo y no un desvanecido.
+                    transitionDuration: presionada === i ? '110ms' : '420ms',
+                    transitionTimingFunction:
+                      presionada === i ? 'ease-out' : 'var(--ease-toque)',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d={p.icono}
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+
+                  <span
+                    className="etiqueta-tab"
+                    style={{
+                      gridTemplateRows: minimizada ? '0fr' : '1fr',
+                      opacity: minimizada ? 0 : 1,
+                    }}
+                  >
+                    <span className="block truncate text-[10px] font-medium leading-[1.2]">
+                      {p.etiqueta}
+                    </span>
+                  </span>
+                </span>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </nav>
   )
