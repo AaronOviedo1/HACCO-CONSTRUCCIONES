@@ -47,3 +47,6 @@ next-env.d.ts
 # Notas de actualización que se arman en local para enseñárselas al cliente:
 # capturas, tipografías y el HTML ya construido. Pesan y no son código.
 /docs/
+
+# Personalización del editor (color de la barra de título)
+/.vscode
