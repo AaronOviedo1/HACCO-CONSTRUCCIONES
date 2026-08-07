@@ -45,6 +45,13 @@ export type EventoObra =
 // ---------------------------------------------------------------------------
 // FILAS
 // ---------------------------------------------------------------------------
+/** Un número que Dirección cambia sin tocar el código. Una fila por clave. */
+export type Ajuste = {
+  clave: string
+  valor: unknown
+  updated_at: string
+}
+
 export type Profile = {
   id: string
   nombre: string
@@ -870,6 +877,7 @@ type Vista<Row> = { Row: Row; Relationships: [] }
 export type Database = {
   public: {
     Tables: {
+      ajustes: Tabla<Ajuste>
       profiles: Tabla<Profile>
       clientes: Tabla<Cliente>
       proveedores: Tabla<Proveedor>

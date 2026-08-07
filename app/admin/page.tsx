@@ -13,6 +13,7 @@ import { GraficaMeses } from '@/components/movil/grafica-meses'
 import { GraficaFlujo } from '@/components/admin/grafica-flujo'
 import { GraficaGastos } from '@/components/admin/grafica-gastos'
 import { TileResumen } from '@/components/admin/tile-resumen'
+import { VentasDelMes } from '@/components/admin/ventas-del-mes'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +53,7 @@ export default async function Dashboard() {
   const ventana = ultimosSeisMeses()
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
 
-  const [historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina, recientes] =
+  const [historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina, recientes, meta] =
     await Promise.all([
       supabase
         .from('v_cotizaciones')
@@ -69,6 +70,7 @@ export default async function Dashboard() {
       supabase.from('nomina_pagos').select('monto, fecha').gte('fecha', desdeSeis),
       supabase.from('v_prenomina').select('*').order('disponible', { ascending: false }),
       supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
+      supabase.from('ajustes').select('valor').eq('clave', 'meta_venta_mensual').maybeSingle(),
     ])
 
   const bdLista = !historico.error && !obras.error
@@ -92,6 +94,13 @@ export default async function Dashboard() {
   const porEstatusCot = (e: EstatusCotizacion) => delMes.filter((c) => c.estatus === e)
   const porResolver = porEstatusCot('borrador').length + porEstatusCot('enviada').length
   const cotizadoMes = delMes.reduce((s, c) => s + Number(c.total), 0)
+
+  // Vendido = aprobado. Lo cotizado a secas ya tiene su recuadro y no dice si
+  // el cliente dijo que sí.
+  const vendidoMes = delMes
+    .filter((c) => c.estatus === 'aprobada' || c.estatus === 'terminada')
+    .reduce((s, c) => s + Number(c.total), 0)
+  const metaVenta = Number(meta.data?.valor ?? 0)
 
   const resumenEstatus = (
     ['borrador', 'enviada', 'seguimiento', 'aprobada', 'rechazada'] as EstatusCotizacion[]
@@ -188,7 +197,7 @@ export default async function Dashboard() {
         </div>
       )}
 
-      <div className="grid gap-3.5 lg:grid-cols-3">
+      <div className="grid gap-3.5 lg:grid-cols-2">
         {/* Cobranza ---------------------------------------------------------- */}
         <section className="rounded-[22px] bg-linear-[155deg,var(--color-haaco-700),var(--color-haaco-800)] p-4.5 text-white shadow-[0_8px_22px_rgba(16,70,44,.22)] lg:rounded-xl">
           <div className="flex items-center gap-4">
@@ -225,243 +234,246 @@ export default async function Dashboard() {
           </Link>
         </section>
 
-        {/* Los cuatro números del día ---------------------------------------- */}
-        <div className="grid grid-cols-2 gap-2.5 lg:col-span-2 lg:grid-cols-4 lg:gap-3">
-          {/* En escritorio cada número abre su detalle sin salir del tablero. */}
-          <TileResumen
-            etiqueta="Nómina de la semana"
-            valor={pesosCortos(aPagarNomina)}
-            nota="devengado por avance"
-            href="/admin/nomina?t=prenomina"
-            titulo="Prenómina de la semana"
-            descripcion="Lo que se puede pagar hoy según el avance reportado, menos préstamos."
-            irA="Ir a nómina"
-          >
-            {nomina.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-tinta-500">Sin contratos activos.</p>
-            ) : (
-              <Tabla>
-                <thead>
-                  <tr>
-                    <Th>Trabajador</Th>
-                    <Th numerico>Obras</Th>
-                    <Th numerico>Devengado</Th>
-                    <Th numerico>Pagado</Th>
-                    <Th numerico>Deducciones</Th>
-                    <Th numerico>A pagar</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nomina.map((p) => (
-                    <tr key={p.trabajador_id}>
-                      <Td className="font-medium text-tinta-900">{p.trabajador}</Td>
-                      <Td numerico className="text-tinta-500">{p.contratos_activos}</Td>
-                      <Td numerico>{pesos(p.devengado)}</Td>
-                      <Td numerico className="text-tinta-500">{pesos(p.pagado)}</Td>
-                      <Td numerico className={Number(p.deducciones) > 0 ? 'text-red-600' : 'text-tinta-300'}>
-                        {Number(p.deducciones) > 0 ? `- ${pesos(p.deducciones)}` : '—'}
-                      </Td>
-                      <Td numerico className="font-semibold text-haaco-700">
-                        {pesos(Math.max(0, Number(p.disponible) - Number(p.deducciones)))}
-                      </Td>
-                    </tr>
-                  ))}
-                  <tr className="bg-haaco-50/60">
-                    <Td className="font-semibold text-tinta-900">Total</Td>
-                    <Td> </Td>
-                    <Td> </Td>
-                    <Td> </Td>
-                    <Td> </Td>
-                    <Td numerico className="text-base font-semibold text-haaco-700">
-                      {pesos(aPagarNomina)}
+        {/* Lo vendido contra la meta ----------------------------------------- */}
+        <VentasDelMes vendido={vendidoMes} meta={metaVenta} etiqueta={etiquetaMes(mes)} />
+      </div>
+
+      {/* Los cuatro números del día ------------------------------------------ */}
+      <div className="mt-3.5 grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
+        {/* En escritorio cada número abre su detalle sin salir del tablero. */}
+        <TileResumen
+          etiqueta="Nómina de la semana"
+          valor={pesosCortos(aPagarNomina)}
+          nota="devengado por avance"
+          href="/admin/nomina?t=prenomina"
+          titulo="Prenómina de la semana"
+          descripcion="Lo que se puede pagar hoy según el avance reportado, menos préstamos."
+          irA="Ir a nómina"
+        >
+          {nomina.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-tinta-500">Sin contratos activos.</p>
+          ) : (
+            <Tabla>
+              <thead>
+                <tr>
+                  <Th>Trabajador</Th>
+                  <Th numerico>Obras</Th>
+                  <Th numerico>Devengado</Th>
+                  <Th numerico>Pagado</Th>
+                  <Th numerico>Deducciones</Th>
+                  <Th numerico>A pagar</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {nomina.map((p) => (
+                  <tr key={p.trabajador_id}>
+                    <Td className="font-medium text-tinta-900">{p.trabajador}</Td>
+                    <Td numerico className="text-tinta-500">{p.contratos_activos}</Td>
+                    <Td numerico>{pesos(p.devengado)}</Td>
+                    <Td numerico className="text-tinta-500">{pesos(p.pagado)}</Td>
+                    <Td numerico className={Number(p.deducciones) > 0 ? 'text-red-600' : 'text-tinta-300'}>
+                      {Number(p.deducciones) > 0 ? `- ${pesos(p.deducciones)}` : '—'}
+                    </Td>
+                    <Td numerico className="font-semibold text-haaco-700">
+                      {pesos(Math.max(0, Number(p.disponible) - Number(p.deducciones)))}
                     </Td>
                   </tr>
-                </tbody>
-              </Tabla>
-            )}
-          </TileResumen>
+                ))}
+                <tr className="bg-haaco-50/60">
+                  <Td className="font-semibold text-tinta-900">Total</Td>
+                  <Td> </Td>
+                  <Td> </Td>
+                  <Td> </Td>
+                  <Td> </Td>
+                  <Td numerico className="text-base font-semibold text-haaco-700">
+                    {pesos(aPagarNomina)}
+                  </Td>
+                </tr>
+              </tbody>
+            </Tabla>
+          )}
+        </TileResumen>
 
-          <TileResumen
-            etiqueta="Pagos urgentes"
-            valor={pesosCortos(montoUrgente)}
-            tono={montoUrgente > 0 ? 'rojo' : 'neutro'}
-            nota={`${urgentes.length} ${urgentes.length === 1 ? 'factura vencida o por vencer' : 'facturas vencidas o por vencer'}`}
-            href="/admin/cuentas-por-pagar"
-            titulo="Pagos que no pueden esperar"
-            descripcion="Facturas de proveedor vencidas o que vencen en tres días o menos."
-            irA="Ir a cuentas por pagar"
-          >
-            {urgentes.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-tinta-500">
-                Nada vencido ni por vencer.
-              </p>
-            ) : (
-              <Tabla>
-                <thead>
-                  <tr>
-                    <Th>Proveedor</Th>
-                    <Th>Factura</Th>
-                    <Th>Vence</Th>
-                    <Th>Estado</Th>
-                    <Th numerico>Saldo</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {urgentes.map((cuenta, i) => (
-                    <tr key={`${cuenta.folio_factura}-${i}`}>
-                      <Td className="font-medium text-tinta-900">{cuenta.proveedor}</Td>
-                      <Td className="font-mono text-xs">{cuenta.folio_factura ?? '—'}</Td>
-                      <Td className="whitespace-nowrap text-tinta-500">
-                        {fecha(cuenta.vencimiento)}
-                        <span className="ml-1.5 text-xs text-tinta-400">
-                          {Number(cuenta.dias_restantes) < 0
-                            ? `venció hace ${Math.abs(Number(cuenta.dias_restantes))} d`
-                            : `en ${cuenta.dias_restantes} d`}
-                        </span>
-                      </Td>
-                      <Td>
-                        <Etiqueta tono={cuenta.estado === 'vencida' ? 'rojo' : 'ambar'}>
-                          {cuenta.estado === 'vencida' ? 'Vencida' : 'Urgente'}
-                        </Etiqueta>
-                      </Td>
-                      <Td numerico className="font-semibold text-red-600">{pesos(cuenta.saldo)}</Td>
-                    </tr>
-                  ))}
-                  <tr className="bg-haaco-50/60">
-                    <Td className="font-semibold text-tinta-900">Total</Td>
-                    <Td> </Td>
-                    <Td> </Td>
-                    <Td> </Td>
-                    <Td numerico className="text-base font-semibold text-red-600">
-                      {pesos(montoUrgente)}
+        <TileResumen
+          etiqueta="Pagos urgentes"
+          valor={pesosCortos(montoUrgente)}
+          tono={montoUrgente > 0 ? 'rojo' : 'neutro'}
+          nota={`${urgentes.length} ${urgentes.length === 1 ? 'factura vencida o por vencer' : 'facturas vencidas o por vencer'}`}
+          href="/admin/cuentas-por-pagar"
+          titulo="Pagos que no pueden esperar"
+          descripcion="Facturas de proveedor vencidas o que vencen en tres días o menos."
+          irA="Ir a cuentas por pagar"
+        >
+          {urgentes.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-tinta-500">
+              Nada vencido ni por vencer.
+            </p>
+          ) : (
+            <Tabla>
+              <thead>
+                <tr>
+                  <Th>Proveedor</Th>
+                  <Th>Factura</Th>
+                  <Th>Vence</Th>
+                  <Th>Estado</Th>
+                  <Th numerico>Saldo</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {urgentes.map((cuenta, i) => (
+                  <tr key={`${cuenta.folio_factura}-${i}`}>
+                    <Td className="font-medium text-tinta-900">{cuenta.proveedor}</Td>
+                    <Td className="font-mono text-xs">{cuenta.folio_factura ?? '—'}</Td>
+                    <Td className="whitespace-nowrap text-tinta-500">
+                      {fecha(cuenta.vencimiento)}
+                      <span className="ml-1.5 text-xs text-tinta-400">
+                        {Number(cuenta.dias_restantes) < 0
+                          ? `venció hace ${Math.abs(Number(cuenta.dias_restantes))} d`
+                          : `en ${cuenta.dias_restantes} d`}
+                      </span>
                     </Td>
+                    <Td>
+                      <Etiqueta tono={cuenta.estado === 'vencida' ? 'rojo' : 'ambar'}>
+                        {cuenta.estado === 'vencida' ? 'Vencida' : 'Urgente'}
+                      </Etiqueta>
+                    </Td>
+                    <Td numerico className="font-semibold text-red-600">{pesos(cuenta.saldo)}</Td>
                   </tr>
-                </tbody>
-              </Tabla>
-            )}
-          </TileResumen>
+                ))}
+                <tr className="bg-haaco-50/60">
+                  <Td className="font-semibold text-tinta-900">Total</Td>
+                  <Td> </Td>
+                  <Td> </Td>
+                  <Td> </Td>
+                  <Td numerico className="text-base font-semibold text-red-600">
+                    {pesos(montoUrgente)}
+                  </Td>
+                </tr>
+              </tbody>
+            </Tabla>
+          )}
+        </TileResumen>
 
-          <TileResumen
-            etiqueta="Cotizado este mes"
-            valor={pesosCortos(cotizadoMes)}
-            nota={`${delMes.length} ${delMes.length === 1 ? 'cotización' : 'cotizaciones'} · ${porResolver} por resolver`}
-            href={`/admin/cotizaciones?desde=${desde}&hasta=${finDeMes}`}
-            titulo={`Cotizado en ${etiquetaMes(mes)}`}
-            descripcion="Cada cotización del mes con el estatus en el que quedó."
-            irA="Ver las cotizaciones del mes"
-          >
-            {delMes.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-tinta-500">
-                Todavía no hay cotizaciones este mes.
-              </p>
-            ) : (
-              <>
-                <dl className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
-                  {resumenEstatus.map((r) => (
-                    <div key={r.clave} className="rounded-xl border border-tinta-200 px-3 py-2.5">
-                      <dt className="text-xs text-tinta-500">{r.texto}</dt>
-                      <dd className="mt-0.5 text-lg font-semibold tabular-nums text-tinta-900">
-                        {r.n}
-                      </dd>
-                      <dd className="text-xs text-tinta-400">{pesosCortos(r.monto)}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <Tabla>
-                  <thead>
-                    <tr>
-                      <Th>Folio</Th>
-                      <Th>Cliente</Th>
-                      <Th>Obra</Th>
-                      <Th>Fecha</Th>
-                      <Th numerico>Total</Th>
-                      <Th>Estatus</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {delMes.map((c) => (
-                      <tr key={c.id}>
-                        <Td className="font-mono text-xs text-haaco-700">{c.folio}</Td>
-                        <Td className="font-medium text-tinta-900">{c.cliente}</Td>
-                        <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
-                        <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
-                        <Td numerico className="font-medium">{pesos(c.total)}</Td>
-                        <Td>
-                          <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
-                            {ESTATUS_COTIZACION[c.estatus].texto}
-                          </Etiqueta>
-                        </Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Tabla>
-              </>
-            )}
-          </TileResumen>
-
-          <TileResumen
-            etiqueta="Obras en proceso"
-            valor={String(enObra)}
-            tono="verde"
-            nota={`${agendadas} agendadas · ${pausadas} pausadas`}
-            href="/admin/obras"
-            titulo="Obras abiertas"
-            descripcion="Las órdenes de trabajo que no están cerradas, con su avance reportado."
-            irA="Ir a obras"
-          >
-            {obrasAbiertas.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-tinta-500">
-                No hay órdenes de trabajo abiertas.
-              </p>
-            ) : (
+        <TileResumen
+          etiqueta="Cotizado este mes"
+          valor={pesosCortos(cotizadoMes)}
+          nota={`${delMes.length} ${delMes.length === 1 ? 'cotización' : 'cotizaciones'} · ${porResolver} por resolver`}
+          href={`/admin/cotizaciones?desde=${desde}&hasta=${finDeMes}`}
+          titulo={`Cotizado en ${etiquetaMes(mes)}`}
+          descripcion="Cada cotización del mes con el estatus en el que quedó."
+          irA="Ver las cotizaciones del mes"
+        >
+          {delMes.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-tinta-500">
+              Todavía no hay cotizaciones este mes.
+            </p>
+          ) : (
+            <>
+              <dl className="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
+                {resumenEstatus.map((r) => (
+                  <div key={r.clave} className="rounded-xl border border-tinta-200 px-3 py-2.5">
+                    <dt className="text-xs text-tinta-500">{r.texto}</dt>
+                    <dd className="mt-0.5 text-lg font-semibold tabular-nums text-tinta-900">
+                      {r.n}
+                    </dd>
+                    <dd className="text-xs text-tinta-400">{pesosCortos(r.monto)}</dd>
+                  </div>
+                ))}
+              </dl>
               <Tabla>
                 <thead>
                   <tr>
-                    <Th>OT</Th>
+                    <Th>Folio</Th>
+                    <Th>Cliente</Th>
                     <Th>Obra</Th>
+                    <Th>Fecha</Th>
+                    <Th numerico>Total</Th>
                     <Th>Estatus</Th>
-                    <Th numerico>Avance</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {obrasAbiertas.map((o) => (
-                    <tr key={o.id}>
-                      <Td className="font-mono text-xs text-haaco-700">{o.ot_numero}</Td>
-                      <Td className="font-medium text-tinta-900">{o.nombre}</Td>
+                  {delMes.map((c) => (
+                    <tr key={c.id}>
+                      <Td className="font-mono text-xs text-haaco-700">{c.folio}</Td>
+                      <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                      <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
+                      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+                      <Td numerico className="font-medium">{pesos(c.total)}</Td>
                       <Td>
-                        <Etiqueta tono={ESTATUS_OBRA[o.estatus].tono}>
-                          {ESTATUS_OBRA[o.estatus].texto}
+                        <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+                          {ESTATUS_COTIZACION[c.estatus].texto}
                         </Etiqueta>
-                      </Td>
-                      <Td numerico>
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-tinta-100">
-                            <span
-                              className="block h-full rounded-full bg-haaco-500"
-                              style={{ width: `${Math.min(100, Number(o.avance_pct))}%` }}
-                            />
-                          </span>
-                          {Number(o.avance_pct)}%
-                        </span>
                       </Td>
                     </tr>
                   ))}
                 </tbody>
               </Tabla>
-            )}
-          </TileResumen>
-        </div>
+            </>
+          )}
+        </TileResumen>
+
+        <TileResumen
+          etiqueta="Obras en proceso"
+          valor={String(enObra)}
+          tono="verde"
+          nota={`${agendadas} agendadas · ${pausadas} pausadas`}
+          href="/admin/obras"
+          titulo="Obras abiertas"
+          descripcion="Las órdenes de trabajo que no están cerradas, con su avance reportado."
+          irA="Ir a obras"
+        >
+          {obrasAbiertas.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-tinta-500">
+              No hay órdenes de trabajo abiertas.
+            </p>
+          ) : (
+            <Tabla>
+              <thead>
+                <tr>
+                  <Th>OT</Th>
+                  <Th>Obra</Th>
+                  <Th>Estatus</Th>
+                  <Th numerico>Avance</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {obrasAbiertas.map((o) => (
+                  <tr key={o.id}>
+                    <Td className="font-mono text-xs text-haaco-700">{o.ot_numero}</Td>
+                    <Td className="font-medium text-tinta-900">{o.nombre}</Td>
+                    <Td>
+                      <Etiqueta tono={ESTATUS_OBRA[o.estatus].tono}>
+                        {ESTATUS_OBRA[o.estatus].texto}
+                      </Etiqueta>
+                    </Td>
+                    <Td numerico>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-tinta-100">
+                          <span
+                            className="block h-full rounded-full bg-haaco-500"
+                            style={{ width: `${Math.min(100, Number(o.avance_pct))}%` }}
+                          />
+                        </span>
+                        {Number(o.avance_pct)}%
+                      </span>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Tabla>
+          )}
+        </TileResumen>
       </div>
 
       <div className="mt-3.5 grid gap-3.5 lg:grid-cols-2">
-        {/* Cotizado contra aprobado ------------------------------------------ */}
+        {/* Cotizado contra vendido ------------------------------------------ */}
         <Tarjeta>
           <div className="px-3.5 py-4">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-[14.5px] font-semibold">Cotizado vs aprobado</h2>
+              <h2 className="text-[14.5px] font-semibold">Cotizado vs vendido</h2>
               <span className="text-[11px] text-tinta-400">últimos 6 meses</span>
             </div>
-            <GraficaMeses meses={meses} />
+            <GraficaMeses meses={meses} meta={metaVenta} />
           </div>
         </Tarjeta>
 

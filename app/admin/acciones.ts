@@ -13,6 +13,26 @@ async function staff() {
 }
 
 // ===========================================================================
+// AJUSTES
+// ===========================================================================
+
+/** La meta de venta del mes, que Dirección cambia desde el propio tablero. */
+export async function guardarMetaVenta(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {
+  const supabase = await staff()
+
+  const meta = numero(d, 'meta')
+  if (meta == null || meta < 0) return { error: 'La meta tiene que ser un número.' }
+
+  const { error } = await supabase
+    .from('ajustes')
+    .upsert({ clave: 'meta_venta_mensual', valor: meta }, { onConflict: 'clave' })
+
+  if (error) return { error: explicar(error) }
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+// ===========================================================================
 // CLIENTES
 // ===========================================================================
 export async function guardarCliente(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {

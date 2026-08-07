@@ -12,8 +12,11 @@ import { pesosCortos } from '@/lib/format'
  */
 export function GraficaMeses({
   meses,
+  meta = 0,
 }: {
   meses: { m: string; cotizado: number; aprobado: number }[]
+  /** Meta de venta mensual: se cruza como una raya para leerla de un vistazo. */
+  meta?: number
 }) {
   const [activo, setActivo] = useState(meses.length - 1)
 
@@ -21,7 +24,10 @@ export function GraficaMeses({
   // 1:1 y el texto no se infle; en el teléfono simplemente se encoge.
   const ancho = 620
   const alto = 190
-  const tope = Math.max(1, ...meses.map((x) => x.cotizado)) * 1.12
+  // La meta entra en la escala: si nunca se ha alcanzado, la raya tiene que
+  // caber igual o la gráfica mentiría por arriba.
+  const tope = Math.max(1, meta, ...meses.map((x) => x.cotizado)) * 1.12
+  const yMeta = meta > 0 ? alto - (meta / tope) * alto : null
   const paso = meses.length > 1 ? ancho / (meses.length - 1) : ancho
 
   const puntos = meses.map((x, i) => ({
@@ -108,6 +114,29 @@ export function GraficaMeses({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+
+          {/* La meta del mes, cruzada de lado a lado */}
+          {yMeta != null && (
+            <>
+              <line
+                x1="0"
+                y1={yMeta}
+                x2={ancho}
+                y2={yMeta}
+                stroke="var(--color-haaco-500)"
+                strokeWidth="1.6"
+                strokeDasharray="7 5"
+              />
+              <text
+                x={ancho}
+                y={yMeta - 5}
+                textAnchor="end"
+                className="fill-haaco-700 text-[11px] font-semibold"
+              >
+                meta {pesosCortos(meta)}
+              </text>
+            </>
+          )}
 
           {/* Guía del mes elegido */}
           {mes && (
