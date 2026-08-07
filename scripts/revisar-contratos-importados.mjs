@@ -53,13 +53,13 @@ const pesos = (n) =>
   Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 
 console.log(`\n${rows.length} contratos con el importe en «otros» y cero m²:\n`)
-console.log('  OT     Obra                            Oficial                    Importe     Pagado')
-console.log('  ' + '─'.repeat(92))
+console.log('  OT        Obra                            Oficial                    Importe     Pagado')
+console.log('  ' + '─'.repeat(95))
 
 for (const r of rows) {
   console.log(
     '  ' +
-      String(r.ot_numero ?? '—').padEnd(7) +
+      String(r.ot_numero ?? '—').padEnd(10) +
       String(r.obra).slice(0, 30).padEnd(32) +
       String(r.trabajador).slice(0, 24).padEnd(27) +
       pesos(r.otros_importe).padStart(11) +
