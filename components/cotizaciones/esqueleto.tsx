@@ -63,7 +63,7 @@ export default function EsqueletoCotizacion() {
 
       {/* La barra de guardar vive fija sobre las pestañas: si el esqueleto no
           la reserva, el contenido salta al hidratar. */}
-      <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 lg:bottom-0 lg:pl-72">
+      <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur-xl lg:bottom-0 lg:pl-72">
         <div className="mx-auto h-12 max-w-5xl rounded-[14px] bg-tinta-150 lg:h-9 lg:w-40" />
       </div>
     </div>

@@ -95,19 +95,9 @@ export default async function PaginaLogin({
 
       <div className="flex flex-col items-center bg-tinta-50 px-6 pb-10 pt-[max(3.25rem,env(safe-area-inset-top))] tableta:justify-center tableta:px-10 tableta:py-12 escritorio:justify-center escritorio:bg-white escritorio:px-12 escritorio:py-10 xl:px-20">
         <div className="w-full max-w-sm tableta:max-w-md escritorio:max-w-[380px]">
-          {/* Membrete en dos piezas: el imagotipo y el nombre, como en la app. */}
-          <div className="mb-8 flex items-center justify-center gap-3 tableta:hidden escritorio:hidden">
-            <span className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-haaco-700 text-white shadow-verde">
-              <Logo tamano={34} />
-            </span>
-            <div className="leading-tight">
-              <p className="text-2xl font-semibold -tracking-[0.5px] text-tinta-900">
-                Haaco<span className="text-haaco-600">Pro</span>
-              </p>
-              <p className="mt-0.5 text-[11px] uppercase tracking-[0.1em] text-tinta-500">
-                Recubrimientos y herrería
-              </p>
-            </div>
+          {/* En el teléfono no hay banda de marca, así que el membrete encabeza. */}
+          <div className="mb-8 flex justify-center tableta:hidden escritorio:hidden">
+            <Membrete />
           </div>
 
           <div className="rounded-[22px] border-[0.5px] border-tinta-200 bg-white p-5 shadow-tarjeta tableta:rounded-3xl tableta:p-8 escritorio:rounded-none escritorio:border-0 escritorio:bg-transparent escritorio:p-0 escritorio:shadow-none">

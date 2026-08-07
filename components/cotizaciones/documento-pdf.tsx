@@ -19,7 +19,7 @@ const e = StyleSheet.create({
     paddingHorizontal: 46,
     fontSize: 9.5,
     color: TINTA,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Figtree',
   },
   // Ojo: el interlineado va texto por texto y no en la página; si la página
   // trae lineHeight, react-pdf deja de pintar los elementos fijos anclados
@@ -57,7 +57,7 @@ const e = StyleSheet.create({
   },
   folio: {
     fontSize: 16,
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'Figtree', fontWeight: 700,
     color: VERDE,
     letterSpacing: 0.6,
     textAlign: 'right',
@@ -83,7 +83,7 @@ const e = StyleSheet.create({
     letterSpacing: 1.6,
     marginBottom: 2.5,
   },
-  datoFuerte: { fontFamily: 'Helvetica-Bold', fontSize: 10, lineHeight: 1.2 },
+  datoFuerte: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 10, lineHeight: 1.2 },
   datoSuave: { fontSize: 8.5, color: GRIS, marginTop: 1, lineHeight: 1.2 },
 
   parrafo: { marginBottom: 9, textAlign: 'justify', lineHeight: 1.28 },
@@ -102,9 +102,9 @@ const e = StyleSheet.create({
     backgroundColor: VERDE_MEDIO,
     marginRight: 6,
   },
-  subtitulo: { fontFamily: 'Helvetica-Bold', fontSize: 10.5 },
+  subtitulo: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 10.5 },
   vineta: { flexDirection: 'row', marginBottom: 2.5, paddingRight: 8 },
-  punto: { width: 11, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold' },
+  punto: { width: 11, color: VERDE_MEDIO, fontFamily: 'Figtree', fontWeight: 700 },
   vinetaTexto: { flex: 1, textAlign: 'justify', lineHeight: 1.28 },
   calidad: { marginTop: 5, marginBottom: 9, fontStyle: 'italic', color: GRIS, lineHeight: 1.28 },
 
@@ -115,7 +115,7 @@ const e = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: VERDE,
     color: MARCA.blanco,
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'Figtree', fontWeight: 700,
     fontSize: 7.6,
     letterSpacing: 0.8,
     paddingVertical: 6,
@@ -140,7 +140,7 @@ const e = StyleSheet.create({
   cCant: { width: 64, textAlign: 'right' },
   cPU: { width: 66, textAlign: 'right' },
   cImp: { width: 78, textAlign: 'right' },
-  importeFila: { fontFamily: 'Helvetica-Bold' },
+  importeFila: { fontFamily: 'Figtree', fontWeight: 700 },
 
   // Totales
   totales: { alignItems: 'flex-end', marginTop: 8 },
@@ -160,7 +160,7 @@ const e = StyleSheet.create({
   granTotalEtiqueta: {
     textAlign: 'right',
     paddingRight: 14,
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'Figtree', fontWeight: 700,
     fontSize: 8,
     letterSpacing: 1.4,
     color: MARCA.blanco,
@@ -168,7 +168,7 @@ const e = StyleSheet.create({
   granTotalValor: {
     width: 90,
     textAlign: 'right',
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'Figtree', fontWeight: 700,
     fontSize: 12.5,
     color: MARCA.blanco,
   },
@@ -179,7 +179,7 @@ const e = StyleSheet.create({
     paddingHorizontal: 10,
     marginTop: 6,
   },
-  chipAnticipoTexto: { fontSize: 8.5, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold' },
+  chipAnticipoTexto: { fontSize: 8.5, color: VERDE_MEDIO, fontFamily: 'Figtree', fontWeight: 700 },
 
   // Cierre: condiciones a la izquierda, firma a la derecha
   cierre: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginTop: 12 },
@@ -198,14 +198,14 @@ const e = StyleSheet.create({
     marginBottom: 4,
   },
   filaNota: { flexDirection: 'row', marginBottom: 2 },
-  puntoNota: { width: 10, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
+  puntoNota: { width: 10, color: VERDE_MEDIO, fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5 },
   nota: { flex: 1, fontSize: 8.5, lineHeight: 1.25 },
 
   // Despedida y firma
   despedida: { marginBottom: 30, lineHeight: 1.28 },
   firma: { alignItems: 'center', width: '100%' },
   lineaFirma: { borderTopWidth: 1, borderTopColor: VERDE, width: '100%', marginBottom: 5 },
-  nombreFirma: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, textAlign: 'center' },
+  nombreFirma: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 9.5, textAlign: 'center' },
   cargoFirma: { fontSize: 8, color: GRIS, textAlign: 'center' },
 
   pie: {

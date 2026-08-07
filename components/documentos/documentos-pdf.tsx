@@ -18,7 +18,7 @@ const e = StyleSheet.create({
     paddingHorizontal: 46,
     fontSize: 9.5,
     color: TINTA,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Figtree',
   },
   // Aquí no va lineHeight: con él, react-pdf deja de pintar los elementos
   // fijos anclados con `bottom` y el pie de página desaparece. El interlineado
@@ -34,20 +34,20 @@ const e = StyleSheet.create({
   },
   contacto: { fontSize: 7.5, color: GRIS, textAlign: 'right', lineHeight: 1.5 },
 
-  titulo: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: VERDE, letterSpacing: 0.8 },
-  folio: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TINTA },
+  titulo: { fontSize: 15, fontFamily: 'Figtree', fontWeight: 700, color: VERDE, letterSpacing: 0.8 },
+  folio: { fontSize: 10, fontFamily: 'Figtree', fontWeight: 700, color: TINTA },
   encabezadoDoc: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10,
   },
 
   seccion: {
-    backgroundColor: VERDE, color: MARCA.blanco, fontFamily: 'Helvetica-Bold', fontSize: 8.5,
+    backgroundColor: VERDE, color: MARCA.blanco, fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5,
     letterSpacing: 0.9, paddingVertical: 4, paddingHorizontal: 7, marginTop: 9, marginBottom: 5,
   },
   fila: { flexDirection: 'row', marginBottom: 3 },
   etiqueta: { width: 108, color: GRIS, fontSize: 8.5, lineHeight: 1.35 },
   valor: { flex: 1, fontSize: 9.5, lineHeight: 1.35 },
-  valorFuerte: { flex: 1, fontSize: 9.5, fontFamily: 'Helvetica-Bold', lineHeight: 1.35 },
+  valorFuerte: { flex: 1, fontSize: 9.5, fontFamily: 'Figtree', fontWeight: 700, lineHeight: 1.35 },
 
   caja: {
     borderWidth: 0.8, borderColor: LINEA, borderRadius: 3, padding: 9, marginTop: 6,
@@ -59,7 +59,7 @@ const e = StyleSheet.create({
 
   th: {
     flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,
-    fontFamily: 'Helvetica-Bold', fontSize: 8, paddingVertical: 4, paddingHorizontal: 6,
+    fontFamily: 'Figtree', fontWeight: 700, fontSize: 8, paddingVertical: 4, paddingHorizontal: 6,
   },
   tr: {
     flexDirection: 'row', borderBottomWidth: 0.7, borderBottomColor: LINEA,
@@ -69,7 +69,7 @@ const e = StyleSheet.create({
   firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
   firma: { width: '44%', alignItems: 'center' },
   lineaFirma: { borderTopWidth: 0.8, borderTopColor: TINTA, width: '100%', marginBottom: 4 },
-  nombreFirma: { fontFamily: 'Helvetica-Bold', fontSize: 9, textAlign: 'center' },
+  nombreFirma: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 9, textAlign: 'center' },
   cargoFirma: { fontSize: 7.5, color: GRIS, textAlign: 'center' },
 
   pie: {
@@ -175,7 +175,7 @@ export function DocumentoRecibo({ datos }: { datos: DatosRecibo }) {
         <View style={e.cajaVerde}>
           <View style={e.fila}>
             <Text style={[e.etiqueta, { color: TINTA }]}>Anticipo recibido</Text>
-            <Text style={{ flex: 1, fontFamily: 'Helvetica-Bold', fontSize: 13, color: VERDE }}>
+            <Text style={{ flex: 1, fontFamily: 'Figtree', fontWeight: 700, fontSize: 13, color: VERDE }}>
               {pesos(datos.monto)}
             </Text>
           </View>
@@ -283,7 +283,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {GRUPOS_TRABAJOS.map((grupo) => (
             <View key={grupo.clave} style={{ flex: 1 }}>
-              <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8.5, marginBottom: 3 }}>
+              <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5, marginBottom: 3 }}>
                 {grupo.titulo.toUpperCase()}
               </Text>
               {grupo.opciones.map((o) => {
@@ -293,7 +293,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
                     <Text
                       style={{
                         width: 17,
-                        fontFamily: 'Helvetica-Bold',
+                        fontFamily: 'Figtree', fontWeight: 700,
                         fontSize: 8.5,
                         color: marcada ? VERDE : GRIS,
                       }}
@@ -310,7 +310,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
           ))}
 
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8.5, marginBottom: 3 }}>
+            <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5, marginBottom: 3 }}>
               REPARACIONES
             </Text>
             {[0, 1, 2, 3].map((i) => {
@@ -359,7 +359,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
             <Text style={{ width: 150, textAlign: 'right', paddingRight: 12, color: GRIS }}>
               Subtotal
             </Text>
-            <Text style={{ width: 84, textAlign: 'right', fontFamily: 'Helvetica-Bold' }}>
+            <Text style={{ width: 84, textAlign: 'right', fontFamily: 'Figtree', fontWeight: 700 }}>
               {pesos(datos.subtotal)}
             </Text>
           </View>
@@ -379,14 +379,14 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
             <Text
               style={{
                 width: 150, textAlign: 'right', paddingRight: 12,
-                fontFamily: 'Helvetica-Bold', color: VERDE,
+                fontFamily: 'Figtree', fontWeight: 700, color: VERDE,
               }}
             >
               TOTAL A PAGAR
             </Text>
             <Text
               style={{
-                width: 84, textAlign: 'right', fontFamily: 'Helvetica-Bold',
+                width: 84, textAlign: 'right', fontFamily: 'Figtree', fontWeight: 700,
                 fontSize: 11, color: VERDE, paddingRight: 6,
               }}
             >
@@ -419,7 +419,7 @@ export function DocumentoContrato({ datos }: { datos: DatosContrato }) {
         </View>
 
         <View style={[e.caja, { marginTop: 14 }]} wrap={false}>
-          <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8.5, marginBottom: 10 }}>
+          <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5, marginBottom: 10 }}>
             CIERRE DE OBRA
           </Text>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -506,7 +506,7 @@ export function DocumentoPagare({ datos }: { datos: DatosPagare }) {
         {datos.herramientas.map((h, i) => (
           <View key={h.codigo} style={e.tr} wrap={false}>
             <Text style={{ width: 26, color: GRIS }}>{i + 1}</Text>
-            <Text style={{ width: 66, fontFamily: 'Helvetica-Bold' }}>{h.codigo}</Text>
+            <Text style={{ width: 66, fontFamily: 'Figtree', fontWeight: 700 }}>{h.codigo}</Text>
             <Text style={{ flex: 1 }}>{h.nombre}</Text>
             <Text style={{ width: 72, color: GRIS }}>{h.marca ?? '—'}</Text>
             <Text style={{ width: 74, textAlign: 'right' }}>{pesos(h.valor)}</Text>
@@ -519,12 +519,12 @@ export function DocumentoPagare({ datos }: { datos: DatosPagare }) {
             paddingVertical: 5, paddingHorizontal: 6, marginTop: 3,
           }}
         >
-          <Text style={{ flex: 1, fontFamily: 'Helvetica-Bold', color: VERDE }}>
+          <Text style={{ flex: 1, fontFamily: 'Figtree', fontWeight: 700, color: VERDE }}>
             VALOR TOTAL DE LAS HERRAMIENTAS
           </Text>
           <Text
             style={{
-              width: 74, textAlign: 'right', fontFamily: 'Helvetica-Bold',
+              width: 74, textAlign: 'right', fontFamily: 'Figtree', fontWeight: 700,
               fontSize: 11, color: VERDE,
             }}
           >
@@ -592,7 +592,7 @@ export function DocumentoPoliza({ datos }: { datos: DatosPoliza }) {
         <Dato etiqueta="Obra" valor={`${datos.obra} · OT ${datos.otNumero}`} />
 
         <View style={e.cajaVerde}>
-          <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10, color: VERDE }}>
+          <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 10, color: VERDE }}>
             Garantía por {datos.vigenciaDias} días naturales
           </Text>
           <Text style={{ fontSize: 9, marginTop: 2 }}>
@@ -625,7 +625,7 @@ export function DocumentoPoliza({ datos }: { datos: DatosPoliza }) {
                 <Text style={{ flex: 1 }}>{a.area || '—'}</Text>
                 <Text style={{ flex: 1.2 }}>{a.pintura || '—'}</Text>
                 <Text style={{ flex: 1 }}>{a.color || '—'}</Text>
-                <Text style={{ width: 80, fontFamily: 'Helvetica-Bold' }}>{a.codigo || '—'}</Text>
+                <Text style={{ width: 80, fontFamily: 'Figtree', fontWeight: 700 }}>{a.codigo || '—'}</Text>
               </View>
             ))}
           </>

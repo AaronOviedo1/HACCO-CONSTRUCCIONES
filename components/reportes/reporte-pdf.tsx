@@ -21,7 +21,7 @@ const e = StyleSheet.create({
     paddingHorizontal: 46,
     fontSize: 9,
     color: TINTA,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Figtree',
   },
   membrete: {
     flexDirection: 'row',
@@ -34,31 +34,31 @@ const e = StyleSheet.create({
   },
   contacto: { fontSize: 7.5, color: GRIS, textAlign: 'right', lineHeight: 1.5 },
 
-  titulo: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: VERDE, letterSpacing: 0.8 },
+  titulo: { fontSize: 15, fontFamily: 'Figtree', fontWeight: 700, color: VERDE, letterSpacing: 0.8 },
   encabezadoDoc: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10,
   },
 
   seccion: {
-    backgroundColor: VERDE, color: MARCA.blanco, fontFamily: 'Helvetica-Bold', fontSize: 8.5,
+    backgroundColor: VERDE, color: MARCA.blanco, fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5,
     letterSpacing: 0.9, paddingVertical: 4, paddingHorizontal: 7, marginTop: 10, marginBottom: 5,
   },
 
   cajaVerde: { backgroundColor: VERDE_CLARO, padding: 9, marginTop: 6, flexDirection: 'row' },
   indicador: { flex: 1 },
   indicadorEtiqueta: { fontSize: 7, color: GRIS, marginBottom: 2 },
-  indicadorValor: { fontSize: 11, fontFamily: 'Helvetica-Bold' },
+  indicadorValor: { fontSize: 11, fontFamily: 'Figtree', fontWeight: 700 },
 
   fila: { flexDirection: 'row', marginBottom: 3 },
   etiqueta: { width: 150, color: GRIS, fontSize: 8.5 },
   valor: { flex: 1, fontSize: 9, textAlign: 'right', maxWidth: 90 },
   valorFuerte: {
-    flex: 1, fontSize: 9, fontFamily: 'Helvetica-Bold', textAlign: 'right', maxWidth: 90,
+    flex: 1, fontSize: 9, fontFamily: 'Figtree', fontWeight: 700, textAlign: 'right', maxWidth: 90,
   },
 
   th: {
     flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,
-    fontFamily: 'Helvetica-Bold', fontSize: 7.5, paddingVertical: 4, paddingHorizontal: 6,
+    fontFamily: 'Figtree', fontWeight: 700, fontSize: 7.5, paddingVertical: 4, paddingHorizontal: 6,
   },
   tr: {
     flexDirection: 'row', borderBottomWidth: 0.7, borderBottomColor: LINEA,
@@ -66,7 +66,7 @@ const e = StyleSheet.create({
   },
   trTotal: {
     flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6,
-    backgroundColor: VERDE_CLARO, fontFamily: 'Helvetica-Bold',
+    backgroundColor: VERDE_CLARO, fontFamily: 'Figtree', fontWeight: 700,
   },
 
   pie: {
@@ -103,7 +103,7 @@ export function DocumentoReporteContador({ reporte }: { reporte: ReporteMensual 
 
         <View style={e.encabezadoDoc}>
           <Text style={e.titulo}>CONCENTRADO PARA EL CONTADOR</Text>
-          <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold' }}>{reporte.etiqueta}</Text>
+          <Text style={{ fontSize: 10, fontFamily: 'Figtree', fontWeight: 700 }}>{reporte.etiqueta}</Text>
         </View>
 
         {/* Resumen del mes ------------------------------------------------ */}

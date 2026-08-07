@@ -13,7 +13,7 @@ const LINEA = MARCA.linea
 const e = StyleSheet.create({
   pagina: {
     paddingTop: 30, paddingBottom: 46, paddingHorizontal: 48,
-    fontSize: 10, color: TINTA, fontFamily: 'Helvetica', lineHeight: 1.45,
+    fontSize: 10, color: TINTA, fontFamily: 'Figtree', lineHeight: 1.45,
   },
   membrete: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -24,16 +24,16 @@ const e = StyleSheet.create({
   encabezado: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14,
   },
-  titulo: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: VERDE, letterSpacing: 0.6 },
-  folio: { fontSize: 11, fontFamily: 'Helvetica-Bold', textAlign: 'right' },
+  titulo: { fontSize: 14, fontFamily: 'Figtree', fontWeight: 700, color: VERDE, letterSpacing: 0.6 },
+  folio: { fontSize: 11, fontFamily: 'Figtree', fontWeight: 700, textAlign: 'right' },
 
   fila: { flexDirection: 'row', marginBottom: 3 },
   etiqueta: { width: 92, color: GRIS, fontSize: 9 },
-  valor: { flex: 1, fontFamily: 'Helvetica-Bold' },
+  valor: { flex: 1, fontFamily: 'Figtree', fontWeight: 700 },
 
   th: {
     flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,
-    fontFamily: 'Helvetica-Bold', fontSize: 8.5, paddingVertical: 5, paddingHorizontal: 7,
+    fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5, paddingVertical: 5, paddingHorizontal: 7,
     marginTop: 14,
   },
   tr: {
@@ -63,7 +63,7 @@ const e = StyleSheet.create({
   firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 34 },
   firma: { width: '44%', alignItems: 'center' },
   lineaFirma: { borderTopWidth: 0.8, borderTopColor: TINTA, width: '100%', marginBottom: 4 },
-  nombreFirma: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, textAlign: 'center' },
+  nombreFirma: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 9.5, textAlign: 'center' },
   cargoFirma: { fontSize: 7.5, color: GRIS, textAlign: 'center' },
 })
 
@@ -139,7 +139,7 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
         <View style={e.totales}>
           <View style={e.filaTotal}>
             <Text style={e.etiquetaTotal}>Subtotal</Text>
-            <Text style={[e.valorTotal, { fontFamily: 'Helvetica-Bold' }]}>
+            <Text style={[e.valorTotal, { fontFamily: 'Figtree', fontWeight: 700 }]}>
               {pesos(datos.subtotal)}
             </Text>
           </View>
@@ -163,14 +163,14 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
 
           <View style={e.granTotal}>
             <Text
-              style={[e.etiquetaTotal, { fontFamily: 'Helvetica-Bold', color: VERDE }]}
+              style={[e.etiquetaTotal, { fontFamily: 'Figtree', fontWeight: 700, color: VERDE }]}
             >
               TOTAL A PAGAR
             </Text>
             <Text
               style={[
                 e.valorTotal,
-                { fontFamily: 'Helvetica-Bold', fontSize: 12, color: VERDE, paddingRight: 7 },
+                { fontFamily: 'Figtree', fontWeight: 700, fontSize: 12, color: VERDE, paddingRight: 7 },
               ]}
             >
               {pesos(datos.total)}

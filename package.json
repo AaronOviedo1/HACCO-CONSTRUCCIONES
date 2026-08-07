@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "iconos": "node scripts/generar-iconos.mjs",
+    "imagotipo": "node scripts/extraer-imagotipo.mjs",
     "probar:cuadre": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cuadre.mjs",
     "bd:enlazar": "npx supabase link",
     "bd:push": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",

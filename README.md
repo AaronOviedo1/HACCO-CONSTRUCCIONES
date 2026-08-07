@@ -213,6 +213,7 @@ Detalle completo del esquema y de las funciones en [supabase/README.md](supabase
 | `npm run bd:demo` | Carga una operación completa de ejemplo (`-- --reiniciar` la rehace) |
 | `npm run tipos` | Regenera `types/supabase.ts` desde el proyecto enlazado |
 | `npm run iconos` | Regenera el favicon y los iconos de la PWA desde el imagotipo |
+| `npm run imagotipo` | Vuelve a sacar los trazos del logo del manual de marca |
 
 ---
 
