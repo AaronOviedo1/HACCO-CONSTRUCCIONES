@@ -8,10 +8,12 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
-import { BotonEliminarGasto, BotonNuevoGasto } from '@/components/finanzas/formulario-gasto'
+import {
+  BotonEditarGasto, BotonEliminarGasto, BotonNuevoGasto,
+} from '@/components/finanzas/formulario-gasto'
 import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
 import { FilaLista } from '@/components/movil/piezas'
-import { masComunes } from '@/lib/sugerencias'
+import { masComunes, precioPagado } from '@/lib/sugerencias'
 import type { CategoriaGasto } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -67,7 +69,7 @@ export default async function PaginaGastos({
       .limit(400),
     supabase
       .from('productos')
-      .select('id, nombre, costo, proveedor_id')
+      .select('id, nombre, costo, precio_neto, proveedor_id')
       .eq('activo', true)
       .order('nombre'),
   ])
@@ -78,17 +80,19 @@ export default async function PaginaGastos({
     (historial ?? []).map((g) => ({ texto: g.descripcion, monto: g.costo_unitario })),
     200,
   )
+  // El monto propuesto es el neto: un gasto se captura por lo que se pagó, y
+  // lo que se paga siempre lleva IVA.
   for (const p of productos ?? []) {
     const previa = sugerenciasGasto.find((s) => s.texto.toLowerCase() === p.nombre.toLowerCase())
     if (previa) {
       previa.producto_id = p.id
       previa.proveedor_id = p.proveedor_id
-      if (!previa.monto) previa.monto = p.costo
+      if (!previa.monto) previa.monto = precioPagado(p)
     } else {
       sugerenciasGasto.push({
         texto: p.nombre,
         veces: 0,
-        monto: p.costo,
+        monto: precioPagado(p),
         producto_id: p.id,
         proveedor_id: p.proveedor_id,
       })
@@ -259,8 +263,17 @@ export default async function PaginaGastos({
                             </span>
                           </Td>
                           <Td className="font-mono text-xs text-tinta-500">{g.folio_factura ?? '—'}</Td>
-                          <Td className="w-8">
-                            <BotonEliminarGasto id={g.id} descripcion={g.descripcion} />
+                          <Td className="w-16">
+                            <span className="flex items-center gap-0.5">
+                              <BotonEditarGasto
+                                gasto={g}
+                                obras={obras ?? []}
+                                proveedores={proveedores ?? []}
+                                conceptos={conceptos ?? []}
+                                sugerencias={sugerenciasGasto}
+                              />
+                              <BotonEliminarGasto id={g.id} descripcion={g.descripcion} />
+                            </span>
                           </Td>
                         </tr>
                       ))}

@@ -10,6 +10,7 @@ import { EntradaSugerencias } from '@/components/entrada-sugerencias'
 import { EstadoVacio, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
 import { pesos, porcentaje } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
+import { precioPagado } from '@/lib/sugerencias'
 import { semaforoMaterial } from '@/lib/obras'
 import {
   cambiarEstatusSolicitud, eliminarMaterial, guardarMaterial, salidaDeTaller,
@@ -375,7 +376,7 @@ function FormularioMaterial({
             .filter(
               (i) => !sugerencias.some((s) => s.texto.toLowerCase() === i.nombre.toLowerCase()),
             )
-            .map((i) => ({ texto: i.nombre, veces: 0, monto: Number(i.costo) })),
+            .map((i) => ({ texto: i.nombre, veces: 0, monto: Number(precioPagado(i)) })),
         ]
       : sugerencias
 
@@ -445,7 +446,7 @@ function FormularioMaterial({
               Este material está en el inventario del taller (
               {Number(insumo.existencia)} {insumo.unidad} disponibles).{' '}
               {descontar
-                ? `Se descontarán ${num(piezas) || 0} del kardex y el renglón queda con folio TALLER a ${pesos(Number(insumo.costo))} c/u.`
+                ? `Se descontarán ${num(piezas) || 0} del kardex y el renglón queda con folio TALLER a ${pesos(Number(precioPagado(insumo)))} c/u.`
                 : 'No se descontará: el renglón se registra como compra aparte.'}
             </span>
           </label>
@@ -557,7 +558,7 @@ function FormularioSalidaTaller({
           }
           ayuda={
             insumo
-              ? `Existencia: ${Number(insumo.existencia)} ${insumo.unidad} · costo ${pesos(insumo.costo)}`
+              ? `Existencia: ${Number(insumo.existencia)} ${insumo.unidad} · ${pesos(precioPagado(insumo))} c/u con IVA`
               : undefined
           }
         />
@@ -590,7 +591,7 @@ function FormularioSalidaTaller({
           <div className="rounded-lg bg-tinta-50 px-3 py-2 text-sm sm:col-span-2">
             Se cargará a la obra:{' '}
             <strong className="tabular-nums text-tinta-900">
-              {pesos(num(cantidad) * Number(insumo.costo))}
+              {pesos(num(cantidad) * Number(precioPagado(insumo)))}
             </strong>
             <span className="ml-2 text-tinta-500">
               y quedarán {Number(insumo.existencia) - num(cantidad)} {insumo.unidad} en taller

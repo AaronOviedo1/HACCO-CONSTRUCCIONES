@@ -43,6 +43,41 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
 }
 
 /**
+ * Corrige un gasto ya capturado, incluido moverlo de «general» a una OT.
+ *
+ * El material REAL de la obra y la cuenta por pagar cuelgan del gasto, así que
+ * la función de la base rehace las dos ramas; aquí sólo se revalidan las dos
+ * obras, la de antes y la de ahora, porque el concentrado de las dos cambia.
+ */
+export async function actualizarGasto(
+  id: string,
+  gasto: GastoSql,
+  obraAnterior: string | null,
+): Promise<Resultado<{ id: string }>> {
+  if (!gasto.descripcion.trim()) return { ok: false, error: 'Falta la descripción del gasto.' }
+  if (gasto.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
+  if (gasto.condicion === 'credito' && !gasto.proveedor_id) {
+    return { ok: false, error: 'Un gasto a crédito necesita proveedor para abrir la cuenta por pagar.' }
+  }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('editar_gasto', {
+    p_gasto: id,
+    p_datos: { ...gasto, descripcion: gasto.descripcion.trim() },
+  })
+
+  if (error) return fallo(error)
+
+  revalidatePath('/admin/gastos')
+  revalidatePath('/admin/cuentas-por-pagar')
+  revalidatePath('/admin')
+  for (const obra of new Set([gasto.obra_id, obraAnterior].filter(Boolean))) {
+    revalidatePath(`/admin/obras/${obra}`)
+  }
+  return { ok: true, datos: { id } }
+}
+
+/**
  * Da entrada al inventario del taller con lo que se compró en un gasto.
  * Con producto_id abona a un insumo existente; con nombre crea el insumo.
  */

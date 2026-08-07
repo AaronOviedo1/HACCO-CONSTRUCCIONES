@@ -16,6 +16,7 @@ import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { pesos } from '@/lib/format'
+import { precioPagado } from '@/lib/sugerencias'
 import { REGLAS } from '@/lib/empresa'
 import {
   ESTATUS_COTIZACION, TIPOS_COTIZACION, TIPO_COTIZACION, UNIDADES_PARTIDA, abreviaUnidad,
@@ -86,8 +87,9 @@ export function EditorCotizacion({
     for (const p of productos) {
       const clave = p.nombre.toLowerCase()
       const previa = mapa.get(clave)
-      if (!previa) mapa.set(clave, { texto: p.nombre, veces: 0, monto: p.costo })
-      else if (!previa.monto) previa.monto = p.costo
+      // El neto, no el costo: el material del presupuesto se paga con IVA.
+      if (!previa) mapa.set(clave, { texto: p.nombre, veces: 0, monto: precioPagado(p) })
+      else if (!previa.monto) previa.monto = precioPagado(p)
     }
     return [...mapa.values()]
   }, [sugerencias.materiales, productos])

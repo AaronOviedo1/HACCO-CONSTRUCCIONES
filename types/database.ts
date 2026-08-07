@@ -949,6 +949,7 @@ export type Database = {
       }
       eliminar_obra: { Args: { p_obra: string }; Returns: ResultadoBorradoObra }
       registrar_gasto: { Args: { p_datos: GastoSql }; Returns: string }
+      editar_gasto: { Args: { p_gasto: string; p_datos: GastoSql }; Returns: string }
       eliminar_material_obra: { Args: { p_material: string }; Returns: undefined }
       entrada_inventario_desde_gasto: {
         Args: {

@@ -61,7 +61,11 @@ export async function cargarObra(id: string) {
     // Para el autocompletado de material: lo ya capturado en cualquier obra
     // o cotización, más el catálogo de productos con su costo.
     supabase.from('obra_materiales').select('material, costo').limit(2000),
-    supabase.from('productos').select('nombre, costo').eq('activo', true).neq('tipo', 'insumo_taller'),
+    supabase
+      .from('productos')
+      .select('nombre, costo, precio_neto')
+      .eq('activo', true)
+      .neq('tipo', 'insumo_taller'),
     idsTrabajador.length > 0
       ? supabase.from('profiles').select('*').in('id', idsTrabajador)
       : Promise.resolve({ data: [] as never[] }),

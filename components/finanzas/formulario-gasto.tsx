@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useRef, useState, useTransition } from 'react'
-import { Camera, Loader2, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Camera, Loader2, Pencil, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -14,25 +14,36 @@ import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
 import { prepararTicket, type LecturaTicket } from '@/lib/ticket'
 import {
-  agregarProductoAlCatalogo, eliminarGasto, entradaInventario, registrarGasto,
+  actualizarGasto, agregarProductoAlCatalogo, eliminarGasto, entradaInventario, registrarGasto,
 } from '@/app/admin/finanzas-acciones'
 import type {
-  CategoriaGasto, CondicionCompra, MetodoPago, ObraConcepto, Proveedor,
+  CategoriaGasto, CondicionCompra, Gasto, MetodoPago, ObraConcepto, Proveedor,
   TipoProducto, VInsumoExistencia,
 } from '@/types/database'
 
 type ObraSimple = { id: string; nombre: string; ot_numero: string | null }
 
-export function BotonNuevoGasto({
-  obras, proveedores, conceptos, obraFija, insumos = [], sugerencias = [],
-}: {
+/** Lo que hace falta del gasto para volver a abrirlo y corregirlo. */
+export type GastoEditable = Pick<
+  Gasto,
+  | 'id' | 'obra_id' | 'concepto_id' | 'categoria' | 'descripcion' | 'piezas' | 'monto'
+  | 'folio_factura' | 'proveedor_id' | 'metodo' | 'condicion' | 'fecha'
+> & {
+  /** El nombre de su obra, para poder nombrarla aunque ya esté cerrada. */
+  obra?: string | null
+  ot_numero?: string | null
+}
+
+type PropsComunes = {
   obras: ObraSimple[]
   proveedores: Pick<Proveedor, 'id' | 'nombre' | 'dias_credito_default'>[]
   conceptos: ObraConcepto[]
   obraFija?: string
   insumos?: VInsumoExistencia[]
   sugerencias?: Sugerencia[]
-}) {
+}
+
+export function BotonNuevoGasto(props: PropsComunes) {
   const [abierto, setAbierto] = useState(false)
   return (
     <>
@@ -44,32 +55,48 @@ export function BotonNuevoGasto({
         <Plus size={16} />
         Nuevo gasto
       </button>
-      {abierto && (
-        <FormularioGasto
-          obras={obras}
-          proveedores={proveedores}
-          conceptos={conceptos}
-          obraFija={obraFija}
-          insumos={insumos}
-          sugerencias={sugerencias}
-          onCerrar={() => setAbierto(false)}
-        />
-      )}
+      {abierto && <FormularioGasto {...props} onCerrar={() => setAbierto(false)} />}
+    </>
+  )
+}
+
+/**
+ * Corregir un gasto ya capturado: el caso de siempre es que se cargó como
+ * general y era de una OT, o que se fue a la OT equivocada.
+ */
+export function BotonEditarGasto({ gasto, ...props }: PropsComunes & { gasto: GastoEditable }) {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="rounded p-1 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
+        aria-label={`Editar ${gasto.descripcion}`}
+      >
+        <Pencil size={15} />
+      </button>
+      {abierto && <FormularioGasto {...props} gasto={gasto} onCerrar={() => setAbierto(false)} />}
     </>
   )
 }
 
 function FormularioGasto({
-  obras, proveedores, conceptos, obraFija, insumos, sugerencias, onCerrar,
-}: {
-  obras: ObraSimple[]
-  proveedores: Pick<Proveedor, 'id' | 'nombre' | 'dias_credito_default'>[]
-  conceptos: ObraConcepto[]
-  obraFija?: string
-  insumos: VInsumoExistencia[]
-  sugerencias: Sugerencia[]
-  onCerrar: () => void
-}) {
+  obras: obrasAbiertas, proveedores, conceptos, obraFija, insumos = [], sugerencias = [],
+  gasto, onCerrar,
+}: PropsComunes & { gasto?: GastoEditable; onCerrar: () => void }) {
+  const editando = Boolean(gasto)
+
+  // La lista sólo trae las OT abiertas —a una cerrada no se le cargan gastos
+  // nuevos—, pero si el gasto que se corrige es de una cerrada tiene que seguir
+  // pudiendo quedarse donde está, o al guardar se iría a «general» sin avisar.
+  const obras =
+    gasto?.obra_id && !obrasAbiertas.some((o) => o.id === gasto.obra_id)
+      ? [
+          ...obrasAbiertas,
+          { id: gasto.obra_id, nombre: `${gasto.obra ?? 'Obra'} (cerrada)`, ot_numero: gasto.ot_numero ?? null },
+        ]
+      : obrasAbiertas
   const router = useRouter()
   const pathname = usePathname()
   const entrada = useRef<HTMLInputElement>(null)
@@ -79,22 +106,22 @@ function FormularioGasto({
 
   const [archivo, setArchivo] = useState<File | null>(null)
   const [vista, setVista] = useState<string | null>(null)
-  const [obraId, setObraId] = useState(obraFija ?? '')
-  const [conceptoId, setConceptoId] = useState('')
-  const [categoria, setCategoria] = useState<CategoriaGasto>('material')
-  const [descripcion, setDescripcion] = useState('')
-  const [piezas, setPiezas] = useState('1')
-  const [monto, setMonto] = useState('')
+  const [obraId, setObraId] = useState(gasto?.obra_id ?? obraFija ?? '')
+  const [conceptoId, setConceptoId] = useState(gasto?.concepto_id ?? '')
+  const [categoria, setCategoria] = useState<CategoriaGasto>(gasto?.categoria ?? 'material')
+  const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? '')
+  const [piezas, setPiezas] = useState(gasto ? String(gasto.piezas ?? 1) : '1')
+  const [monto, setMonto] = useState(gasto ? String(gasto.monto) : '')
   // Cuando el ticket trae varios artículos, se captura renglón por renglón y
   // se registra un gasto por cada uno; null = captura sencilla de siempre.
   const [renglones, setRenglones] = useState<
     { descripcion: string; piezas: string; monto: string }[] | null
   >(null)
-  const [folio, setFolio] = useState('')
-  const [proveedorId, setProveedorId] = useState('')
-  const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
-  const [condicion, setCondicion] = useState<CondicionCompra>('contado')
-  const [fecha, setFecha] = useState(hoyISO())
+  const [folio, setFolio] = useState(gasto?.folio_factura ?? '')
+  const [proveedorId, setProveedorId] = useState(gasto?.proveedor_id ?? '')
+  const [metodo, setMetodo] = useState<MetodoPago>(gasto?.metodo ?? 'efectivo')
+  const [condicion, setCondicion] = useState<CondicionCompra>(gasto?.condicion ?? 'contado')
+  const [fecha, setFecha] = useState(gasto?.fecha ?? hoyISO())
   const [crearMaterial, setCrearMaterial] = useState(true)
 
   // Entrada al inventario del taller (compras para stock, sin obra)
@@ -120,8 +147,10 @@ function FormularioGasto({
   const conceptosDeObra = conceptos.filter(() => Boolean(obraId))
   const esMaterialDeObra = categoria === 'material' && Boolean(obraId)
   // Compras para el stock del taller: material o herramienta sin obra asignada.
+  // Al corregir un gasto no se ofrece: la entrada al inventario ya se dio (o no)
+  // cuando se capturó, y repetirla duplicaría la existencia.
   const puedeInventario =
-    (categoria === 'material' || categoria === 'herramienta') && !obraId && !renglones
+    !editando && (categoria === 'material' || categoria === 'herramienta') && !obraId && !renglones
   const enCatalogo = sugerencias.some(
     (s) => s.producto_id && s.texto.toLowerCase() === descripcion.trim().toLowerCase(),
   )
@@ -275,7 +304,22 @@ function FormularioGasto({
         crear_material: esMaterialDeObra && crearMaterial,
       }
 
-      if (renglones) {
+      if (gasto) {
+        // Al corregir no se divide en conceptos ni se vuelve a dar entrada al
+        // inventario: es el mismo gasto, con los datos puestos donde van.
+        const r = await actualizarGasto(
+          gasto.id,
+          {
+            ...base,
+            descripcion,
+            piezas: num(piezas) || 1,
+            costo_unitario: num(piezas) > 0 ? num(monto) / num(piezas) : null,
+            monto: num(monto),
+          },
+          gasto.obra_id,
+        )
+        if (!r.ok) return setError(r.error)
+      } else if (renglones) {
         // Un gasto por concepto: comparten ticket, folio, proveedor y forma de pago.
         for (const [i, r] of filasValidas.entries()) {
           const res = await registrarGasto({
@@ -335,8 +379,12 @@ function FormularioGasto({
       abierto
       onCerrar={onCerrar}
       ancho="lg"
-      titulo="Nuevo gasto"
-      descripcion="Toma la foto del ticket: se lee sola y tú nada más revisas."
+      titulo={editando ? 'Corregir gasto' : 'Nuevo gasto'}
+      descripcion={
+        editando
+          ? 'Cambia lo que haga falta, incluida la obra a la que se carga.'
+          : 'Toma la foto del ticket: se lee sola y tú nada más revisas.'
+      }
     >
       <CuerpoDialogo>
         <input
@@ -538,13 +586,17 @@ function FormularioGasto({
         )}
         {!renglones && (
           <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 sm:col-span-2">
-            <button
-              type="button"
-              onClick={dividir}
-              className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
-            >
-              ¿El ticket trae varios artículos? Divídelo en conceptos
-            </button>
+            {/* Dividir crea un gasto por concepto: eso es un alta, no una
+                corrección, y al editar no tiene a dónde ir. */}
+            {!editando && (
+              <button
+                type="button"
+                onClick={dividir}
+                className="text-xs font-medium text-tinta-500 underline-offset-2 hover:text-haaco-700 hover:underline"
+              >
+                ¿El ticket trae varios artículos? Divídelo en conceptos
+              </button>
+            )}
             {descripcion.trim() && !enCatalogo && !catalogoListo && (
               <button
                 type="button"
@@ -881,9 +933,11 @@ function FormularioGasto({
             ? 'Subiendo ticket…'
             : pendiente
               ? 'Guardando…'
-              : renglones && filasValidas.length > 1
-                ? `Registrar ${filasValidas.length} gastos`
-                : 'Registrar gasto'}
+              : editando
+                ? 'Guardar cambios'
+                : renglones && filasValidas.length > 1
+                  ? `Registrar ${filasValidas.length} gastos`
+                  : 'Registrar gasto'}
         </button>
       </PieDialogo>
     </Dialogo>
@@ -896,38 +950,77 @@ function lista(palabras: string[]) {
   return `${palabras.slice(0, -1).join(', ')} y ${palabras[palabras.length - 1]}`
 }
 
-/** Borra el gasto con todo y sus rastros: cuenta por pagar y material real. */
+/**
+ * Borra el gasto con todo y sus rastros: cuenta por pagar y material real.
+ *
+ * La confirmación se pide en un diálogo propio y no con el `confirm()` del
+ * navegador: al tercer aviso seguido, Safari ofrece callar los cuadros de esta
+ * página y a partir de ahí los borrados dejarían de responder sin decir nada.
+ */
 export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcion: string }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [confirmando, setConfirmando] = useState(false)
+
+  const borrar = () =>
+    iniciar(async () => {
+      setError(null)
+      const r = await eliminarGasto(id)
+      if (!r.ok) return setError(r.error)
+      setConfirmando(false)
+      router.refresh()
+    })
 
   return (
-    <button
-      type="button"
-      disabled={pendiente}
-      onClick={() => {
-        if (!confirm(`¿Eliminar «${descripcion}»? También se quitan su cuenta por pagar y su material.`)) {
-          return
-        }
-        iniciar(async () => {
-          setError(null)
-          const r = await eliminarGasto(id)
-          if (!r.ok) {
-            setError(r.error)
-            alert(r.error)
-            return
-          }
-          router.refresh()
-        })
-      }}
-      className={`rounded p-1 text-tinta-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 ${
-        error ? 'text-red-600' : ''
-      }`}
-      aria-label={`Eliminar ${descripcion}`}
-      title="Eliminar gasto"
-    >
-      {pendiente ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={pendiente}
+        onClick={() => setConfirmando(true)}
+        className={`rounded p-1 text-tinta-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 ${
+          error ? 'text-red-600' : ''
+        }`}
+        aria-label={`Eliminar ${descripcion}`}
+        title="Eliminar gasto"
+      >
+        {pendiente ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+      </button>
+
+      {confirmando && (
+        <Dialogo
+          abierto
+          onCerrar={() => setConfirmando(false)}
+          titulo="Eliminar gasto"
+          descripcion={descripcion}
+        >
+          <CuerpoDialogo>
+            <p className="text-sm text-tinta-600 sm:col-span-2">
+              También se quitan su cuenta por pagar y el material que dejó en la obra. No se puede
+              deshacer.
+            </p>
+            <MensajeError mensaje={error} />
+          </CuerpoDialogo>
+          <PieDialogo>
+            <button
+              type="button"
+              onClick={() => setConfirmando(false)}
+              className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            >
+              Conservar
+            </button>
+            <button
+              type="button"
+              onClick={borrar}
+              disabled={pendiente}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:bg-red-300"
+            >
+              <Trash2 size={15} />
+              {pendiente ? 'Eliminando…' : 'Sí, eliminar'}
+            </button>
+          </PieDialogo>
+        </Dialogo>
+      )}
+    </>
   )
 }
