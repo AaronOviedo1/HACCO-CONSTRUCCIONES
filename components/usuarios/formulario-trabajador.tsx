@@ -1,13 +1,14 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { Pencil, Plus } from 'lucide-react'
 import {
-  BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, PieDialogo,
-  Seleccion,
+  Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, PieFormulario, Seleccion,
 } from '@/components/formulario'
 import { NOMBRE_ROL } from '@/lib/roles'
-import { guardarTrabajador } from '@/app/admin/usuarios/acciones'
+import {
+  crearTrabajador, eliminarTrabajador, guardarTrabajador,
+} from '@/app/admin/usuarios/acciones'
 import type { EstadoAccion } from '@/lib/acciones'
 import type { OficioTrabajador, Profile, RolUsuario } from '@/types/database'
 
@@ -21,6 +22,23 @@ const OFICIOS: { valor: OficioTrabajador | ''; texto: string }[] = [
   { valor: 'otro', texto: 'Otro' },
 ]
 
+export function BotonNuevoTrabajador() {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+      >
+        <Plus size={16} />
+        Dar de alta
+      </button>
+      {abierto && <FormularioTrabajador onCerrar={() => setAbierto(false)} />}
+    </>
+  )
+}
+
 export function BotonEditarTrabajador({ trabajador }: { trabajador: Profile }) {
   const [abierto, setAbierto] = useState(false)
   return (
@@ -33,11 +51,9 @@ export function BotonEditarTrabajador({ trabajador }: { trabajador: Profile }) {
       >
         <Pencil size={15} />
       </button>
-      <FormularioTrabajador
-        trabajador={trabajador}
-        abierto={abierto}
-        onCerrar={() => setAbierto(false)}
-      />
+      {abierto && (
+        <FormularioTrabajador trabajador={trabajador} onCerrar={() => setAbierto(false)} />
+      )}
     </>
   )
 }
@@ -53,88 +69,78 @@ export function FilaTrabajadorMovil({
   const [abierto, setAbierto] = useState(false)
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="block w-full text-left"
-      >
+      <button type="button" onClick={() => setAbierto(true)} className="block w-full text-left">
         {children}
       </button>
-      <FormularioTrabajador
-        trabajador={trabajador}
-        abierto={abierto}
-        onCerrar={() => setAbierto(false)}
-      />
+      {abierto && (
+        <FormularioTrabajador trabajador={trabajador} onCerrar={() => setAbierto(false)} />
+      )}
     </>
   )
 }
 
 /**
- * La ficha de un trabajador. No hay alta: las cuentas se crean con la llave de
- * servicio desde `npm run usuarios:reales`, porque un perfil no existe sin su
- * usuario de Auth detrás. Aquí se corrigen los datos y se da de baja a quien
- * ya no labora — la baja es lógica, nunca un borrado: sus contratos y sus
- * recibos tienen que seguir en pie.
+ * La ficha de una persona: alta, corrección y baja.
+ *
+ * La baja normal es lógica —quitar «Sigue laborando»—: sus contratos y sus
+ * recibos tienen que seguir en pie aunque ya no trabaje. El borrado de verdad
+ * queda para el alta que salió mal, y la acción lo rechaza en cuanto la persona
+ * tiene algo a su nombre.
  */
 export function FormularioTrabajador({
   trabajador,
-  abierto,
   onCerrar,
 }: {
-  trabajador: Profile
-  abierto: boolean
+  trabajador?: Profile
   onCerrar: () => void
 }) {
-  const [estado, accion] = useActionState<EstadoAccion, FormData>(guardarTrabajador, {})
+  const nuevo = !trabajador
+  const [estado, accion] = useActionState<EstadoAccion, FormData>(
+    nuevo ? crearTrabajador : guardarTrabajador,
+    {},
+  )
+  const [estadoBorrar, accionBorrar] = useActionState<EstadoAccion, FormData>(
+    eliminarTrabajador,
+    {},
+  )
+  const [conAcceso, setConAcceso] = useState(trabajador?.con_acceso ?? false)
+
+  // `onCerrar` cambia de identidad en cada pintado del padre; la marca de agua
+  // es el objeto que devuelve useActionState, distinto por cada envío.
+  const atendido = useRef<EstadoAccion | null>(null)
 
   useEffect(() => {
-    if (estado.ok) onCerrar()
-  }, [estado, onCerrar])
+    const hecho = estado.ok ? estado : estadoBorrar.ok ? estadoBorrar : null
+    if (!hecho || atendido.current === hecho) return
+    atendido.current = hecho
+    onCerrar()
+  }, [estado, estadoBorrar, onCerrar])
 
   return (
     <Dialogo
-      abierto={abierto}
+      abierto
       onCerrar={onCerrar}
-      titulo={trabajador.nombre}
+      titulo={trabajador ? trabajador.nombre : 'Dar de alta'}
       descripcion="El rol decide qué pantallas ve. Los externos no llevan retención Costo Haaco."
     >
       <form action={accion} className="flex min-h-0 flex-1 flex-col">
         <CuerpoDialogo>
-          <input type="hidden" name="id" value={trabajador.id} />
+          {trabajador && <input type="hidden" name="id" value={trabajador.id} />}
 
           <Campo
             etiqueta="Nombre"
-            hijo={<Entrada name="nombre" defaultValue={trabajador.nombre} required autoFocus />}
+            hijo={<Entrada name="nombre" defaultValue={trabajador?.nombre ?? ''} required />}
           />
           <Campo
             etiqueta="Teléfono"
             ancho="medio"
-            hijo={<Entrada name="telefono" type="tel" defaultValue={trabajador.telefono ?? ''} />}
-          />
-          <Campo
-            etiqueta="Correo"
-            ancho="medio"
-            hijo={<Entrada name="correo" type="email" defaultValue={trabajador.correo ?? ''} />}
-            ayuda="Es con el que entra a la app; cambiarlo aquí no cambia su acceso."
-          />
-          <Campo
-            etiqueta="Rol"
-            ancho="medio"
-            hijo={
-              <Seleccion name="rol" defaultValue={trabajador.rol}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {NOMBRE_ROL[r]}
-                  </option>
-                ))}
-              </Seleccion>
-            }
+            hijo={<Entrada name="telefono" type="tel" defaultValue={trabajador?.telefono ?? ''} />}
           />
           <Campo
             etiqueta="Oficio"
             ancho="medio"
             hijo={
-              <Seleccion name="oficio" defaultValue={trabajador.oficio ?? ''}>
+              <Seleccion name="oficio" defaultValue={trabajador?.oficio ?? ''}>
                 {OFICIOS.map((o) => (
                   <option key={o.valor} value={o.valor}>
                     {o.texto}
@@ -143,38 +149,97 @@ export function FormularioTrabajador({
               </Seleccion>
             }
           />
+          <Campo
+            etiqueta="Rol"
+            ancho="medio"
+            hijo={
+              <Seleccion name="rol" defaultValue={trabajador?.rol ?? 'cuadrilla'}>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {NOMBRE_ROL[r]}
+                  </option>
+                ))}
+              </Seleccion>
+            }
+            ayuda={nuevo ? 'Cuadrilla es el rol que puede firmar contratos de obra.' : undefined}
+          />
+
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Casilla
+              name="con_acceso"
+              etiqueta="Va a entrar a la app"
+              checked={conAcceso}
+              onChange={(e) => setConAcceso(e.target.checked)}
+            />
+            <p className="text-xs text-tinta-500">
+              Sin palomita se registra sólo para contratos y nómina —el pintor de una obra suelta,
+              el herrero de un trabajo puntual— y no se le da ninguna contraseña.
+            </p>
+          </div>
+
+          {conAcceso && (
+            <>
+              <Campo
+                etiqueta="Correo"
+                ancho={nuevo ? 'medio' : 'completo'}
+                hijo={
+                  <Entrada
+                    name="correo"
+                    type="email"
+                    defaultValue={trabajador?.correo ?? ''}
+                    required={nuevo}
+                  />
+                }
+                ayuda={
+                  nuevo
+                    ? 'Con el que va a entrar.'
+                    : 'Cambiarlo aquí no cambia el correo con el que entra.'
+                }
+              />
+              {nuevo && (
+                <Campo
+                  etiqueta="Contraseña de arranque"
+                  ancho="medio"
+                  hijo={<Entrada name="contrasena" type="text" minLength={8} required />}
+                  ayuda="Se la pasas tú; que la cambie al entrar."
+                />
+              )}
+            </>
+          )}
 
           <div className="flex flex-col gap-2 sm:col-span-2">
             <Casilla
               name="es_externo"
               etiqueta="Es externo (sin retención Costo Haaco)"
-              defaultChecked={trabajador.es_externo}
+              defaultChecked={trabajador?.es_externo ?? false}
             />
-            <Casilla
-              name="activo"
-              etiqueta="Sigue laborando"
-              defaultChecked={trabajador.activo}
-            />
-            <p className="text-xs text-tinta-500">
-              Al quitar la palomita deja de aparecer en contratos nuevos y en la nómina. Si trae
-              contratos abiertos hay que reasignarlos primero, o su saldo se quedaría sin quien lo
-              cobre.
-            </p>
+            {trabajador && (
+              <>
+                <Casilla name="activo" etiqueta="Sigue laborando" defaultChecked={trabajador.activo} />
+                <p className="text-xs text-tinta-500">
+                  Al quitar la palomita deja de aparecer en contratos nuevos y en la nómina. Si trae
+                  contratos abiertos hay que reasignarlos primero, o su saldo se quedaría sin quien
+                  lo cobre.
+                </p>
+              </>
+            )}
           </div>
 
-          <MensajeError mensaje={estado.error} />
+          <MensajeError mensaje={estado.error ?? estadoBorrar.error} />
         </CuerpoDialogo>
 
-        <PieDialogo>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
-          >
-            Cancelar
-          </button>
-          <BotonGuardar />
-        </PieDialogo>
+        <PieFormulario
+          onCerrar={onCerrar}
+          guardar={nuevo ? 'Dar de alta' : 'Guardar'}
+          borrado={
+            trabajador
+              ? {
+                  pregunta: `¿Borrar a ${trabajador.nombre} por completo?`,
+                  formAction: accionBorrar,
+                }
+              : undefined
+          }
+        />
       </form>
     </Dialogo>
   )

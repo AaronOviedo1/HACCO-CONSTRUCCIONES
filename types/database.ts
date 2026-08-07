@@ -48,7 +48,10 @@ export type Profile = {
   correo: string | null
   rol: RolUsuario
   oficio: OficioTrabajador | null
+  /** Sin retención Costo Haaco del 5%. No confundir con `con_acceso`. */
   es_externo: boolean
+  /** Falso = sólo existe para contratos y nómina; nunca entra a la app. */
+  con_acceso: boolean
   activo: boolean
   created_at: string
   updated_at: string

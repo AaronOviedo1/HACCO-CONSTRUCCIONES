@@ -7,7 +7,7 @@ import {
 import { ChipsFiltro, FilaLista } from '@/components/movil/piezas'
 import { BuscadorTabla } from '@/components/buscador'
 import {
-  BotonEditarTrabajador, FilaTrabajadorMovil,
+  BotonEditarTrabajador, BotonNuevoTrabajador, FilaTrabajadorMovil,
 } from '@/components/usuarios/formulario-trabajador'
 import type { RolUsuario } from '@/types/database'
 
@@ -65,6 +65,7 @@ export default async function PaginaUsuarios({
       <EncabezadoPagina
         titulo="Usuarios"
         descripcion="No hay registro público: las cuentas las crea Dirección. Cada rol ve exactamente lo que le toca."
+        acciones={<BotonNuevoTrabajador />}
       />
 
       <div className="mb-3.5 flex items-center gap-2 lg:mb-4">
@@ -92,7 +93,11 @@ export default async function PaginaUsuarios({
             <FilaTrabajadorMovil key={u.id} trabajador={u}>
               <FilaLista
                 principal={u.nombre}
-                secundario={[u.correo, u.oficio, u.es_externo ? 'Externo' : 'Interno']
+                secundario={[
+                  u.con_acceso ? u.correo : 'Sin acceso a la app',
+                  u.oficio,
+                  u.es_externo ? 'Externo' : 'Interno',
+                ]
                   .filter(Boolean)
                   .join(' · ')}
                 derecha={
@@ -109,14 +114,14 @@ export default async function PaginaUsuarios({
 
       <Tarjeta
         className={filas.length > 0 ? 'hidden lg:block' : ''}
-        pie={`${filas.length} de ${todos.length} usuarios · las cuentas nuevas se crean con npm run usuarios:reales`}
+        pie={`${filas.length} de ${todos.length} usuarios`}
       >
         {filas.length === 0 ? (
           <EstadoVacio
             titulo={todos.length === 0 ? 'Sin usuarios' : 'Nadie coincide con el filtro'}
             descripcion={
               todos.length === 0
-                ? 'Crea las cuentas de prueba con npm run usuarios:demo.'
+                ? 'Da de alta a la primera persona con el botón de arriba.'
                 : 'Prueba con otra búsqueda o cambia el filtro de estado.'
             }
           />
@@ -138,7 +143,13 @@ export default async function PaginaUsuarios({
               {filas.map((u) => (
                 <tr key={u.id} className="hover:bg-tinta-50/60">
                   <Td className="font-medium text-tinta-900">{u.nombre}</Td>
-                  <Td className="text-tinta-500">{u.correo ?? '—'}</Td>
+                  <Td className="text-tinta-500">
+                    {u.con_acceso ? (
+                      (u.correo ?? '—')
+                    ) : (
+                      <Etiqueta tono="gris">Sin acceso</Etiqueta>
+                    )}
+                  </Td>
                   <Td>
                     <Etiqueta tono={TONO_ROL[u.rol]}>{NOMBRE_ROL[u.rol]}</Etiqueta>
                   </Td>
@@ -162,9 +173,10 @@ export default async function PaginaUsuarios({
 
       <p className="mt-4 text-sm text-tinta-500">
         Los trabajadores marcados como <strong>externos</strong> no llevan la retención Costo Haaco
-        del 5% en sus contratos de mano de obra: el sistema la pone en 0% automáticamente. Dar de
-        baja a alguien no borra nada: sus contratos, recibos y pagos se quedan como están, sólo
-        deja de aparecer en los contratos nuevos y en la nómina.
+        del 5% en sus contratos de mano de obra: el sistema la pone en 0% automáticamente. Quien va{' '}
+        <strong>sin acceso</strong> existe sólo para firmar contrato y cobrar nómina, y nunca
+        recibe contraseña. Dar de baja a alguien no borra nada: sus contratos, recibos y pagos se
+        quedan como están, sólo deja de aparecer en los contratos nuevos y en la nómina.
       </p>
     </>
   )
