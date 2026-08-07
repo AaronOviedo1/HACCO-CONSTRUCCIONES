@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Plus, Search, Send, Trash2, UserPlus } from 'lucide-r
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { EntradaSugerencias, useSugerenciasDiferidas } from '@/components/entrada-sugerencias'
 import { pesos } from '@/lib/format'
+import { REGLAS } from '@/lib/empresa'
 import {
   TIPOS_COTIZACION, anticipoPorTipo, borradorVacio, importePartida, num, totalesCotizacion,
   unidadPorTipo, type BorradorCotizacion, type PartidaBorrador, type Sugerencia,
@@ -178,6 +179,10 @@ export function CotizadorRapido({
                     cliente_id: c.id,
                     domicilio_obra: c.domicilio ?? '',
                     nombre_obra: d.nombre_obra || c.nombre,
+                    // Cada cliente trae su forma de facturar; el interruptor
+                    // del total la cambia si esta obra va distinto.
+                    requiere_factura: c.requiere_factura,
+                    iva_pct: c.requiere_factura ? String(REGLAS.ivaPct) : '0',
                   }))
                   setPaso('tipo')
                 }}
@@ -336,7 +341,7 @@ export function CotizadorRapido({
         <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-4 backdrop-blur-xl lg:bottom-0 lg:pl-72">
           <div className="mx-auto max-w-4xl">
             <div className="mb-3 flex items-end justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-tinta-500">
                   {num(doc.iva_pct) > 0 ? `Total con IVA ${num(doc.iva_pct)}%` : 'Total sin IVA'}
                 </p>
@@ -348,6 +353,26 @@ export function CotizadorRapido({
                   {pesos(totales.anticipo)}
                 </p>
               </div>
+
+              {/* Viene puesto según el cliente; aquí se cambia si esta obra va
+                  distinto, que en el levantamiento pasa. */}
+              <button
+                type="button"
+                onClick={() =>
+                  setDoc((d) => {
+                    const pide = !d.requiere_factura
+                    return { ...d, requiere_factura: pide, iva_pct: pide ? String(REGLAS.ivaPct) : '0' }
+                  })
+                }
+                aria-pressed={doc.requiere_factura}
+                className={`shrink-0 rounded-[14px] border-2 px-4 py-2.5 text-sm font-semibold transition ${
+                  doc.requiere_factura
+                    ? 'border-haaco-600 bg-haaco-600 text-white'
+                    : 'border-tinta-300 bg-white text-tinta-600'
+                }`}
+              >
+                {doc.requiere_factura ? 'Con factura' : 'Sin factura'}
+              </button>
             </div>
 
             {paso === 'partidas' && (
@@ -384,8 +409,13 @@ export function CotizadorRapido({
         <FormularioCliente
           abierto
           onCerrar={() => setNuevoCliente(false)}
-          onGuardado={(id) => {
-            setDoc((d) => ({ ...d, cliente_id: id }))
+          onGuardado={(id, pideFactura) => {
+            setDoc((d) => ({
+              ...d,
+              cliente_id: id,
+              requiere_factura: pideFactura,
+              iva_pct: pideFactura ? String(REGLAS.ivaPct) : '0',
+            }))
             setPaso('tipo')
             router.refresh()
           }}

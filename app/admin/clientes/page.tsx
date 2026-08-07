@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
-import { EncabezadoPagina, EstadoVacio, Tabla, Tarjeta, Td, Th } from '@/components/ui'
+import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import {
@@ -129,6 +129,7 @@ export default async function PaginaClientes({
                 <Th>Teléfono</Th>
                 <Th>Correo</Th>
                 <Th>Domicilio</Th>
+                <Th>Factura</Th>
                 <Th numerico>Cotizaciones</Th>
                 <Th numerico>Obras</Th>
                 <Th numerico>Contratado</Th>
@@ -144,6 +145,13 @@ export default async function PaginaClientes({
                     <Td className="text-tinta-500">{c.telefono ?? '—'}</Td>
                     <Td className="text-tinta-500">{c.correo ?? '—'}</Td>
                     <Td className="text-tinta-500">{c.domicilio ?? '—'}</Td>
+                    <Td>
+                      {c.requiere_factura ? (
+                        <Etiqueta tono="azul">Con IVA</Etiqueta>
+                      ) : (
+                        <span className="text-tinta-400">—</span>
+                      )}
+                    </Td>
                     <Td numerico>
                       {datos.n > 0 ? (
                         <Link

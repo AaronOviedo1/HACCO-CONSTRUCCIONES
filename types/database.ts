@@ -65,6 +65,8 @@ export type Cliente = {
   correo: string | null
   domicilio: string | null
   notas: string | null
+  /** Normalmente pide factura: es el IVA con el que nace su cotización. */
+  requiere_factura: boolean
   activo: boolean
   created_at: string
   updated_at: string

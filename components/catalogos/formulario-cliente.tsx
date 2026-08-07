@@ -166,13 +166,15 @@ export function FormularioCliente({
   cliente?: Cliente
   abierto: boolean
   onCerrar: () => void
-  onGuardado?: (id: string) => void
+  /** El segundo dato es para que el cotizador herede el IVA sin recargar. */
+  onGuardado?: (id: string, requiereFactura: boolean) => void
 }) {
   const [estado, accion] = useActionState<EstadoAccion, FormData>(guardarCliente, {})
   const [estadoBorrar, accionBorrar] = useActionState<EstadoAccion, FormData>(eliminarCliente, {})
   // El domicilio se controla aparte porque lo llena Google; viaja al servidor
   // en un campo oculto para no cambiar la acción.
   const [domicilio, setDomicilio] = useState(cliente?.domicilio ?? '')
+  const [factura, setFactura] = useState(cliente?.requiere_factura ?? false)
 
   // Quién llama a este formulario le pasa los callbacks como funciones sueltas
   // en el JSX, así que cambian de identidad en cada pintado del padre y el
@@ -187,9 +189,9 @@ export function FormularioCliente({
   useEffect(() => {
     if (!estado.ok || atendido.current === estado) return
     atendido.current = estado
-    if (estado.id) onGuardado?.(estado.id)
+    if (estado.id) onGuardado?.(estado.id, factura)
     onCerrar()
-  }, [estado, onCerrar, onGuardado])
+  }, [estado, factura, onCerrar, onGuardado])
 
   useEffect(() => {
     if (!estadoBorrar.ok || atendidoBorrar.current === estadoBorrar) return
@@ -251,9 +253,21 @@ export function FormularioCliente({
             etiqueta="Notas"
             hijo={<AreaTexto name="notas" defaultValue={cliente?.notas ?? ''} rows={2} />}
           />
-          {cliente && (
-            <Casilla name="activo" etiqueta="Cliente activo" defaultChecked={cliente.activo} />
-          )}
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Casilla
+              name="requiere_factura"
+              etiqueta="Normalmente pide factura"
+              checked={factura}
+              onChange={(e) => setFactura(e.target.checked)}
+            />
+            <p className="text-xs text-tinta-500">
+              Sus cotizaciones nacen con IVA del 16% y la cobranza le pide ese total. Se puede
+              cambiar en cada cotización.
+            </p>
+            {cliente && (
+              <Casilla name="activo" etiqueta="Cliente activo" defaultChecked={cliente.activo} />
+            )}
+          </div>
 
           <MensajeError mensaje={estado.error ?? estadoBorrar.error} />
         </CuerpoDialogo>

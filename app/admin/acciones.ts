@@ -28,6 +28,7 @@ export async function guardarCliente(_prev: EstadoAccion, d: FormData): Promise<
     correo: opcional(d, 'correo'),
     domicilio: opcional(d, 'domicilio'),
     notas: opcional(d, 'notas'),
+    requiere_factura: casilla(d, 'requiere_factura'),
     activo: d.has('activo') ? casilla(d, 'activo') : true,
   }
 

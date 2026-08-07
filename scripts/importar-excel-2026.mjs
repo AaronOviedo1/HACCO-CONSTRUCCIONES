@@ -407,9 +407,16 @@ try {
       clientePorNombre.set(clave, clienteId)
     }
 
+    // El IVA lo decide el cliente, no el importador. Las hojas del Excel no
+    // dicen quién facturó, y meterle 16% a todo el mundo era pedir en cobranza
+    // un impuesto que a la mayoría nunca se le cobró.
     const { rows: [cot] } = await bd.query(
-      `insert into cotizaciones (folio, cliente_id, nombre_obra, tipo, estatus, iva_pct, fecha, notas)
-       values ($1, $2, $3, $4, 'enviada', 16, $5, $6) returning id`,
+      `insert into cotizaciones (folio, cliente_id, nombre_obra, tipo, estatus,
+                                 requiere_factura, iva_pct, fecha, notas)
+       select $1, c.id, $3, $4, 'enviada',
+              c.requiere_factura, case when c.requiere_factura then 16 else 0 end, $5, $6
+         from clientes c where c.id = $2
+       returning id`,
       [f.folio, clienteId, f.obra, f.tipo, fecha, NOTA],
     )
 

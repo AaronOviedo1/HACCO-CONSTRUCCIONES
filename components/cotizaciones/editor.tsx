@@ -110,6 +110,25 @@ export function EditorCotizacion({
     setAviso(null)
   }
 
+  /**
+   * Elegir cliente trae su forma de facturar.
+   *
+   * Sólo al cambiarlo: una cotización ya guardada llega con lo suyo puesto y
+   * eso manda —hay clientes que facturan y una obra suelta que no—. La casilla
+   * de abajo sigue estando para el caso a caso.
+   */
+  const elegirCliente = (id: string) => {
+    const pide = clientes.find((c) => c.id === id)?.requiere_factura ?? false
+    setDoc((d) => ({
+      ...d,
+      cliente_id: id,
+      requiere_factura: pide,
+      iva_pct: pide ? String(REGLAS.ivaPct) : '0',
+    }))
+    setSucio(true)
+    setAviso(null)
+  }
+
   // -------------------------------------------------------------------------
   async function guardar(): Promise<string | null> {
     setError(null)
@@ -317,7 +336,7 @@ export function EditorCotizacion({
                   <div className="flex gap-2">
                     <Seleccion
                       value={doc.cliente_id}
-                      onChange={(e) => cambiar('cliente_id', e.target.value)}
+                      onChange={(e) => elegirCliente(e.target.value)}
                       disabled={bloqueado}
                     >
                       <option value="">Elegir cliente…</option>
@@ -659,8 +678,14 @@ export function EditorCotizacion({
         <FormularioCliente
           abierto
           onCerrar={() => setNuevoCliente(false)}
-          onGuardado={(id) => {
-            cambiar('cliente_id', id)
+          onGuardado={(id, pideFactura) => {
+            setDoc((d) => ({
+              ...d,
+              cliente_id: id,
+              requiere_factura: pideFactura,
+              iva_pct: pideFactura ? String(REGLAS.ivaPct) : '0',
+            }))
+            setSucio(true)
             router.refresh()
           }}
         />
