@@ -19,8 +19,10 @@ const e = StyleSheet.create({
     fontSize: 9.5,
     color: TINTA,
     fontFamily: 'Helvetica',
-    lineHeight: 1.45,
   },
+  // Aquí no va lineHeight: con él, react-pdf deja de pintar los elementos
+  // fijos anclados con `bottom` y el pie de página desaparece. El interlineado
+  // se pone texto por texto, en los estilos de abajo.
   membrete: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -43,17 +45,17 @@ const e = StyleSheet.create({
     letterSpacing: 0.9, paddingVertical: 4, paddingHorizontal: 7, marginTop: 9, marginBottom: 5,
   },
   fila: { flexDirection: 'row', marginBottom: 3 },
-  etiqueta: { width: 108, color: GRIS, fontSize: 8.5 },
-  valor: { flex: 1, fontSize: 9.5 },
-  valorFuerte: { flex: 1, fontSize: 9.5, fontFamily: 'Helvetica-Bold' },
+  etiqueta: { width: 108, color: GRIS, fontSize: 8.5, lineHeight: 1.35 },
+  valor: { flex: 1, fontSize: 9.5, lineHeight: 1.35 },
+  valorFuerte: { flex: 1, fontSize: 9.5, fontFamily: 'Helvetica-Bold', lineHeight: 1.35 },
 
   caja: {
     borderWidth: 0.8, borderColor: LINEA, borderRadius: 3, padding: 9, marginTop: 6,
   },
   cajaVerde: { backgroundColor: VERDE_CLARO, padding: 9, marginTop: 8 },
 
-  parrafo: { marginBottom: 8, textAlign: 'justify' },
-  letra: { fontSize: 8.5, color: GRIS, fontStyle: 'italic', marginTop: 2 },
+  parrafo: { marginBottom: 8, textAlign: 'justify', lineHeight: 1.4 },
+  letra: { fontSize: 8.5, color: GRIS, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 },
 
   th: {
     flexDirection: 'row', backgroundColor: VERDE, color: MARCA.blanco,

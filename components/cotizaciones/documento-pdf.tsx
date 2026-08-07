@@ -14,8 +14,8 @@ const LINEA = MARCA.linea
 
 const e = StyleSheet.create({
   pagina: {
-    paddingTop: 36,
-    paddingBottom: 64,
+    paddingTop: 30,
+    paddingBottom: 50,
     paddingHorizontal: 46,
     fontSize: 9.5,
     color: TINTA,
@@ -23,7 +23,10 @@ const e = StyleSheet.create({
   },
   // Ojo: el interlineado va texto por texto y no en la página; si la página
   // trae lineHeight, react-pdf deja de pintar los elementos fijos anclados
-  // con `bottom` (el pie desaparecía).
+  // con `bottom` (el pie desaparecía). Por eso el apretado de la hoja —que se
+  // veía demasiado aireada y se iba a dos páginas— es estilo por estilo. Ojo
+  // al ponerlo donde no estaba: un texto de una sola línea sin interlineado ya
+  // viene compacto, y dárselo lo estira en vez de apretarlo.
 
   // Banda de marca al filo de cada página
   banda: {
@@ -42,8 +45,8 @@ const e = StyleSheet.create({
     justifyContent: 'space-between',
     borderBottomWidth: 0.8,
     borderBottomColor: LINEA,
-    paddingBottom: 12,
-    marginBottom: 16,
+    paddingBottom: 9,
+    marginBottom: 12,
   },
   tituloDoc: {
     fontSize: 7,
@@ -66,9 +69,9 @@ const e = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: VERDE_CLARO,
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    marginBottom: 14,
+    marginBottom: 11,
     gap: 18,
   },
   celdaCliente: { flex: 1.4 },
@@ -80,17 +83,17 @@ const e = StyleSheet.create({
     letterSpacing: 1.6,
     marginBottom: 2.5,
   },
-  datoFuerte: { fontFamily: 'Helvetica-Bold', fontSize: 10, lineHeight: 1.3 },
-  datoSuave: { fontSize: 8.5, color: GRIS, marginTop: 1, lineHeight: 1.3 },
+  datoFuerte: { fontFamily: 'Helvetica-Bold', fontSize: 10, lineHeight: 1.2 },
+  datoSuave: { fontSize: 8.5, color: GRIS, marginTop: 1, lineHeight: 1.2 },
 
-  parrafo: { marginBottom: 12, textAlign: 'justify', lineHeight: 1.45 },
+  parrafo: { marginBottom: 9, textAlign: 'justify', lineHeight: 1.28 },
 
   // Descripción del trabajo
   encabezadoSeccion: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 2,
-    marginBottom: 7,
+    marginBottom: 5,
   },
   marcaSeccion: {
     width: 3.5,
@@ -100,10 +103,10 @@ const e = StyleSheet.create({
     marginRight: 6,
   },
   subtitulo: { fontFamily: 'Helvetica-Bold', fontSize: 10.5 },
-  vineta: { flexDirection: 'row', marginBottom: 3.5, paddingRight: 8 },
+  vineta: { flexDirection: 'row', marginBottom: 2.5, paddingRight: 8 },
   punto: { width: 11, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold' },
-  vinetaTexto: { flex: 1, textAlign: 'justify', lineHeight: 1.45 },
-  calidad: { marginTop: 8, marginBottom: 14, fontStyle: 'italic', color: GRIS, lineHeight: 1.45 },
+  vinetaTexto: { flex: 1, textAlign: 'justify', lineHeight: 1.28 },
+  calidad: { marginTop: 5, marginBottom: 9, fontStyle: 'italic', color: GRIS, lineHeight: 1.28 },
 
   // Tabla de partidas
   tabla: { marginTop: 2 },
@@ -124,13 +127,13 @@ const e = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 0.7,
     borderBottomColor: LINEA,
-    paddingVertical: 5.5,
+    paddingVertical: 3.6,
     paddingHorizontal: 8,
   },
   filaAlterna: { backgroundColor: MARCA.papel },
   cNum: { width: 20, color: GRIS },
   cNumEncabezado: { width: 20 },
-  cDesc: { flex: 1, paddingRight: 8, lineHeight: 1.35 },
+  cDesc: { flex: 1, paddingRight: 8, lineHeight: 1.1 },
   cDescEncabezado: { flex: 1, paddingRight: 8 },
   cM2: { width: 52, textAlign: 'right' },
   /** Más ancha que M² porque lleva el número y su unidad: «120 m²», «3 pza». */
@@ -140,8 +143,8 @@ const e = StyleSheet.create({
   importeFila: { fontFamily: 'Helvetica-Bold' },
 
   // Totales
-  totales: { alignItems: 'flex-end', marginTop: 12 },
-  filaTotal: { flexDirection: 'row', justifyContent: 'flex-end', paddingVertical: 2.5 },
+  totales: { alignItems: 'flex-end', marginTop: 8 },
+  filaTotal: { flexDirection: 'row', justifyContent: 'flex-end', paddingVertical: 2 },
   etiquetaTotal: { width: 110, textAlign: 'right', paddingRight: 12, color: GRIS },
   valorTotal: { width: 90, textAlign: 'right' },
   granTotal: {
@@ -178,14 +181,16 @@ const e = StyleSheet.create({
   },
   chipAnticipoTexto: { fontSize: 8.5, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold' },
 
-  // Condiciones
+  // Cierre: condiciones a la izquierda, firma a la derecha
+  cierre: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginTop: 12 },
   condiciones: {
-    marginTop: 16,
+    flex: 1,
     backgroundColor: MARCA.papel,
     borderRadius: 8,
     paddingVertical: 9,
     paddingHorizontal: 12,
   },
+  columnaFirma: { width: 200, paddingTop: 2 },
   tituloCondiciones: {
     fontSize: 6.4,
     color: GRIS,
@@ -194,18 +199,18 @@ const e = StyleSheet.create({
   },
   filaNota: { flexDirection: 'row', marginBottom: 2 },
   puntoNota: { width: 10, color: VERDE_MEDIO, fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
-  nota: { flex: 1, fontSize: 8.5, lineHeight: 1.4 },
+  nota: { flex: 1, fontSize: 8.5, lineHeight: 1.25 },
 
   // Despedida y firma
-  despedida: { marginTop: 20, marginBottom: 34, lineHeight: 1.45 },
-  firma: { alignItems: 'center', width: 230, alignSelf: 'flex-start' },
+  despedida: { marginBottom: 30, lineHeight: 1.28 },
+  firma: { alignItems: 'center', width: '100%' },
   lineaFirma: { borderTopWidth: 1, borderTopColor: VERDE, width: '100%', marginBottom: 5 },
   nombreFirma: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, textAlign: 'center' },
   cargoFirma: { fontSize: 8, color: GRIS, textAlign: 'center' },
 
   pie: {
     position: 'absolute',
-    bottom: 26,
+    bottom: 22,
     left: 46,
     right: 46,
     borderTopWidth: 0.7,
@@ -391,27 +396,30 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
           )}
         </View>
 
-        {/* Condiciones ---------------------------------------------------- */}
-        <View style={e.condiciones} wrap={false}>
-          <Text style={e.tituloCondiciones}>CONDICIONES</Text>
-          {notasCotizacion(datos.anticipoPct, datos.vigenciaDias, datos.ivaPct > 0).map((n) => (
-            <View key={n} style={e.filaNota}>
-              <Text style={e.puntoNota}>•</Text>
-              <Text style={e.nota}>{n.replace(/^\*/, '')}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Condiciones y firma, hombro con hombro -------------------------- */}
+        {/* Iban uno debajo del otro y entre los dos se comían media hoja; son
+            estrechos, así que caben al lado. */}
+        <View style={e.cierre} wrap={false}>
+          <View style={e.condiciones}>
+            <Text style={e.tituloCondiciones}>CONDICIONES</Text>
+            {notasCotizacion(datos.anticipoPct, datos.vigenciaDias, datos.ivaPct > 0).map((n) => (
+              <View key={n} style={e.filaNota}>
+                <Text style={e.puntoNota}>•</Text>
+                <Text style={e.nota}>{n.replace(/^\*/, '')}</Text>
+              </View>
+            ))}
+          </View>
 
-        {/* Despedida y firma ---------------------------------------------- */}
-        <View wrap={false}>
-          <Text style={e.despedida}>
-            Sin más por el momento y en espera de una respuesta favorable, quedo de usted.
-          </Text>
-          <View style={e.firma}>
-            <View style={e.lineaFirma} />
-            <Text style={e.nombreFirma}>{EMPRESA.director}</Text>
-            <Text style={e.cargoFirma}>Director General</Text>
-            {EMPRESA.telefono ? <Text style={e.cargoFirma}>Cel. {EMPRESA.telefono}</Text> : null}
+          <View style={e.columnaFirma}>
+            <Text style={e.despedida}>
+              Sin más por el momento y en espera de una respuesta favorable, quedo de usted.
+            </Text>
+            <View style={e.firma}>
+              <View style={e.lineaFirma} />
+              <Text style={e.nombreFirma}>{EMPRESA.director}</Text>
+              <Text style={e.cargoFirma}>Director General</Text>
+              {EMPRESA.telefono ? <Text style={e.cargoFirma}>Cel. {EMPRESA.telefono}</Text> : null}
+            </View>
           </View>
         </View>
 
