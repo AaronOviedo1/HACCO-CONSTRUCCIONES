@@ -13,8 +13,12 @@ import { iniciarSesion, type EstadoLogin } from './acciones'
  */
 const CLAVE_CORREO = 'haacopro:correo'
 
-/* Los campos del login son más altos que los de un formulario denso. */
-const CLASE_ENTRADA = 'lg:py-2.5 lg:text-[15px]'
+/*
+ * Los campos del login son más altos que los de un formulario denso, y en la
+ * tableta conservan el tamaño de dedo aunque el ancho ya sea de escritorio.
+ */
+const CLASE_ENTRADA =
+  'tableta:min-h-[52px] tableta:rounded-[14px] tableta:px-4 tableta:text-base escritorio:py-2.5 escritorio:text-[15px] [@media(pointer:coarse)]:min-h-[48px]'
 
 function BotonEntrar() {
   const { pending } = useFormStatus()
@@ -22,7 +26,7 @@ function BotonEntrar() {
     <Boton
       type="submit"
       disabled={pending}
-      className="min-h-[50px] w-full text-[17px] lg:min-h-[44px] lg:text-[15px] lg:font-semibold"
+      className="min-h-[50px] w-full text-[17px] tableta:min-h-[54px] tableta:rounded-xl tableta:text-[17px] tableta:font-semibold escritorio:min-h-[44px] escritorio:text-[15px] escritorio:font-semibold"
     >
       {pending && <Loader2 size={17} className="animate-spin" />}
       {pending ? 'Entrando…' : 'Entrar'}
@@ -48,8 +52,9 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
       setRecordar(true)
     }
 
-    // En el teléfono no se enfoca nada: abriría el teclado nada más entrar.
-    if (!window.matchMedia('(min-width: 1024px)').matches) return
+    // Sólo con ratón o trackpad: en una pantalla táctil el foco automático
+    // abre el teclado y se come media pantalla nada más entrar.
+    if (!window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches) return
     const destino = guardado ? claveRef.current : correoRef.current
     destino?.focus()
   }, [])
@@ -64,7 +69,7 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
   return (
     <form action={accion} onSubmit={guardarCorreo} className="space-y-4">
       {aviso && (
-        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200 lg:rounded-lg lg:text-[13px]">
+        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200 escritorio:rounded-lg escritorio:text-[13px]">
           {aviso}
         </p>
       )}
@@ -116,12 +121,12 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
         </div>
       </div>
 
-      <label className="flex items-center gap-2.5 text-[13px] text-tinta-600">
+      <label className="flex items-center gap-2.5 py-1 text-[13px] text-tinta-600 tableta:text-sm">
         <input
           type="checkbox"
           checked={recordar}
           onChange={(e) => setRecordar(e.target.checked)}
-          className="h-4 w-4 shrink-0 accent-haaco-700"
+          className="h-4 w-4 shrink-0 accent-haaco-700 tableta:h-[18px] tableta:w-[18px]"
         />
         Recordar mi correo
       </label>
@@ -129,7 +134,7 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
       {estado.error && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200 lg:rounded-lg lg:text-[13px]"
+          className="flex items-start gap-2 rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200 escritorio:rounded-lg escritorio:text-[13px]"
         >
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           {estado.error}

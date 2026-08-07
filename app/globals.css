@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/*
+ * El login se arma en tres formas, y el ancho solo no basta para distinguirlas:
+ * un iPad Pro vertical mide 1024 y no es un escritorio.
+ *   · teléfono   — sin variante, el diseño base.
+ *   · `tableta`  — iPad vertical (y ventanas medianas): banda de marca arriba.
+ *   · `escritorio` — 1024 o más en horizontal: dos paneles.
+ * `md:` (768) sigue sirviendo para lo que comparten tableta y escritorio.
+ */
+@custom-variant escritorio (@media (min-width: 1024px) and (orientation: landscape));
+
+@custom-variant tableta {
+  @media (min-width: 768px) and (max-width: 1023px) { @slot; }
+  @media (min-width: 1024px) and (orientation: portrait) { @slot; }
+}
+
 /* ==========================================================================
    HaacoPro · Identidad HAACO PRO RECUBRIMIENTOS
    Manual de marca: verde #12341c y negro #070c14.
