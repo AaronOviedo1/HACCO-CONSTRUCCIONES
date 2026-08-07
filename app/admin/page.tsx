@@ -93,7 +93,9 @@ export default async function Dashboard() {
   const porResolver = porEstatusCot('borrador').length + porEstatusCot('enviada').length
   const cotizadoMes = delMes.reduce((s, c) => s + Number(c.total), 0)
 
-  const resumenEstatus = (['borrador', 'enviada', 'aprobada', 'rechazada'] as EstatusCotizacion[])
+  const resumenEstatus = (
+    ['borrador', 'enviada', 'seguimiento', 'aprobada', 'rechazada'] as EstatusCotizacion[]
+  )
     .map((clave) => ({
       clave,
       texto: ESTATUS_COTIZACION[clave].texto,

@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import {
-  ArrowUpRight, Check, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2, Trash2, X,
+  ArrowUpRight, Check, Clock, Copy, FileDown, GripVertical, Hammer, Plus, Save, Send, Share2,
+  Trash2, X,
 } from 'lucide-react'
 import {
   AreaTexto, Campo, Casilla, Entrada, Numero, NumeroCorto, Opciones, Seleccion,
@@ -77,6 +78,7 @@ export function EditorCotizacion({
   const [error, setError] = useState<string | null>(null)
   const [nuevoCliente, setNuevoCliente] = useState(false)
   const [aprobando, setAprobando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const [pendiente, iniciar] = useTransition()
 
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
@@ -178,9 +180,11 @@ export function EditorCotizacion({
   const alEliminar = () =>
     iniciar(async () => {
       if (!cotizacionId) return
-      if (!confirm(`¿Eliminar la cotización ${folio ?? ''}? No se puede deshacer.`)) return
       const r = await eliminarCotizacion(cotizacionId)
-      if (!r.ok) return setError(r.error)
+      if (!r.ok) {
+        setBorrando(false)
+        return setError(r.error)
+      }
       router.push('/admin/cotizaciones')
     })
 
@@ -598,6 +602,19 @@ export function EditorCotizacion({
                 <Check size={17} />
                 Aprobar y abrir órdenes de trabajo
               </button>
+              {/* El paso que faltaba: enviada dice lo que pasó, seguimiento
+                  dice dónde está. Es lo que distingue las que siguen vivas. */}
+              {estatus !== 'seguimiento' && (
+                <button
+                  type="button"
+                  onClick={() => alCambiarEstatus('seguimiento')}
+                  disabled={pendiente}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                >
+                  <Clock size={16} />
+                  Poner en seguimiento
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => alCambiarEstatus('rechazada')}
@@ -621,16 +638,42 @@ export function EditorCotizacion({
             </button>
           )}
 
-          {cotizacionId && obras.length === 0 && (
+          {/* La confirmación se pide aquí y no con el confirm() del navegador,
+              que Safari puede acabar silenciando para toda la página. */}
+          {cotizacionId && obras.length === 0 && !borrando && (
             <button
               type="button"
-              onClick={alEliminar}
+              onClick={() => setBorrando(true)}
               disabled={pendiente}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50"
             >
               <Trash2 size={16} />
               Eliminar cotización
             </button>
+          )}
+          {cotizacionId && obras.length === 0 && borrando && (
+            <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm text-red-800">
+                Se borra la cotización {folio ?? ''} con todo lo que trae. No se puede deshacer.
+              </p>
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBorrando(false)}
+                  className="flex-1 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                >
+                  Conservar
+                </button>
+                <button
+                  type="button"
+                  onClick={alEliminar}
+                  disabled={pendiente}
+                  className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:bg-red-300"
+                >
+                  {pendiente ? 'Eliminando…' : 'Sí, eliminar'}
+                </button>
+              </div>
+            </div>
           )}
         </aside>
       </div>
@@ -1152,7 +1195,7 @@ function BloqueHerreria({
       <div className="space-y-4 px-5 py-5">
         {doc.desglose.length === 0 && (
           <p className="text-sm text-tinta-500">
-            Captura cada concepto por separado (Macetero #2, Registro #3…) para ver la utilidad de
+            Captura cada concepto por separado (Portón principal, Barandal escalera…) para ver la utilidad de
             cada uno.
           </p>
         )}
@@ -1219,7 +1262,7 @@ function ConceptoHerreria({
         <Entrada
           value={concepto.concepto}
           onChange={(e) => onCambio({ concepto: e.target.value })}
-          placeholder="Macetero #2"
+          placeholder="Portón principal"
           disabled={bloqueado}
           className="!border-0 !bg-transparent !px-0 font-medium focus:!ring-0"
         />

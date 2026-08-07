@@ -270,6 +270,9 @@ export const ESTATUS_COTIZACION: Record<
 > = {
   borrador: { texto: 'Borrador', tono: 'gris' },
   enviada: { texto: 'Enviada', tono: 'azul' },
+  // Enviada es lo que pasó; seguimiento es dónde está. Con doscientas al año
+  // todas enviadas, esta es la que dice cuáles siguen vivas.
+  seguimiento: { texto: 'En seguimiento', tono: 'ambar' },
   aprobada: { texto: 'Aprobada', tono: 'verde' },
   rechazada: { texto: 'Rechazada', tono: 'rojo' },
   terminada: { texto: 'Terminada', tono: 'verde' },

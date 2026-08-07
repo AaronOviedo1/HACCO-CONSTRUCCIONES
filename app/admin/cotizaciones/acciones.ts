@@ -102,15 +102,27 @@ export async function cambiarEstatus(
 export async function eliminarCotizacion(id: string): Promise<Resultado> {
   const supabase = await staff()
 
-  const { count } = await supabase
-    .from('obras')
-    .select('id', { count: 'exact', head: true })
-    .eq('cotizacion_id', id)
+  const [{ count: conObras }, { data: cobros }] = await Promise.all([
+    supabase.from('obras').select('id', { count: 'exact', head: true }).eq('cotizacion_id', id),
+    supabase.from('pagos_cobranza').select('monto').eq('cotizacion_id', id),
+  ])
 
-  if ((count ?? 0) > 0) {
+  if ((conObras ?? 0) > 0) {
     return {
       ok: false,
       error: 'No se puede eliminar: esta cotización ya tiene órdenes de trabajo abiertas.',
+    }
+  }
+
+  // Los pagos cuelgan de la cotización en cascada: sin esta revisión, borrarla
+  // se llevaría por delante el dinero ya cobrado sin decir nada.
+  if (cobros && cobros.length > 0) {
+    const total = cobros.reduce((s, p) => s + Number(p.monto), 0)
+    return {
+      ok: false,
+      error: `No se puede eliminar: tiene ${cobros.length} ${
+        cobros.length === 1 ? 'cobro registrado' : 'cobros registrados'
+      } por ${total.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}. Quítalos primero desde Cobranza.`,
     }
   }
 

@@ -1,0 +1,13 @@
+-- ===========================================================================
+-- «EN SEGUIMIENTO», ENTRE ENVIADA Y APROBADA
+--
+-- Con doscientas cotizaciones al año, todas marcadas como enviadas, la lista
+-- no dice nada: en la junta la pregunta fue justamente ésa, cómo distinguir
+-- cuáles siguen vivas. Enviada es lo que pasó; seguimiento es dónde está: el
+-- cliente contestó, se está negociando, va a caer.
+--
+-- Va solo en su archivo a propósito. «alter type ... add value» corre dentro de
+-- una transacción, pero el valor nuevo no se puede usar en esa misma
+-- transacción, y aplicar-migraciones.mjs envuelve cada .sql en la suya.
+-- ===========================================================================
+alter type public.estatus_cotizacion add value if not exists 'seguimiento' after 'enviada';

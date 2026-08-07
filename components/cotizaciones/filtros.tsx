@@ -6,15 +6,12 @@ import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
 import { FiltroRango } from '@/components/filtro-fechas'
 import { SelectorMovil } from '@/components/movil/selector-movil'
-import { TIPOS_COTIZACION } from '@/lib/cotizaciones'
+import { ESTATUS_COTIZACION, TIPOS_COTIZACION } from '@/lib/cotizaciones'
 
+// Derivada del catálogo, no copiada: un estatus nuevo aparece aquí solo.
 const ESTATUS = [
   { valor: '', texto: 'Todos los estatus' },
-  { valor: 'borrador', texto: 'Borrador' },
-  { valor: 'enviada', texto: 'Enviada' },
-  { valor: 'aprobada', texto: 'Aprobada' },
-  { valor: 'rechazada', texto: 'Rechazada' },
-  { valor: 'terminada', texto: 'Terminada' },
+  ...Object.entries(ESTATUS_COTIZACION).map(([valor, { texto }]) => ({ valor, texto })),
 ]
 
 const TIPOS = [

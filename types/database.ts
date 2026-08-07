@@ -12,7 +12,8 @@
 export type RolUsuario = 'admin' | 'administracion' | 'cuadrilla' | 'contador'
 export type OficioTrabajador = 'pintor' | 'herrero' | 'ayudante' | 'otro'
 export type TipoCotizacion = 'pintura' | 'imper' | 'herreria' | 'otros' | 'mixta'
-export type EstatusCotizacion = 'borrador' | 'enviada' | 'aprobada' | 'rechazada' | 'terminada'
+export type EstatusCotizacion =
+  | 'borrador' | 'enviada' | 'seguimiento' | 'aprobada' | 'rechazada' | 'terminada'
 export type EstatusObra = 'agendada' | 'en_obra' | 'pausada' | 'en_entrega' | 'terminada' | 'cerrada'
 export type TipoProducto = 'pintura' | 'herreria' | 'insumo_taller' | 'otro'
 export type TipoMovimiento = 'entrada' | 'salida'

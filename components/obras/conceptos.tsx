@@ -14,7 +14,7 @@ import type { ObraConcepto } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
 /**
- * Sub-conceptos con presupuesto propio: "Macetero #2", "Registro #3",
+ * Sub-conceptos con presupuesto propio: "Portón principal", "Barandal escalera",
  * "Vista puerta #4" dentro de la misma OT de herrería.
  */
 export function PanelConceptos({ datos }: { datos: DatosObra }) {
@@ -58,7 +58,7 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
         {datos.conceptos.length === 0 ? (
           <EstadoVacio
             titulo="Sin conceptos"
-            descripcion="Úsalos cuando la OT tenga piezas independientes: Macetero #2, Registro #3, Vista puerta #4…"
+            descripcion="Úsalos cuando la OT tenga piezas independientes: Portón principal, Barandal escalera, Fachada poniente…"
             accion={
               !cerrada ? (
                 <button
@@ -258,7 +258,7 @@ function FormularioConcepto({
               onCambio={setNombre}
               onElegir={(s) => setNombre(s.texto)}
               sugerencias={sugerencias}
-              placeholder="Macetero #2"
+              placeholder="Portón principal"
               autoFocus
             />
           }
