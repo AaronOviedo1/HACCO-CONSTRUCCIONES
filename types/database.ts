@@ -422,6 +422,9 @@ export type PagoCobranza = {
   notas: string | null
   registrado_por: string | null
   created_at: string
+  updated_at: string
+  /** Quién lo corrigió. Nulo mientras nadie lo haya tocado. */
+  editado_por: string | null
 }
 
 export type NominaPago = {

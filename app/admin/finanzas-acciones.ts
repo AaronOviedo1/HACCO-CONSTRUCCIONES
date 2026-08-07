@@ -176,11 +176,69 @@ export async function registrarCobro(pago: {
   return { ok: true }
 }
 
-export async function eliminarCobro(id: string): Promise<Resultado> {
+/**
+ * Corrige un pago ya aplicado.
+ *
+ * El caso de siempre: se capturó el saldo completo —que el diálogo sugiere como
+ * ayuda— cuando en realidad fue un abono, y la cotización se fue al historial.
+ *
+ * Aquí basta el update: a diferencia del gasto, el pago no deja rastros que
+ * rehacer. El saldo lo calcula la vista al leer, así que con el monto nuevo la
+ * cotización regresa sola a «Por cobrar»; y el recibo, si lo tiene, arma el PDF
+ * leyendo el importe del pago, no una copia.
+ */
+export async function actualizarCobro(
+  id: string,
+  pago: {
+    tipo: TipoPagoCobranza
+    monto: number
+    metodo: MetodoPago
+    fecha: string
+    comprobante_path: string | null
+    notas: string | null
+  },
+  obras: string[] = [],
+): Promise<Resultado> {
+  if (pago.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
+  if (!pago.fecha) return { ok: false, error: 'Falta la fecha del pago.' }
+
+  const supabase = await staff()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: antes } = await supabase
+    .from('pagos_cobranza')
+    .select('comprobante_path')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!antes) return { ok: false, error: 'Ese pago ya no existe.' }
+
+  const { error } = await supabase
+    .from('pagos_cobranza')
+    .update({ ...pago, editado_por: user?.id ?? null })
+    .eq('id', id)
+
+  if (error) return fallo(error)
+
+  // El comprobante que se sustituyó ya no lo apunta nadie.
+  if (antes.comprobante_path && antes.comprobante_path !== pago.comprobante_path) {
+    await supabase.storage.from('comprobantes').remove([antes.comprobante_path])
+  }
+
+  revalidatePath('/admin/cobranza')
+  revalidatePath('/admin')
+  for (const obra of obras) revalidatePath(`/admin/obras/${obra}`)
+  return { ok: true }
+}
+
+export async function eliminarCobro(id: string, obras: string[] = []): Promise<Resultado> {
   const supabase = await staff()
   const { error } = await supabase.from('pagos_cobranza').delete().eq('id', id)
   if (error) return fallo(error)
+
   revalidatePath('/admin/cobranza')
+  revalidatePath('/admin')
+  for (const obra of obras) revalidatePath(`/admin/obras/${obra}`)
   return { ok: true }
 }
 

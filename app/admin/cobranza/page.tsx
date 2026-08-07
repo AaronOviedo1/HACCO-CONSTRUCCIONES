@@ -34,12 +34,22 @@ export default async function PaginaCobranza({
 
   const supabase = await crearClienteServidor()
 
-  const [{ data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }] = await Promise.all([
-    supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
-    supabase.from('pagos_cobranza').select('*').order('fecha'),
-    supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
-    supabase.from('cotizaciones').select('id, nombre_obra'),
-  ])
+  const [{ data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }, { data: recibos }] =
+    await Promise.all([
+      supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
+      supabase.from('pagos_cobranza').select('*').order('fecha'),
+      supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
+      supabase.from('cotizaciones').select('id, nombre_obra'),
+      supabase.from('recibos').select('folio, pago_id'),
+    ])
+
+  // Corregir el monto de un pago que ya tiene recibo entregado deja al papel
+  // diciendo otra cosa. El aviso se arma aquí, con la tabla a la mano, para que
+  // salga antes de guardar y no después.
+  const recibosPorPago: Record<string, string> = {}
+  for (const r of recibos ?? []) {
+    if (r.pago_id) recibosPorPago[r.pago_id] = r.folio ?? 'sin folio'
+  }
 
   // Si la cotización todavía no abre OT, la tarjeta se titula con el nombre
   // de obra que traía la cotización.
@@ -90,15 +100,19 @@ export default async function PaginaCobranza({
     .filter((c) => Number(c.anticipo) < Number(c.anticipo_esperado))
     .reduce((s, c) => s + (Number(c.anticipo_esperado) - Number(c.anticipo)), 0)
 
+  /**
+   * Lo que va en las columnas «Abono 1..N»: todo pago que no sea el anticipo,
+   * que tiene su propia columna. Es una sola función y no dos filtros parecidos
+   * porque antes contaba los abonos y pintaba abonos más liquidaciones: una
+   * liquidación parcial se quedaba sin columna y desaparecía de la tabla.
+   */
+  const abonosDe = (cotizacion: string) =>
+    (porCotizacion.get(cotizacion) ?? []).filter((p) => p.tipo !== 'anticipo')
+
   // Máximo de abonos capturados: define cuántas columnas pintar, como su Excel.
   // Se mide sólo sobre lo que se va a pintar; si no, una cotización liquidada
   // con nueve abonos ensancharía la tabla de las que sí tienen saldo.
-  const maxAbonos = Math.max(
-    1,
-    ...conSaldo.map(
-      (c) => (porCotizacion.get(c.cotizacion_id) ?? []).filter((p) => p.tipo === 'abono').length,
-    ),
-  )
+  const maxAbonos = Math.max(1, ...conSaldo.map((c) => abonosDe(c.cotizacion_id).length))
 
   // Bloques por mes de la cotización, con lo cobrado y lo que falta de cada uno.
   const detalleMes = (grupo: { filas: typeof filas }) =>
@@ -255,6 +269,7 @@ export default async function PaginaCobranza({
                         cobranza={c}
                         pagos={porCotizacion.get(c.cotizacion_id) ?? []}
                         obras={suyas}
+                        recibos={recibosPorPago}
                       />
                     </div>
                   </article>
@@ -336,7 +351,7 @@ export default async function PaginaCobranza({
                 >
                   {grupo.filas.map((c) => {
                     const suyos = porCotizacion.get(c.cotizacion_id) ?? []
-                    const abonos = suyos.filter((p) => p.tipo === 'abono' || p.tipo === 'liquidacion')
+                    const abonos = abonosDe(c.cotizacion_id)
                     const pct = Number(c.pct_pendiente)
 
                     return (
@@ -345,6 +360,7 @@ export default async function PaginaCobranza({
                         cobranza={c}
                         pagos={suyos}
                         obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
+                        recibos={recibosPorPago}
                       >
                         <Td>
                           <Link
@@ -395,7 +411,7 @@ export default async function PaginaCobranza({
       ) : vista === 'historial' ? (
         <Tarjeta
           className="hidden lg:block"
-          pie="Cotizaciones sin adeudo. Se ordenan por la fecha del último pago."
+          pie="Cotizaciones sin adeudo. Se ordenan por la fecha del último pago. Si un pago se capturó mal, toca el renglón para corregirlo."
         >
           {historial.length === 0 ? (
             <EstadoVacio
@@ -414,6 +430,7 @@ export default async function PaginaCobranza({
                   <Th numerico>Cobrado</Th>
                   <Th>Último pago</Th>
                   <Th numerico>OTs</Th>
+                  <Th> </Th>
                 </tr>
               </thead>
               <MesesPlegables lista="cobranza-historial" plegados={plegadoHistorial}>
@@ -421,20 +438,27 @@ export default async function PaginaCobranza({
                   <CuerpoMes
                     key={grupo.mes}
                     mes={grupo.mes}
-                    columnas={8}
+                    columnas={9}
                     etiqueta={grupo.etiqueta}
                     detalle={`${grupo.filas.length} liquidadas · ${pesos(
                       grupo.filas.reduce((s, c) => s + Number(c.cobrado), 0),
                     )}`}
                   >
+                    {/* El mismo renglón del registro: una cotización saldada de
+                        más sólo se puede desenredar llegando a sus pagos, y éste
+                        es el único camino. El folio sigue yendo a la cotización. */}
                     {grupo.filas.map((c) => (
-                      <FilaEnlace key={c.cotizacion_id}>
-                        <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                      <FilaCobranza
+                        key={c.cotizacion_id}
+                        cobranza={c}
+                        pagos={porCotizacion.get(c.cotizacion_id) ?? []}
+                        obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
+                        recibos={recibosPorPago}
+                      >
                         <Td>
                           <Link
                             href={`/admin/cotizaciones/${c.cotizacion_id}`}
                             prefetch={false}
-                            data-enlace-fila
                             className="font-mono text-xs text-haaco-700 hover:underline"
                           >
                             {c.folio}
@@ -455,7 +479,7 @@ export default async function PaginaCobranza({
                         <Td numerico className="text-tinta-500">
                           {(obrasPorCotizacion.get(c.cotizacion_id) ?? []).length || '—'}
                         </Td>
-                      </FilaEnlace>
+                      </FilaCobranza>
                     ))}
                   </CuerpoMes>
                 ))}

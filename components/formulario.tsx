@@ -33,7 +33,7 @@ export function Entrada(props: React.ComponentProps<'input'>) {
   return <input {...resto} className={`${CLASE_CAMPO} ${className}`} />
 }
 
-export function Numero(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Numero(props: React.ComponentProps<'input'>) {
   const { className = '', ...resto } = props
   return (
     <input

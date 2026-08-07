@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { FileDown, FileText, Receipt, ShieldCheck, Wrench } from 'lucide-react'
@@ -101,8 +102,11 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                 </li>
               ))}
             </ul>
-            {!cerrada && (
-              <div className="border-t border-tinta-100 px-5 py-2.5">
+            {/* Aquí sólo se dan de alta pagos con su recibo. Corregir uno ya
+                capturado es trabajo de Cobranza, que es donde está la lista
+                completa de la cotización. */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-tinta-100 px-5 py-2.5">
+              {!cerrada && (
                 <button
                   type="button"
                   onClick={() => setCobrando(true)}
@@ -110,8 +114,14 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                 >
                   Registrar otro pago →
                 </button>
-              </div>
-            )}
+              )}
+              <Link
+                href="/admin/cobranza"
+                className="ml-auto text-xs text-tinta-400 hover:text-tinta-600 hover:underline"
+              >
+                ¿Un pago quedó mal? Se corrige en Cobranza
+              </Link>
+            </div>
           </>
         )}
       </Tarjeta>
