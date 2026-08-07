@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, Check, Plus, Search, Send, Trash2, UserPlus } from 'lucide-react'
 import { FormularioCliente } from '@/components/catalogos/formulario-cliente'
 import { EntradaSugerencias, useSugerenciasDiferidas } from '@/components/entrada-sugerencias'
+import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
 import { pesos } from '@/lib/format'
 import { REGLAS } from '@/lib/empresa'
 import {
@@ -13,7 +14,7 @@ import {
   type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import { cambiarEstatus, guardarCotizacion } from '@/app/admin/cotizaciones/acciones'
-import type { Cliente, TextoProceso, TipoCotizacion } from '@/types/database'
+import type { Cliente, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
 
 type Paso = 'cliente' | 'tipo' | 'proceso' | 'partidas'
 
@@ -28,10 +29,12 @@ const TIPOS = TIPOS_COTIZACION
 export function CotizadorRapido({
   clientes,
   textos,
+  productos,
   sugerencias: promesaSugerencias,
 }: {
   clientes: Cliente[]
   textos: TextoProceso[]
+  productos: Producto[]
   sugerencias: Promise<SugerenciasCotizacion>
 }) {
   const router = useRouter()
@@ -51,6 +54,9 @@ export function CotizadorRapido({
   // En el levantamiento en sitio no se cambia unidad partida por partida: todas
   // van con la del tipo. Si hace falta afinar alguna, se abre la cotización.
   const unidad = unidadPorTipo(doc.tipo) ?? ''
+  // Las pinturas se ofrecen donde se aplican: pintura, imper y mixta. En
+  // herrería el precio sale del desglose, no de una tarifa por metro.
+  const muestraPinturas = doc.tipo === 'pintura' || doc.tipo === 'imper' || doc.tipo === 'mixta'
 
   const filtrados = busqueda.trim()
     ? clientes.filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
@@ -76,11 +82,18 @@ export function CotizadorRapido({
         : [...d.procesos, { texto_proceso_id: texto.id, contenido: texto.contenido }],
     }))
 
-  const actualizarPartida = (i: number, campo: keyof PartidaBorrador, valor: string) =>
+  const parchearPartida = (i: number, parche: Partial<PartidaBorrador>) =>
     setDoc((d) => ({
       ...d,
-      items: d.items.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)),
+      items: d.items.map((x, j) => (j === i ? { ...x, ...parche } : x)),
     }))
+
+  const actualizarPartida = (i: number, campo: keyof PartidaBorrador, valor: string) =>
+    // Teclear el precio a mano desmarca la tarifa: manda el número escrito.
+    parchearPartida(
+      i,
+      campo === 'precio_unitario' ? { precio_unitario: valor, nivel_precio: '' } : { [campo]: valor },
+    )
 
   // Al elegir una partida ya cotizada se pone también su último precio: en un
   // levantamiento en sitio eso es la mitad de la captura, y el precio queda
@@ -295,6 +308,18 @@ export function CotizadorRapido({
                   </button>
                 )}
               </div>
+
+              {/* Qué pintura y a qué tarifa, a puros toques: es lo que queda
+                  del teclado en un levantamiento en sitio. */}
+              {muestraPinturas && (
+                <div className="mb-3">
+                  <SelectorPintura
+                    productos={productos}
+                    partida={item}
+                    onCambio={(parche) => parchearPartida(i, parche)}
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <CampoGrande

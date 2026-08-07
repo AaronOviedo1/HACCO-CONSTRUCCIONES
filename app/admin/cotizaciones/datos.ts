@@ -107,6 +107,10 @@ export async function cargarCotizacion(id: string) {
         m2: i.m2 == null ? '' : String(i.m2),
         unidad: i.unidad ?? '',
         precio_unitario: String(i.precio_unitario),
+        // Con qué pintura y a qué tarifa se armó, para que al reabrirla los
+        // botones salgan marcados.
+        producto_id: i.producto_id,
+        nivel_precio: i.nivel_precio ?? '',
       })),
     desglose: (desglose ?? []).map((d) => ({
       concepto: d.concepto,

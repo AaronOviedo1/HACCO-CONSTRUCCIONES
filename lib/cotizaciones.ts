@@ -1,6 +1,7 @@
 import { REGLAS } from '@/lib/empresa'
 import type {
-  DocumentoCotizacionSql, EstatusCotizacion, MaterialSql, RubroMaterial, TipoCotizacion,
+  DocumentoCotizacionSql, EstatusCotizacion, MaterialSql, NivelPrecio, Producto, RubroMaterial,
+  TipoCotizacion,
 } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,10 @@ export type PartidaBorrador = {
   /** Unidad de la cantidad. Vacío = metros cuadrados. */
   unidad: string
   precio_unitario: string
+  /** La pintura elegida, si el precio salió del catálogo. */
+  producto_id?: string | null
+  /** Con qué tarifa. Vacío = el precio se tecleó a mano. */
+  nivel_precio?: string
 }
 
 /** Unidades que se pueden elegir por partida. La primera es la de siempre. */
@@ -231,6 +236,8 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
         m2: i.m2.trim() === '' ? null : num(i.m2),
         unidad: i.unidad.trim() || null,
         precio_unitario: num(i.precio_unitario),
+        producto_id: i.producto_id || null,
+        nivel_precio: (i.nivel_precio || null) as NivelPrecio | null,
       })),
     desglose: borrador.desglose
       .filter((c) => c.concepto.trim())
@@ -330,6 +337,56 @@ export const tituloPartidas = (tipo: TipoCotizacion) =>
 
 export const LINEA_CALIDAD =
   'Se utilizarán productos de la más alta calidad en el mercado, garantizando la durabilidad y el acabado del trabajo.'
+
+// ---------------------------------------------------------------------------
+// Las tres tarifas de la pintura
+// ---------------------------------------------------------------------------
+
+/**
+ * Un metro pintado no vale lo mismo para todos: hay tarifa de público, una
+ * para el cliente que ya trabaja con ellos y una tercera para obra grande.
+ * Cada pintura del catálogo lleva las tres, y al cotizar se elige cuál.
+ */
+export const NIVELES_PRECIO: readonly { valor: NivelPrecio; texto: string; corto: string }[] = [
+  { valor: 'publico',  texto: 'Precio público',         corto: 'Público' },
+  { valor: 'especial', texto: 'Precio especial',        corto: 'Especial' },
+  { valor: 'super',    texto: 'Precio súper especial',  corto: 'Súper' },
+]
+
+type ProductoTarifado = Pick<
+  Producto,
+  'precio_publico' | 'precio_especial' | 'precio_super'
+>
+
+/** Lo que cuesta el metro con esa pintura y esa tarifa. Nulo = no la tiene. */
+export function precioPorNivel(p: ProductoTarifado, nivel: NivelPrecio): number | null {
+  const cifra =
+    nivel === 'publico' ? p.precio_publico
+    : nivel === 'especial' ? p.precio_especial
+    : p.precio_super
+  return cifra != null && Number(cifra) > 0 ? Number(cifra) : null
+}
+
+/** Una pintura sirve para cotizar en cuanto tiene al menos una tarifa puesta. */
+export const tieneTarifas = (p: ProductoTarifado) =>
+  NIVELES_PRECIO.some((n) => precioPorNivel(p, n.valor) != null)
+
+/**
+ * Las pinturas cotizables, agrupadas por marca.
+ *
+ * El catálogo entero no cabe en botones: sólo las que ya tienen tarifa. Si
+ * todavía no se ha capturado ninguna, esto sale vacío y el selector no se
+ * pinta, así que la cotización sigue funcionando como siempre.
+ */
+export function pinturasPorMarca(productos: Producto[]) {
+  const grupos = new Map<string, Producto[]>()
+  for (const p of productos) {
+    if (p.tipo !== 'pintura' || !p.activo || !tieneTarifas(p)) continue
+    const marca = p.marca?.trim() || 'Sin marca'
+    grupos.set(marca, [...(grupos.get(marca) ?? []), p])
+  }
+  return [...grupos.entries()].map(([marca, pinturas]) => ({ marca, pinturas }))
+}
 
 /** Fecha de hoy en formato ISO, respetando el día local de Hermosillo. */
 export function hoyISO(): string {

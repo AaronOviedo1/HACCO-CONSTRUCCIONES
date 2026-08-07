@@ -16,6 +16,7 @@ import { SelectorFecha } from '@/components/filtro-fechas'
 import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
+import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
 import { pesos } from '@/lib/format'
 import { precioPagado } from '@/lib/sugerencias'
 import { REGLAS } from '@/lib/empresa'
@@ -24,7 +25,7 @@ import {
   anticipoPorTipo, conceptoVacio, costoConcepto, importePartida, muestraBloque, notasCotizacion,
   num, precioConcepto, redondear, sumaMateriales, totalMaterial, totalesCotizacion, tituloPartidas,
   unidadPorTipo, type BorradorCotizacion, type ConceptoBorrador, type MaterialBorrador,
-  type Sugerencia, type SugerenciasCotizacion,
+  type PartidaBorrador, type Sugerencia, type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
@@ -489,6 +490,7 @@ export function EditorCotizacion({
               setSucio={setSucio}
               bloqueado={bloqueado}
               sugerencias={sugerencias.partidas}
+              productos={productos}
               abierta={escritorio}
             />
           )}
@@ -931,19 +933,23 @@ function BloqueProcesos({
 }
 
 function BloquePartidas({
-  doc, setDoc, setSucio, bloqueado, sugerencias, abierta,
-}: BloqueProps & { sugerencias: Sugerencia[]; abierta: boolean }) {
+  doc, setDoc, setSucio, bloqueado, sugerencias, productos, abierta,
+}: BloqueProps & { sugerencias: Sugerencia[]; productos: Producto[]; abierta: boolean }) {
+  const parchear = (i: number, parche: Partial<PartidaBorrador>) => {
+    setDoc((d) => ({
+      ...d,
+      items: d.items.map((x, j) => (j === i ? { ...x, ...parche } : x)),
+    }))
+    setSucio(true)
+  }
+
   const actualizar = (
     i: number,
     campo: 'descripcion' | 'm2' | 'unidad' | 'precio_unitario',
     valor: string,
-  ) => {
-    setDoc((d) => ({
-      ...d,
-      items: d.items.map((x, j) => (j === i ? { ...x, [campo]: valor } : x)),
-    }))
-    setSucio(true)
-  }
+  ) =>
+    // Teclear el precio a mano desmarca la tarifa: manda el número escrito.
+    parchear(i, campo === 'precio_unitario' ? { precio_unitario: valor, nivel_precio: '' } : { [campo]: valor })
 
   // Al elegir una partida conocida se pone también su último precio unitario.
   const elegir = (i: number, s: Sugerencia) => {
@@ -1002,6 +1008,14 @@ function BloquePartidas({
                 </button>
               )}
             </div>
+            <div className="mb-2">
+              <SelectorPintura
+                productos={productos}
+                partida={item}
+                onCambio={(parche) => parchear(i, parche)}
+                deshabilitado={bloqueado}
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Numero
                 value={item.m2}
@@ -1057,6 +1071,13 @@ function BloquePartidas({
                     placeholder="Exterior fachada principal"
                     disabled={bloqueado}
                     multilinea
+                  />
+                  <SelectorPintura
+                    productos={productos}
+                    partida={item}
+                    onCambio={(parche) => parchear(i, parche)}
+                    compacto
+                    deshabilitado={bloqueado}
                   />
                 </td>
                 <td className="border-b border-tinta-100 px-3 py-1.5">

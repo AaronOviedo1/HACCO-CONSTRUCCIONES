@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
+import { NIVELES_PRECIO, precioPorNivel, tieneTarifas } from '@/lib/cotizaciones'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
 import { FilaLista } from '@/components/movil/piezas'
@@ -166,6 +167,7 @@ async function TablaProductos({
               <Th>Tipo</Th>
               <Th>Unidad</Th>
               <Th numerico>Costo</Th>
+              <Th numerico>Venta $/m²</Th>
               <Th>Proveedor</Th>
               <Th> </Th>
             </tr>
@@ -187,6 +189,16 @@ async function TablaProductos({
                 </Td>
                 <Td className="text-tinta-500">{p.unidad}</Td>
                 <Td numerico>{p.costo > 0 ? pesos(p.costo) : '—'}</Td>
+                {/* Las tres tarifas de venta, que no tienen que ver con lo que
+                    cuesta comprarla: público · especial · súper. */}
+                <Td numerico className="whitespace-nowrap text-tinta-500">
+                  {tieneTarifas(p)
+                    ? NIVELES_PRECIO.map((n) => {
+                        const monto = precioPorNivel(p, n.valor)
+                        return monto == null ? '—' : pesos(monto)
+                      }).join(' · ')
+                    : '—'}
+                </Td>
                 <Td className="text-tinta-500">
                   {(p.proveedor_id && nombreProveedor.get(p.proveedor_id)) || '—'}
                 </Td>

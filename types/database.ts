@@ -14,6 +14,9 @@ export type OficioTrabajador = 'pintor' | 'herrero' | 'ayudante' | 'otro'
 export type TipoCotizacion = 'pintura' | 'imper' | 'herreria' | 'otros' | 'mixta'
 export type EstatusCotizacion =
   | 'borrador' | 'enviada' | 'seguimiento' | 'aprobada' | 'rechazada' | 'terminada'
+
+/** Las tres tarifas con las que se cobra un metro de pintura. */
+export type NivelPrecio = 'publico' | 'especial' | 'super'
 export type EstatusObra = 'agendada' | 'en_obra' | 'pausada' | 'en_entrega' | 'terminada' | 'cerrada'
 export type TipoProducto = 'pintura' | 'herreria' | 'insumo_taller' | 'otro'
 export type TipoMovimiento = 'entrada' | 'salida'
@@ -90,9 +93,20 @@ export type Producto = {
   nombre: string
   codigo: string | null
   unidad: string
+  /** Lo que cuesta comprarla, sin IVA. */
   costo: number
   iva: number
+  /** Lo que se paga por ella: costo + IVA. */
   precio_neto: number
+  /** Agrupa las pinturas en el cotizador. */
+  marca: string | null
+  /**
+   * Lo que se le cobra al cliente por m² aplicado con esta pintura, en sus tres
+   * tarifas. Nada que ver con el costo. Nulos = no se ofrece al cotizar.
+   */
+  precio_publico: number | null
+  precio_especial: number | null
+  precio_super: number | null
   proveedor_id: string | null
   tipo: TipoProducto
   notas: string | null
@@ -172,6 +186,8 @@ export type CotizacionItem = {
   precio_unitario: number
   importe: number
   producto_id: string | null
+  /** Con qué tarifa de la pintura se armó; nulo = precio tecleado a mano. */
+  nivel_precio: NivelPrecio | null
   orden: number
 }
 
@@ -724,6 +740,7 @@ export type DocumentoCotizacionSql = {
     unidad?: string | null
     precio_unitario: number
     producto_id?: string | null
+    nivel_precio?: NivelPrecio | null
   }[]
   desglose: {
     concepto: string

@@ -12,7 +12,9 @@ import {
 } from '@/app/admin/acciones'
 import type { EstadoAccion } from '@/lib/acciones'
 import { hoyISO } from '@/lib/cotizaciones'
-import type { Herramienta, Producto, Proveedor, TextoProceso } from '@/types/database'
+import type {
+  Herramienta, Producto, Proveedor, TextoProceso, TipoProducto,
+} from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Disparadores
@@ -292,6 +294,11 @@ export function FormularioProducto({
     ? producto ? 'Editar insumo' : 'Nuevo insumo de taller'
     : producto ? 'Editar producto' : 'Nuevo producto'
 
+  // El tipo se controla para que las tarifas de venta aparezcan y desaparezcan
+  // al cambiarlo, sin tener que cerrar y volver a abrir la ficha.
+  const [tipo, setTipo] = useState<TipoProducto>(producto?.tipo ?? (esInsumo ? 'insumo_taller' : 'pintura'))
+  const esPintura = !esInsumo && tipo === 'pintura'
+
   return (
     <Formulario
       abierto={abierto}
@@ -333,7 +340,11 @@ export function FormularioProducto({
           etiqueta="Tipo"
           ancho="medio"
           hijo={
-            <Seleccion name="tipo" defaultValue={producto?.tipo ?? 'pintura'}>
+            <Seleccion
+              name="tipo"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as TipoProducto)}
+            >
               <option value="pintura">Pintura</option>
               <option value="herreria">Herrería</option>
               <option value="otro">Otro</option>
@@ -366,6 +377,37 @@ export function FormularioProducto({
         hijo={<Numero name="iva" defaultValue={producto?.iva ?? ''} placeholder="se calcula al 16%" />}
         ayuda="Déjalo vacío y se calcula solo."
       />
+
+      {/* Las tarifas de venta sólo tienen sentido en la pintura, que es lo que
+          se cobra por metro aplicado. Arriba está lo que cuesta comprarla. */}
+      {esPintura && (
+        <div className="grid gap-4 rounded-xl bg-haaco-50/60 px-4 py-4 sm:col-span-2 sm:grid-cols-2">
+          <p className="text-sm font-medium text-haaco-900 sm:col-span-2">
+            Lo que se cobra por m² aplicado con esta pintura
+            <span className="mt-0.5 block text-xs font-normal text-tinta-500">
+              Deja los tres vacíos si esta pintura no se ofrece al cotizar.
+            </span>
+          </p>
+          <Campo
+            etiqueta="Marca"
+            hijo={<Entrada name="marca" defaultValue={producto?.marca ?? ''} placeholder="Comex" />}
+            ayuda="Agrupa las pinturas al cotizar."
+          />
+          <Campo
+            etiqueta="Precio público"
+            hijo={<Numero name="precio_publico" defaultValue={producto?.precio_publico ?? ''} placeholder="124.00" />}
+          />
+          <Campo
+            etiqueta="Precio especial"
+            hijo={<Numero name="precio_especial" defaultValue={producto?.precio_especial ?? ''} placeholder="114.00" />}
+          />
+          <Campo
+            etiqueta="Precio súper especial"
+            hijo={<Numero name="precio_super" defaultValue={producto?.precio_super ?? ''} placeholder="104.00" />}
+          />
+        </div>
+      )}
+
       <Campo etiqueta="Notas" hijo={<AreaTexto name="notas" defaultValue={producto?.notas ?? ''} rows={2} />} />
       {producto && <Casilla name="activo" etiqueta="Activo" defaultChecked={producto.activo} />}
     </Formulario>

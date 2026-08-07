@@ -106,6 +106,13 @@ export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise
     costo,
     iva,
     precio_neto: Math.round((costo + iva) * 100) / 100,
+    // Lo que se le cobra al cliente por metro aplicado, que no tiene nada que
+    // ver con lo de arriba. Sólo lo llevan las pinturas que se ofrecen al
+    // cotizar; vacío = esa pintura no sale en el cotizador.
+    marca: opcional(d, 'marca'),
+    precio_publico: numero(d, 'precio_publico'),
+    precio_especial: numero(d, 'precio_especial'),
+    precio_super: numero(d, 'precio_super'),
     proveedor_id: opcional(d, 'proveedor_id'),
     notas: opcional(d, 'notas'),
     activo: d.has('activo') ? casilla(d, 'activo') : true,
