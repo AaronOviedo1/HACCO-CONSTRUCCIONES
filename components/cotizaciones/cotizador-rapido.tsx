@@ -375,15 +375,22 @@ export function CotizadorRapido({
         </div>
       )}
 
-      <FormularioCliente
-        abierto={nuevoCliente}
-        onCerrar={() => setNuevoCliente(false)}
-        onGuardado={(id) => {
-          setDoc((d) => ({ ...d, cliente_id: id }))
-          setPaso('tipo')
-          router.refresh()
-        }}
-      />
+      {/*
+        Montado sólo mientras está abierto: si el diálogo vive siempre, el
+        estado del envío anterior sobrevive y `onGuardado` puede volver a
+        dispararse en un repintado, regresando el asistente al paso del tipo.
+      */}
+      {nuevoCliente && (
+        <FormularioCliente
+          abierto
+          onCerrar={() => setNuevoCliente(false)}
+          onGuardado={(id) => {
+            setDoc((d) => ({ ...d, cliente_id: id }))
+            setPaso('tipo')
+            router.refresh()
+          }}
+        />
+      )}
     </div>
   )
 }

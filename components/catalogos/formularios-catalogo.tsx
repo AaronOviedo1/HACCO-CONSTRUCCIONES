@@ -1,10 +1,10 @@
 'use client'
 
-import { useActionState, useEffect, useState, type ReactNode } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useActionState, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowDownToLine, ArrowUpFromLine, Pencil, Plus } from 'lucide-react'
 import {
-  AreaTexto, BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
-  Numero, PieDialogo, Seleccion,
+  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
+  Numero, PieFormulario, Seleccion,
 } from '@/components/formulario'
 import {
   eliminarHerramienta, eliminarProducto, eliminarProveedor, eliminarTexto,
@@ -35,7 +35,12 @@ export function BotonNuevo({
         <Plus size={16} />
         {etiqueta}
       </button>
-      {children(abierto, () => setAbierto(false))}
+      {/*
+        El formulario se monta sólo con el diálogo abierto. Si vive siempre,
+        el estado de useActionState sobrevive al cierre: un error de borrado
+        reaparecía al reabrir, y con `ok` pegado el diálogo se cerraba solo.
+      */}
+      {abierto && children(abierto, () => setAbierto(false))}
     </>
   )
 }
@@ -60,7 +65,7 @@ export function BotonEditar({
       >
         <Pencil size={15} />
       </button>
-      {children(abierto, () => setAbierto(false))}
+      {abierto && children(abierto, () => setAbierto(false))}
     </>
   )
 }
@@ -189,10 +194,18 @@ function Formulario({
     accionEliminar ?? accionGuardar,
     {},
   )
+  // `onCerrar` llega como una flecha suelta en el JSX del padre, así que cambia
+  // de identidad en cada pintado y el efecto se volvería a disparar con el
+  // mismo resultado ya atendido. `useActionState` entrega un objeto distinto
+  // por cada envío: esa identidad es la marca de agua que hace falta.
+  const atendido = useRef<EstadoAccion | null>(null)
 
   useEffect(() => {
-    if (estado.ok || estadoBorrar.ok) onCerrar()
-  }, [estado.ok, estadoBorrar.ok, onCerrar])
+    const hecho = estado.ok ? estado : estadoBorrar.ok ? estadoBorrar : null
+    if (!hecho || atendido.current === hecho) return
+    atendido.current = hecho
+    onCerrar()
+  }, [estado, estadoBorrar, onCerrar])
 
   return (
     <Dialogo abierto={abierto} onCerrar={onCerrar} titulo={titulo} descripcion={descripcion} ancho={ancho}>
@@ -201,29 +214,17 @@ function Formulario({
           {children}
           <MensajeError mensaje={estado.error ?? estadoBorrar.error} />
         </CuerpoDialogo>
-        <PieDialogo>
-          {accionEliminar && (
-            <button
-              type="submit"
-              formAction={accionBorrar}
-              onClick={(e) => {
-                if (!confirm(confirmacionBorrado ?? '¿Eliminar este registro?')) e.preventDefault()
-              }}
-              className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
-            >
-              <Trash2 size={15} />
-              Eliminar
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
-          >
-            Cancelar
-          </button>
-          <BotonGuardar />
-        </PieDialogo>
+        <PieFormulario
+          onCerrar={onCerrar}
+          borrado={
+            accionEliminar
+              ? {
+                  pregunta: confirmacionBorrado ?? '¿Eliminar este registro?',
+                  formAction: accionBorrar,
+                }
+              : undefined
+          }
+        />
       </form>
     </Dialogo>
   )

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
-import { X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 
 /* En el teléfono los campos son más altos y redondos: se llenan con el pulgar. */
 const CLASE_CAMPO =
@@ -230,6 +230,72 @@ export function PieDialogo({ children }: { children: ReactNode }) {
 
 export function CuerpoDialogo({ children }: { children: ReactNode }) {
   return <div className="grid flex-1 gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2">{children}</div>
+}
+
+/**
+ * El pie de un formulario que además puede borrar el registro.
+ *
+ * La confirmación se pide aquí dentro y no con el `confirm()` del navegador:
+ * al tercer aviso seguido, Safari y Chrome ofrecen «impedir que esta página
+ * cree cuadros de diálogo adicionales» y, si el usuario acepta, todos los
+ * borrados de la pantalla dejan de funcionar sin decir nada.
+ */
+export function PieFormulario({
+  onCerrar,
+  borrado,
+  guardar = 'Guardar',
+}: {
+  onCerrar: () => void
+  borrado?: { pregunta: string; formAction: (d: FormData) => void }
+  guardar?: string
+}) {
+  const [confirmando, setConfirmando] = useState(false)
+
+  if (borrado && confirmando) {
+    return (
+      <PieDialogo>
+        <p className="mr-auto text-sm text-tinta-600 sm:flex-none">{borrado.pregunta}</p>
+        <button
+          type="button"
+          onClick={() => setConfirmando(false)}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          No, conservar
+        </button>
+        <button
+          type="submit"
+          formAction={borrado.formAction}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+        >
+          <Trash2 size={15} />
+          Sí, eliminar
+        </button>
+      </PieDialogo>
+    )
+  }
+
+  return (
+    <PieDialogo>
+      {borrado && (
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+        >
+          <Trash2 size={15} />
+          Eliminar
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onCerrar}
+        className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+      >
+        Cancelar
+      </button>
+      <BotonGuardar>{guardar}</BotonGuardar>
+    </PieDialogo>
+  )
 }
 
 // ---------------------------------------------------------------------------

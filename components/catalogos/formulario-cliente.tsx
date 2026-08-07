@@ -1,10 +1,10 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import {
-  AreaTexto, BotonGuardar, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
-  PieDialogo, Seleccion,
+  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError,
+  PieFormulario, Seleccion,
 } from '@/components/formulario'
 import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, FilaAccion, Td } from '@/components/ui'
@@ -27,7 +27,9 @@ export function BotonNuevoCliente({ etiqueta = 'Nuevo cliente' }: { etiqueta?: s
         <Plus size={16} />
         {etiqueta}
       </button>
-      <FormularioCliente abierto={abierto} onCerrar={() => setAbierto(false)} />
+      {/* Sólo montado mientras está abierto: así no sobrevive el estado del
+          envío anterior y el diálogo no reabre con el error de la vez pasada. */}
+      {abierto && <FormularioCliente abierto onCerrar={() => setAbierto(false)} />}
     </>
   )
 }
@@ -44,7 +46,7 @@ export function BotonEditarCliente({ cliente }: { cliente: Cliente }) {
       >
         <Pencil size={15} />
       </button>
-      <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
+      {abierto && <FormularioCliente cliente={cliente} abierto onCerrar={() => setAbierto(false)} />}
     </>
   )
 }
@@ -108,7 +110,7 @@ export function FilaClienteMovil({
           </span>
         </span>
       </button>
-      <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
+      {abierto && <FormularioCliente cliente={cliente} abierto onCerrar={() => setAbierto(false)} />}
     </>
   )
 }
@@ -149,7 +151,7 @@ export function FilaCliente({ cliente, children }: { cliente: Cliente; children:
         >
           <Pencil size={15} />
         </button>
-        <FormularioCliente cliente={cliente} abierto={abierto} onCerrar={() => setAbierto(false)} />
+        {abierto && <FormularioCliente cliente={cliente} abierto onCerrar={() => setAbierto(false)} />}
       </Td>
     </FilaAccion>
   )
@@ -256,31 +258,17 @@ export function FormularioCliente({
           <MensajeError mensaje={estado.error ?? estadoBorrar.error} />
         </CuerpoDialogo>
 
-        <PieDialogo>
-          {cliente && (
-            <button
-              type="submit"
-              formAction={accionBorrar}
-              onClick={(e) => {
-                if (!confirm(`¿Eliminar a ${cliente.nombre}? No se puede deshacer.`)) {
-                  e.preventDefault()
+        <PieFormulario
+          onCerrar={onCerrar}
+          borrado={
+            cliente
+              ? {
+                  pregunta: `¿Eliminar a ${cliente.nombre}? No se puede deshacer.`,
+                  formAction: accionBorrar,
                 }
-              }}
-              className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
-            >
-              <Trash2 size={15} />
-              Eliminar
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
-          >
-            Cancelar
-          </button>
-          <BotonGuardar />
-        </PieDialogo>
+              : undefined
+          }
+        />
       </form>
     </Dialogo>
   )

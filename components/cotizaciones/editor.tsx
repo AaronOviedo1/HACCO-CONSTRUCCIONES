@@ -653,14 +653,16 @@ export function EditorCotizacion({
         </div>
       )}
 
-      <FormularioCliente
-        abierto={nuevoCliente}
-        onCerrar={() => setNuevoCliente(false)}
-        onGuardado={(id) => {
-          cambiar('cliente_id', id)
-          router.refresh()
-        }}
-      />
+      {nuevoCliente && (
+        <FormularioCliente
+          abierto
+          onCerrar={() => setNuevoCliente(false)}
+          onGuardado={(id) => {
+            cambiar('cliente_id', id)
+            router.refresh()
+          }}
+        />
+      )}
 
       {cotizacionId && aprobando && (
         <DialogoAprobar

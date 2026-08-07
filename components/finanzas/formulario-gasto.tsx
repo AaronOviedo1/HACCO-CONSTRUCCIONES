@@ -142,6 +142,12 @@ function FormularioGasto({
     setLeyendo(true)
     setLlenados(null)
     setAvisoTicket(null)
+    // Pedir la lectura es decir «llénalo tú»: lo tecleado hasta aquí deja de
+    // considerarse definitivo. Sin esto bastaba con haber escrito una letra en
+    // la descripción —que abre enfocada— para que la foto ya no pisara nada y
+    // el gasto acabara capturándose a mano. Lo que se corrija DESPUÉS, mientras
+    // el ticket viaja, sí vuelve a marcarse y la lectura lo respeta.
+    tocado.current.clear()
     try {
       const cuerpo = new FormData()
       cuerpo.append('archivo', await prepararTicket(f), f.name)
@@ -173,8 +179,12 @@ function FormularioGasto({
     }
 
     // Ticket de varios artículos: cada concepto llega con sus piezas y su
-    // importe, listo para revisar renglón por renglón.
-    if (l.renglones.length > 1 && !tocado.current.has('conceptos')) {
+    // importe, listo para revisar renglón por renglón. Si la captura ya está
+    // dividida en conceptos, la lectura los reemplaza aunque el ticket traiga
+    // uno solo; si no, hacen falta dos para que valga la pena dividirla.
+    const porConceptos = l.renglones.length > (renglones === null ? 1 : 0)
+
+    if (porConceptos && !tocado.current.has('conceptos')) {
       setRenglones(
         l.renglones.map((r) => ({
           descripcion: r.descripcion,
@@ -182,7 +192,7 @@ function FormularioGasto({
           monto: String(r.monto),
         })),
       )
-      puestos.push(`${l.renglones.length} conceptos`)
+      puestos.push(l.renglones.length === 1 ? 'el concepto' : `${l.renglones.length} conceptos`)
     } else if (renglones === null) {
       poner('descripción', l.descripcion, setDescripcion)
       poner('piezas', l.piezas === null ? null : String(l.piezas), setPiezas)
@@ -333,7 +343,9 @@ function FormularioGasto({
           ref={entrada}
           type="file"
           accept="image/*,application/pdf"
-          capture="environment"
+          // Sin `capture`: con él, el teléfono abre la cámara y ya no deja
+          // elegir de la galería, y los tickets casi siempre se capturan
+          // después, con la foto ya tomada.
           className="hidden"
           onChange={(e) => elegir(e.target.files?.[0] ?? null)}
         />
@@ -520,7 +532,6 @@ function FormularioGasto({
                 }}
                 sugerencias={sugerencias}
                 placeholder="Cubetas Rivinol 7 blanco"
-                autoFocus
               />
             }
           />
