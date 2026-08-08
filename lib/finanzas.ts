@@ -229,6 +229,85 @@ export function vencimientosPorSemana(
   })
 }
 
+/**
+ * Lo que hay que desembolsar semana a semana, desglosado por de dónde sale.
+ *
+ * Hermana de `vencimientosPorSemana`, que sólo mira facturas de proveedor y
+ * devuelve un total. Esta acepta varias fuentes a la vez —proveedores, nómina,
+ * pagos fijos— y regresa el desglose, porque no es lo mismo deber $80,000 al
+ * ferretero que deberlos a la cuadrilla. Igual que la otra, lo ya vencido se
+ * acumula en la primera barra: en la calle eso es «esta semana», no historia.
+ */
+export function semanasDePago(
+  fuentes: { clave: string; pagos: { fecha: string | null; monto: number }[] }[],
+  cuantas = 6,
+): { etiqueta: string; total: number; partes: Record<string, number> }[] {
+  const cortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  return Array.from({ length: cuantas }, (_, i) => {
+    const desde = new Date(hoy)
+    desde.setDate(hoy.getDate() + i * 7)
+    const hasta = new Date(desde)
+    hasta.setDate(desde.getDate() + 7)
+
+    const partes: Record<string, number> = {}
+    for (const f of fuentes) {
+      partes[f.clave] = f.pagos
+        .filter((p) => {
+          const v = parsearFecha(p.fecha)
+          if (!v) return false
+          return i === 0 ? v < hasta : v >= desde && v < hasta
+        })
+        .reduce((s, p) => s + Number(p.monto), 0)
+    }
+
+    return {
+      etiqueta: `${desde.getDate()} ${cortos[desde.getMonth()]}`,
+      total: Object.values(partes).reduce((s, v) => s + v, 0),
+      partes,
+    }
+  })
+}
+
+/** Los cuatro tramos de antigüedad, del más sano al más rancio. */
+export const TRAMOS_MORA = [
+  { clave: 'sano', etiqueta: 'Menos de 30 días', hasta: 30 },
+  { clave: 'medio', etiqueta: 'De 30 a 60 días', hasta: 60 },
+  { clave: 'viejo', etiqueta: 'De 60 a 90 días', hasta: 90 },
+  { clave: 'rancio', etiqueta: 'Más de 90 días', hasta: Infinity },
+] as const
+
+/**
+ * Reparte el saldo por cobrar según cuánto lleva el cliente sin soltar un peso.
+ *
+ * La antigüedad se cuenta desde el último pago recibido, y desde la fecha de la
+ * cotización si nunca ha pagado nada. No es la edad del documento: es el
+ * tiempo que lleva callado el cliente, que es lo que de verdad preocupa.
+ */
+export function antiguedadCobranza(
+  filas: { saldo: number; fecha: string | null; ultimo_pago: string | null }[],
+): { clave: string; etiqueta: string; monto: number; cuentas: number }[] {
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  const tramos = TRAMOS_MORA.map((t) => ({ ...t, monto: 0, cuentas: 0 }))
+
+  for (const fila of filas) {
+    const saldo = Number(fila.saldo ?? 0)
+    if (saldo <= 0) continue
+    const desde = parsearFecha(fila.ultimo_pago) ?? parsearFecha(fila.fecha)
+    const dias = desde ? Math.floor((hoy.getTime() - desde.getTime()) / 86_400_000) : Infinity
+    const tramo = tramos.find((t) => dias < t.hasta) ?? tramos[tramos.length - 1]
+    tramo.monto += saldo
+    tramo.cuentas += 1
+  }
+
+  return tramos.map(({ clave, etiqueta, monto, cuentas }) => ({ clave, etiqueta, monto, cuentas }))
+}
+
 /** Tono de la barra de cobranza según lo que falte por cobrar. */
 export function tonoCobranza(pctPendiente: number): TonoEtiqueta {
   if (pctPendiente <= 0) return 'verde'

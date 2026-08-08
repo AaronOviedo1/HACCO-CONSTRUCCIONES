@@ -2,198 +2,137 @@
 
 import { useState } from 'react'
 import { pesosCortos } from '@/lib/format'
+import { COTIZACIONES } from '@/components/graficas/paleta'
+import { apilar, marcasY, topeDe, trazoBarra } from '@/components/graficas/escala'
+import { ALTO, ANCHO, EtiquetasX, Lienzo, Rejilla, ZonasDeToque } from '@/components/graficas/lienzo'
+import { Leyenda } from '@/components/graficas/leyenda'
+
+export type MesCotizado = {
+  m: string
+  /** Aprobadas y terminadas: el cliente dijo que sí. */
+  vendido: number
+  /** Sin resolver pero todavía dentro de vigencia. */
+  enJuego: number
+  /** Rechazadas, y las que se quedaron sin contestar hasta que venció el precio. */
+  enfriado: number
+}
 
 /**
- * Cotizado contra aprobado, mes a mes.
+ * Lo cotizado del mes, partido en lo que se cerró y lo que no.
  *
- * La gráfica siempre canta una cifra: al abrir muestra el mes más reciente y
- * al pasar el dedo o el ratón por cualquier mes cambia a ese. Sin eso, dos
- * líneas sueltas no dicen cuánto.
+ * Antes eran dos líneas encimadas, y ahí estaba el error: lo aprobado no es
+ * una serie que corra junto a lo cotizado, es un pedazo suyo. Dos líneas que
+ * nunca se pueden cruzar obligan a restar de cabeza para saber lo único que
+ * importa. Aquí la altura de la columna **es** lo cotizado y el tramo de
+ * abajo, el más oscuro, es lo que se vendió: la proporción se lee sola.
  */
-export function GraficaMeses({
-  meses,
-  meta = 0,
-}: {
-  meses: { m: string; cotizado: number; aprobado: number }[]
-  /** Meta de venta mensual: se cruza como una raya para leerla de un vistazo. */
-  meta?: number
-}) {
+export function GraficaMeses({ meses, meta = 0 }: { meses: MesCotizado[]; meta?: number }) {
   const [activo, setActivo] = useState(meses.length - 1)
 
-  // El viewBox es ancho para que en pantallas grandes el trazo se dibuje casi
-  // 1:1 y el texto no se infle; en el teléfono simplemente se encoge.
-  const ancho = 620
-  const alto = 190
+  const totales = meses.map((x) => x.vendido + x.enJuego + x.enfriado)
   // La meta entra en la escala: si nunca se ha alcanzado, la raya tiene que
   // caber igual o la gráfica mentiría por arriba.
-  const tope = Math.max(1, meta, ...meses.map((x) => x.cotizado)) * 1.12
-  const yMeta = meta > 0 ? alto - (meta / tope) * alto : null
-  const paso = meses.length > 1 ? ancho / (meses.length - 1) : ancho
+  const tope = topeDe([...totales, meta], 1.12)
+  const marcas = marcasY(tope)
+  const yMeta = meta > 0 ? ALTO - (meta / tope) * ALTO : null
 
-  const puntos = meses.map((x, i) => ({
-    ...x,
-    x: i * paso,
-    y: alto - (x.cotizado / tope) * alto,
-    y2: alto - (x.aprobado / tope) * alto,
-  }))
+  const slot = ANCHO / Math.max(1, meses.length)
+  const ancho = Math.min(44, slot - 20)
 
-  const trazo = (clave: 'y' | 'y2') =>
-    puntos.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p[clave].toFixed(1)}`).join(' ')
-
-  const mes = puntos[activo] ?? puntos[puntos.length - 1]
-  // Tres marcas bastan para dar escala sin ensuciar el dibujo.
-  const marcas = [tope, tope / 2, 0]
+  const mes = meses[activo] ?? meses[meses.length - 1]
+  const total = totales[activo] ?? 0
+  const cierre = total > 0 ? Math.round(((mes?.vendido ?? 0) / total) * 100) : null
 
   return (
     <>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.07em] text-tinta-400">
-          {mes?.m}
-        </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
-          <span className="h-[3px] w-3.5 rounded-sm bg-haaco-700" aria-hidden />
-          Cotizado
-          <strong className="font-semibold tabular-nums text-tinta-900">
-            {pesosCortos(mes?.cotizado ?? 0)}
-          </strong>
-        </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
-          <span className="h-[3px] w-3.5 rounded-sm bg-haaco-300" aria-hidden />
-          Aprobado
-          <strong className="font-semibold tabular-nums text-tinta-900">
-            {pesosCortos(mes?.aprobado ?? 0)}
-          </strong>
-        </span>
-      </div>
+      <Leyenda
+        periodo={mes?.m}
+        series={[
+          { nombre: 'Vendido', color: COTIZACIONES.vendido, valor: mes?.vendido ?? 0 },
+          { nombre: 'En juego', color: COTIZACIONES.enJuego, valor: mes?.enJuego ?? 0 },
+          { nombre: 'Se enfrió', color: COTIZACIONES.enfriado, valor: mes?.enfriado ?? 0 },
+        ]}
+        extra={
+          <>
+            <span className="text-[11px] text-tinta-600">
+              Total{' '}
+              <strong className="font-semibold tabular-nums text-tinta-900">
+                {pesosCortos(total)}
+              </strong>
+            </span>
+            {cierre !== null && (
+              <span className="text-[11px] text-tinta-600">
+                Cierre{' '}
+                <strong className="font-semibold tabular-nums text-haaco-700">{cierre}%</strong>
+              </span>
+            )}
+            {meta > 0 && (
+              <span className="flex items-center gap-1.5 text-[11px] text-tinta-600">
+                <span
+                  className="h-0 w-3.5 shrink-0 border-t-2 border-dashed border-haaco-700"
+                  aria-hidden
+                />
+                Meta
+                <strong className="font-semibold tabular-nums text-tinta-900">
+                  {pesosCortos(meta)}
+                </strong>
+              </span>
+            )}
+          </>
+        }
+      />
 
-      <div className="mt-3 flex gap-2">
-        {/* Escala: el tope y la mitad, redondeados a miles. */}
-        <div
-          className="flex w-9 shrink-0 flex-col justify-between py-[2px] text-right text-[9.5px] tabular-nums text-tinta-400"
-          style={{ height: alto + 4 }}
-          aria-hidden
-        >
-          {marcas.map((v) => (
-            <span key={v}>{v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`}</span>
-          ))}
-        </div>
+      <Lienzo
+        marcas={marcas}
+        arriba={8}
+        etiqueta={`Lo cotizado en los últimos ${meses.length} meses, partido en vendido, en juego y enfriado`}
+      >
+        <Rejilla marcas={marcas} />
 
-        <svg
-          viewBox={`-4 -8 ${ancho + 9} ${alto + 28}`}
-          className="block min-w-0 flex-1 overflow-visible"
-          role="img"
-          aria-label={`Cotizado contra aprobado en los últimos ${meses.length} meses`}
-        >
-          {marcas.map((v, i) => (
-            <line
-              key={v}
-              x1="0"
-              y1={(alto / (marcas.length - 1)) * i}
-              x2={ancho}
-              y2={(alto / (marcas.length - 1)) * i}
-              stroke={i === marcas.length - 1 ? 'var(--color-tinta-200)' : 'var(--color-tinta-100)'}
-              strokeWidth="1"
-            />
-          ))}
+        {meses.map((x, i) => {
+          const centro = i * slot + slot / 2
+          const tramos = apilar([x.vendido, x.enJuego, x.enfriado], tope, ALTO)
+          const colores = [COTIZACIONES.vendido, COTIZACIONES.enJuego, COTIZACIONES.enfriado]
+          return (
+            <g key={`${x.m}-${i}`}>
+              {tramos.map((t, j) =>
+                t.alto > 0 ? (
+                  <path
+                    key={j}
+                    d={trazoBarra(
+                      centro - ancho / 2,
+                      t.y,
+                      ancho,
+                      t.alto,
+                      t.corona ? 'arriba' : 'ninguno',
+                    )}
+                    fill={colores[j]}
+                  />
+                ) : null,
+              )}
+            </g>
+          )
+        })}
 
-          <path d={`${trazo('y')} L${ancho} ${alto} L0 ${alto} Z`} fill="var(--color-haaco-50)" />
-          <path
-            d={trazo('y')}
-            fill="none"
+        {/* La meta del mes, cruzada de lado a lado. Va sin rótulo encima:
+            cualquier lugar donde se escriba choca con alguna columna, así que
+            la cifra vive arriba, en la leyenda. */}
+        {yMeta != null && (
+          <line
+            x1="0"
+            y1={yMeta}
+            x2={ANCHO}
+            y2={yMeta}
             stroke="var(--color-haaco-700)"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            strokeWidth="1.6"
+            strokeDasharray="7 5"
           />
-          <path
-            d={trazo('y2')}
-            fill="none"
-            stroke="var(--color-haaco-300)"
-            strokeWidth="2.2"
-            strokeDasharray="4 4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        )}
 
-          {/* La meta del mes, cruzada de lado a lado */}
-          {yMeta != null && (
-            <>
-              <line
-                x1="0"
-                y1={yMeta}
-                x2={ancho}
-                y2={yMeta}
-                stroke="var(--color-haaco-500)"
-                strokeWidth="1.6"
-                strokeDasharray="7 5"
-              />
-              <text
-                x={ancho}
-                y={yMeta - 5}
-                textAnchor="end"
-                className="fill-haaco-700 text-[11px] font-semibold"
-              >
-                meta {pesosCortos(meta)}
-              </text>
-            </>
-          )}
+        <ZonasDeToque n={meses.length} onActivo={setActivo} desdeY={-8} />
+      </Lienzo>
 
-          {/* Guía del mes elegido */}
-          {mes && (
-            <line
-              x1={mes.x}
-              y1="-4"
-              x2={mes.x}
-              y2={alto}
-              stroke="var(--color-tinta-300)"
-              strokeWidth="1"
-              strokeDasharray="3 3"
-            />
-          )}
-
-          {puntos.map((p, i) => (
-            <circle
-              key={p.m}
-              cx={p.x}
-              cy={p.y}
-              r={i === activo ? '4.6' : '3.4'}
-              fill="#fff"
-              stroke="var(--color-haaco-700)"
-              strokeWidth="2.2"
-            />
-          ))}
-
-          {/* Franjas invisibles: dan una zona cómoda para señalar cada mes. */}
-          {puntos.map((p, i) => (
-            <rect
-              key={`zona-${p.m}`}
-              x={p.x - paso / 2}
-              y="-6"
-              width={paso}
-              height={alto + 12}
-              fill="transparent"
-              onMouseEnter={() => setActivo(i)}
-              onTouchStart={() => setActivo(i)}
-              className="cursor-pointer"
-            />
-          ))}
-        </svg>
-      </div>
-
-      <div className="mt-1.5 flex justify-between pl-11">
-        {puntos.map((p, i) => (
-          <button
-            key={p.m}
-            type="button"
-            onClick={() => setActivo(i)}
-            className={`text-[10.5px] capitalize transition ${
-              i === activo ? 'font-semibold text-tinta-800' : 'text-tinta-400'
-            }`}
-          >
-            {p.m}
-          </button>
-        ))}
-      </div>
+      <EtiquetasX etiquetas={meses.map((x) => x.m)} activo={activo} onElegir={setActivo} />
     </>
   )
 }

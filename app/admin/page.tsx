@@ -4,14 +4,19 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
 import { ESTATUS_OBRA } from '@/lib/obras'
-import { CATEGORIA_GASTO, etiquetaMes, mesActual, rangoMes } from '@/lib/finanzas'
+import {
+  CATEGORIA_GASTO, antiguedadCobranza, etiquetaMes, mesActual, rangoMes, semanasDePago,
+} from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { Anillo, FilaLista, PieTarjeta } from '@/components/movil/piezas'
+import { Anillo, FilaLista } from '@/components/movil/piezas'
 import { GraficaMeses } from '@/components/movil/grafica-meses'
 import { GraficaFlujo } from '@/components/admin/grafica-flujo'
 import { GraficaGastos } from '@/components/admin/grafica-gastos'
+import { GraficaAntiguedad } from '@/components/admin/grafica-antiguedad'
+import { GraficaObrasCosto } from '@/components/admin/grafica-obras-costo'
+import { CalendarioPagos } from '@/components/admin/calendario-pagos'
 import { TileResumen } from '@/components/admin/tile-resumen'
 import { VentasDelMes } from '@/components/admin/ventas-del-mes'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
@@ -52,15 +57,23 @@ export default async function Dashboard() {
     .slice(0, 10)
   const ventana = ultimosSeisMeses()
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
+  // Hoy en día calendario local: `toISOString` se va a UTC y en Hermosillo
+  // adelanta la fecha siete horas antes de tiempo.
+  const ahora = new Date()
+  const hoyIso = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
 
-  const [historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina, recientes, meta] =
-    await Promise.all([
+  const [
+    historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina,
+    concentrado, fijos, recientes, meta,
+  ] = await Promise.all([
       supabase
         .from('v_cotizaciones')
-        .select('id, folio, cliente, nombre_obra, fecha, estatus, total')
+        .select('id, folio, cliente, nombre_obra, fecha, vence, estatus, total')
         .gte('fecha', desdeSeis),
       supabase.from('obras').select('id, ot_numero, nombre, estatus, avance_pct'),
-      supabase.from('v_cobranza').select('saldo, cobrado, estatus, anticipo_esperado, anticipo'),
+      supabase
+        .from('v_cobranza')
+        .select('saldo, cobrado, estatus, anticipo_esperado, anticipo, fecha, ultimo_pago'),
       supabase
         .from('v_cuentas_por_pagar')
         .select('saldo, estado, proveedor, vencimiento, folio_factura, dias_restantes')
@@ -69,22 +82,38 @@ export default async function Dashboard() {
       supabase.from('pagos_cobranza').select('monto, fecha').gte('fecha', desdeSeis),
       supabase.from('nomina_pagos').select('monto, fecha').gte('fecha', desdeSeis),
       supabase.from('v_prenomina').select('*').order('disponible', { ascending: false }),
+      supabase
+        .from('v_obra_concentrado')
+        .select(
+          'obra_id, ot_numero, nombre, estatus, cotizado, mano_obra, material_real, viaticos, gastos_adicionales, utilidad',
+        ),
+      supabase.from('pagos_fijos').select('quincena, monto, estado').neq('estado', 'pagado'),
       supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
       supabase.from('ajustes').select('valor').eq('clave', 'meta_venta_mensual').maybeSingle(),
     ])
 
   const bdLista = !historico.error && !obras.error
 
-  // ---- cotizado contra aprobado, mes a mes -------------------------------
+  // ---- lo cotizado partido en lo que cerró y lo que no --------------------
   const todas = historico.data ?? []
+  const cerrada = (e: EstatusCotizacion) => e === 'aprobada' || e === 'terminada'
+  /**
+   * Una cotización se enfrió si el cliente dijo que no, o si se quedó sin
+   * contestar hasta que se le venció el precio. Sin esa segunda mitad, las
+   * ciento cincuenta y tantas cotizaciones que se importaron del Excel 2026
+   * —todas en «enviada»— inflarían para siempre lo que está en juego.
+   */
+  const enfriada = (c: { estatus: EstatusCotizacion; vence: string | null }) =>
+    c.estatus === 'rechazada' || (!!c.vence && c.vence < hoyIso && !cerrada(c.estatus))
+
   const meses = ventana.map((v) => {
     const delMes = todas.filter((c) => String(c.fecha ?? '').startsWith(v.clave))
+    const suma = (filas: typeof delMes) => filas.reduce((s, c) => s + Number(c.total), 0)
     return {
       m: v.m,
-      cotizado: delMes.reduce((s, c) => s + Number(c.total), 0),
-      aprobado: delMes
-        .filter((c) => c.estatus === 'aprobada' || c.estatus === 'terminada')
-        .reduce((s, c) => s + Number(c.total), 0),
+      vendido: suma(delMes.filter((c) => cerrada(c.estatus))),
+      enfriado: suma(delMes.filter((c) => enfriada(c))),
+      enJuego: suma(delMes.filter((c) => !cerrada(c.estatus) && !enfriada(c))),
     }
   })
 
@@ -144,6 +173,10 @@ export default async function Dashboard() {
     .filter((c) => c.estatus === 'aprobada' && Number(c.anticipo) < Number(c.anticipo_esperado))
     .reduce((s, c) => s + (Number(c.anticipo_esperado) - Number(c.anticipo)), 0)
 
+  // Cuánto lleva callado cada cliente que debe: el total por cobrar ya está
+  // arriba, esto dice cuánto de ese total es dinero que se está añejando.
+  const antiguedad = antiguedadCobranza(abiertas)
+
   const urgentes = (cxp.data ?? []).filter((c) => c.estado === 'vencida' || c.estado === 'urgente')
   const montoUrgente = urgentes.reduce((s, c) => s + Number(c.saldo ?? 0), 0)
 
@@ -152,6 +185,40 @@ export default async function Dashboard() {
     (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
     0,
   )
+
+  // ---- lo que hay que desembolsar las próximas seis semanas ---------------
+  const porPagar = (cxp.data ?? []).filter(
+    (c) => c.estado !== 'pagada' && c.estado !== 'cancelada' && Number(c.saldo) > 0,
+  )
+  const semanas = semanasDePago([
+    {
+      clave: 'proveedores',
+      pagos: porPagar.map((c) => ({ fecha: c.vencimiento, monto: Number(c.saldo) })),
+    },
+    // La cuadrilla no tiene fecha de vencimiento: se le paga en la semana en
+    // curso lo que ya devengó por avance.
+    { clave: 'nomina', pagos: [{ fecha: hoyIso, monto: aPagarNomina }] },
+    {
+      clave: 'fijos',
+      pagos: (fijos.data ?? []).map((f) => ({ fecha: f.quincena, monto: Number(f.monto) })),
+    },
+  ])
+
+  // ---- lo que cada obra abierta se ha comido de su presupuesto ------------
+  const obrasCosto = (concentrado.data ?? [])
+    .filter((o) => o.estatus !== 'cerrada')
+    .map((o) => ({
+      id: o.obra_id,
+      ot: o.ot_numero,
+      nombre: o.nombre,
+      cotizado: Number(o.cotizado ?? 0),
+      manoObra: Number(o.mano_obra ?? 0),
+      material: Number(o.material_real ?? 0),
+      otros: Number(o.viaticos ?? 0) + Number(o.gastos_adicionales ?? 0),
+      utilidad: Number(o.utilidad ?? 0),
+    }))
+    .sort((a, b) => b.cotizado - a.cotizado)
+    .slice(0, 6)
 
   // ---- gastos por mes y flujo de dinero -----------------------------------
   const gastos = gastosSeis.data ?? []
@@ -490,6 +557,36 @@ export default async function Dashboard() {
       </div>
 
       <div className="mt-3.5 grid gap-3.5 lg:grid-cols-3">
+        {/* Lo que cada obra lleva gastado de su presupuesto ------------------- */}
+        <Tarjeta className="lg:col-span-2">
+          <div className="px-3.5 py-4">
+            <div className="mb-2.5 flex items-baseline justify-between gap-2">
+              <h2 className="text-[14.5px] font-semibold">Presupuesto contra lo gastado</h2>
+              <span className="text-[11px] text-tinta-400">obras abiertas</span>
+            </div>
+            <GraficaObrasCosto obras={obrasCosto} />
+          </div>
+        </Tarjeta>
+
+        {/* Qué tan añejo es lo que falta por cobrar --------------------------- */}
+        <Tarjeta>
+          <div className="px-3.5 py-4">
+            <div className="mb-2.5 flex items-baseline justify-between gap-2">
+              <h2 className="text-[14.5px] font-semibold">Antigüedad de la cobranza</h2>
+              <span className="text-[11px] text-tinta-400">sin pago</span>
+            </div>
+            <GraficaAntiguedad tramos={antiguedad} />
+            <Link
+              href="/admin/cobranza"
+              className="mt-3.5 block text-sm font-medium text-haaco-700 hover:underline"
+            >
+              Ver la cobranza →
+            </Link>
+          </div>
+        </Tarjeta>
+      </div>
+
+      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-3">
         {/* Gastos por categoría, con el mes a elección ------------------------- */}
         <Tarjeta className="lg:col-span-2">
           <div className="px-3.5 py-4">
@@ -526,26 +623,24 @@ export default async function Dashboard() {
         </Tarjeta>
       </div>
 
-      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-2">
-        {/* Pagos urgentes ------------------------------------------------------ */}
-        <Tarjeta titulo="Pagos que no pueden esperar">
-          {urgentes.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-tinta-500">Nada vencido ni por vencer.</p>
-          ) : (
-            urgentes.slice(0, 5).map((c, i) => (
-              <FilaLista
-                key={`${c.folio_factura}-${i}`}
-                principal={c.proveedor}
-                secundario={`${c.folio_factura ?? 'sin folio'} · vence ${fecha(c.vencimiento)}`}
-                derecha={
-                  <span className="text-sm font-semibold tabular-nums text-red-600">
-                    {pesosCortos(c.saldo)}
-                  </span>
-                }
-              />
-            ))
-          )}
-          <PieTarjeta href="/admin/cuentas-por-pagar">Ver cuentas por pagar →</PieTarjeta>
+      <div className="mt-3.5 grid gap-3.5 lg:grid-cols-3">
+        {/* Lo que hay que desembolsar de aquí a mes y medio -------------------- */}
+        {/* Sustituye a la lista de «pagos que no pueden esperar»: repetía tal
+            cual el detalle que ya abre el recuadro de pagos urgentes, y esto
+            además dice de dónde va a salir el dinero y cuándo. */}
+        <Tarjeta className="lg:col-span-2">
+          <div className="px-3.5 py-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-[14.5px] font-semibold">Lo que hay que pagar</h2>
+              <Link
+                href="/admin/cuentas-por-pagar"
+                className="text-[11px] font-medium text-haaco-700 hover:underline"
+              >
+                Ver cuentas por pagar →
+              </Link>
+            </div>
+            <CalendarioPagos semanas={semanas} />
+          </div>
         </Tarjeta>
 
         {/* Movimiento reciente -------------------------------------------------- */}
