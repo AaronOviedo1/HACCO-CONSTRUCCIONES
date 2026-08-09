@@ -23,6 +23,7 @@ export default async function PaginaGastos({
 }: {
   searchParams: Promise<{
     obra?: string; categoria?: string; metodo?: string; desde?: string; hasta?: string; q?: string
+    nuevo?: string
   }>
 }) {
   await requerirRol(['admin', 'administracion'])
@@ -134,6 +135,7 @@ export default async function PaginaGastos({
         descripcion="Todo gasto ligado a una obra alimenta su material consumido; a crédito abre su cuenta por pagar."
         acciones={
           <BotonNuevoGasto
+            abrirAlEntrar={filtros.nuevo === '1'}
             obras={obras ?? []}
             proveedores={proveedores ?? []}
             conceptos={conceptos ?? []}

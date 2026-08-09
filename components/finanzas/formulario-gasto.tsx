@@ -43,8 +43,15 @@ type PropsComunes = {
   sugerencias?: Sugerencia[]
 }
 
-export function BotonNuevoGasto(props: PropsComunes) {
-  const [abierto, setAbierto] = useState(false)
+export function BotonNuevoGasto({
+  abrirAlEntrar = false,
+  ...props
+}: PropsComunes & {
+  /** Con `?nuevo=1` en la URL el formulario sale solo: es el aterrizaje del
+      botón «+» del teléfono, que promete capturar el gasto, no ver la lista. */
+  abrirAlEntrar?: boolean
+}) {
+  const [abierto, setAbierto] = useState(abrirAlEntrar)
   return (
     <>
       <button
