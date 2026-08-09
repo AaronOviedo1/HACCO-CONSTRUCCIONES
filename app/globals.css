@@ -58,6 +58,13 @@
 
   --animate-entra: entra 0.28s ease;
   --animate-sube: sube 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
+  /*
+   * Entrada escalonada del login. El retraso vive en su propia variable para
+   * poder escalonarlo desde la clase —`[--retraso:70ms]`— en vez de declarar
+   * una animación por cada paso; es el mismo recurso con el que la barra de
+   * pestañas le pasa `--n` a su cápsula.
+   */
+  --animate-surge: surge 420ms var(--ease-suave) var(--retraso, 0ms) both;
   --animate-pulso: pulso 1.6s ease-in-out infinite;
   --animate-girar: girar 0.7s linear infinite;
 
@@ -106,6 +113,16 @@
 @keyframes pulso {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
+}
+
+/*
+ * Va sin `scale` a propósito. Una pieza que además crece al aparecer pide más
+ * atención de la que merece una pantalla de entrada, y con desplazamiento y
+ * opacidad ya se lee el orden en que llegan las cosas.
+ */
+@keyframes surge {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /*
@@ -196,6 +213,144 @@
   .cristal { background: rgb(255 255 255 / 0.94); }
 }
 
+/* ==========================================================================
+   El login.
+
+   Vive aquí y no en la página porque son superficies —el vocabulario de
+   materiales de la app—, no una maquetación.
+
+   La pantalla es blanca y el verde entra sólo donde tiene algo que decir: la
+   marca, el imagotipo de filigrana y el botón. Sobre papel no hace falta caja
+   que contenga el formulario; el aire lo agrupa mejor que un borde.
+   ========================================================================== */
+
+/*
+ * El lienzo.
+ *
+ * Blanco, pero no un blanco de documento: dos halos verdes muy diluidos lo
+ * apoyan por arriba a la izquierda y por abajo a la derecha, y un último tono
+ * papel en la esquina baja evita que la pantalla se corte a ras en monitores
+ * grandes. La luz entra por donde entra en el resto de la app.
+ */
+@utility lienzo-claro {
+  background-color: #fff;
+  background-image:
+    radial-gradient(105% 75% at 8% -8%, rgb(174 218 192 / 0.34) 0%, transparent 60%),
+    radial-gradient(85% 65% at 102% 104%, rgb(214 236 223 / 0.5) 0%, transparent 62%),
+    linear-gradient(168deg, #ffffff 0%, #ffffff 62%, #f6f7f6 100%);
+}
+
+/*
+ * Grano.
+ *
+ * El ruido lo genera el propio motor SVG con feTurbulence dentro de un
+ * data-URI: ni una petición de red, ni un PNG de textura que versionar. Se
+ * rasteriza una tesela de 160 y se repite, así que el costo no crece con la
+ * pantalla, y en retina se genera a resolución de dispositivo.
+ *
+ * Sobre blanco basta con muy poco: pasado del 5 % deja de leerse como textura
+ * y empieza a leerse como suciedad. Al 4,5 % sólo le quita el brillo de
+ * pantalla al fondo y lo acerca a papel.
+ */
+@utility grano {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  opacity: 0.045;
+}
+
+/*
+ * El campo del login.
+ *
+ * Sin caja que los agrupe, los campos son lo único que dibuja la columna del
+ * formulario, así que llevan algo más de presencia que los de un formulario
+ * denso: blanco levantado del papel con una sombra de un pelo y el filete de
+ * medio píxel de la app. Al enfocar, el anillo verde y nada más.
+ *
+ * Es una base entera y no un parche sobre `Entrada` porque en Tailwind, entre
+ * dos utilidades de la misma propiedad, gana la que la hoja emita después y no
+ * la que se escriba después en el atributo: `border-tinta-200` sobre el
+ * `border-tinta-300` de la base no es de fiar.
+ *
+ * No fija `font-size` por debajo de 768px a propósito: la regla que evita el
+ * zoom de Safari iOS es un selector de elemento y cualquier clase la tumbaría.
+ * El relleno tampoco entra aquí, por lo mismo del orden: se deja en clases
+ * para que el `pr-11` que abre hueco al ojo de la contraseña pueda ganarle.
+ */
+@utility campo-login {
+  width: 100%;
+  border-radius: 14px;
+  border: 0.5px solid var(--color-tinta-200);
+  background: #fff;
+  color: var(--color-tinta-900);
+  outline: none;
+  box-shadow: 0 1px 2px rgb(16 70 44 / 0.05);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+
+  &::placeholder { color: var(--color-tinta-400); }
+
+  &:focus {
+    border-color: var(--color-haaco-600);
+    box-shadow: 0 1px 2px rgb(16 70 44 / 0.05), 0 0 0 3px rgb(126 193 155 / 0.3);
+  }
+
+  &[aria-invalid="true"] { border-color: rgb(220 38 38 / 0.45); }
+
+  /*
+   * El relleno del autocompletado sigue siendo azul pálido en Chrome y Safari,
+   * y sólo lo tapa una sombra interior de mil píxeles: el `!important` con que
+   * lo pintan no se puede sobrescribir de otro modo. Sobre blanco chirría
+   * menos que sobre oscuro, pero chirría.
+   */
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-tinta-900);
+    -webkit-box-shadow: inset 0 0 0 1000px #fff, 0 1px 2px rgb(16 70 44 / 0.05);
+    transition: background-color 600000s 0s;
+  }
+}
+
+/*
+ * El botón de entrar.
+ *
+ * Es el único destino de la pantalla y el único sitio donde el verde se pone
+ * en grande, así que es también lo único con volumen propio: cuerpo
+ * degradado, filo iluminado arriba y sombra verde que lo levanta del papel. Al
+ * tocarlo se hunde seco y vuelve con el resorte del gesto, igual que los
+ * destinos de la barra de pestañas: es el vocabulario de la app, no un efecto
+ * suelto.
+ *
+ * El hover aclara en vez de oscurecer, que es lo contrario de lo que hace
+ * `Boton`: cuando el botón es la única masa de color de la pantalla, oscurecer
+ * al pasar por encima lo apaga en vez de responder.
+ */
+@utility boton-entrar {
+  background-image: linear-gradient(to bottom, #1b6f42 0%, #145836 55%, #10462c 100%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.26),
+    inset 0 -1px 0 rgb(0 0 0 / 0.18),
+    0 1px 2px rgb(3 12 7 / 0.4),
+    0 10px 24px -8px rgb(20 88 54 / 0.75);
+  transition:
+    transform 420ms var(--ease-toque),
+    filter 200ms ease,
+    box-shadow 200ms ease;
+
+  &:hover:not(:disabled) { filter: brightness(1.09); }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+    transition-duration: 110ms;
+    transition-timing-function: ease-out;
+  }
+
+  &:disabled { filter: saturate(0.55) brightness(0.82); }
+}
+
 /*
  * Etiqueta de pestaña, plegable.
  *
@@ -235,6 +390,17 @@ body {
   color: var(--texto);
 }
 
+/*
+ * El lienzo del login pinta también el rebote elástico de iOS.
+ *
+ * Lo que se ve al estirar la página no es el fondo de la pantalla, es el del
+ * <body>, y el <body> de la app es papel: sin esto, tirar del login hacia
+ * abajo enseña una franja gris por encima del blanco.
+ */
+body:has([data-lienzo="claro"]) {
+  background: #fff;
+}
+
 /* Evita el zoom automático de Safari iOS al enfocar un campo */
 @media (max-width: 767px) {
   input, select, textarea { font-size: 16px; }
@@ -262,6 +428,12 @@ body {
   /* La etiqueta sigue plegándose —hace falta para que quepa el icono solo—,
      pero llega ya plegada en vez de encogerse a la vista. */
   .etiqueta-tab   { transition: none; }
+  /* El login llega puesto en vez de asomarse. Se deja el `both` con 1ms —y no
+     `animation: none`— para que el elemento se quede en el fotograma final,
+     igual que hace la pista de las listas. */
+  .animate-surge  { animation: surge 1ms linear both; }
+  /* Al botón se le quita el resorte, no el aviso de que está desactivado. */
+  .boton-entrar   { transition: filter 200ms ease; }
 }
 
 /* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */

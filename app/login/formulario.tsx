@@ -3,8 +3,6 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { Entrada } from '@/components/formulario'
-import { Boton } from '@/components/ui'
 import { iniciarSesion, type EstadoLogin } from './acciones'
 
 /**
@@ -14,23 +12,40 @@ import { iniciarSesion, type EstadoLogin } from './acciones'
 const CLAVE_CORREO = 'haacopro:correo'
 
 /*
- * Los campos del login son más altos que los de un formulario denso, y en la
- * tableta conservan el tamaño de dedo aunque el ancho ya sea de escritorio.
+ * Los campos usan `campo-login` y no `Entrada`.
+ *
+ * Sin caja alrededor, los campos son lo único que dibuja la columna del
+ * formulario y necesitan algo más de presencia que los de un formulario denso:
+ * filete de medio píxel y una sombra de un pelo. Eso no se consigue apilando
+ * clases sobre `Entrada`, porque en Tailwind gana la utilidad que la hoja
+ * emita después, no la que se escriba después en el atributo.
+ *
+ * El relleno sí queda en clases: es lo que deja que `pr-11` abra el hueco del
+ * ojo de la contraseña. Y en la tableta los campos conservan tamaño de dedo
+ * aunque el ancho ya sea de escritorio.
  */
 const CLASE_ENTRADA =
-  'tableta:min-h-[52px] tableta:rounded-[14px] tableta:px-4 tableta:text-base escritorio:py-2.5 escritorio:text-[15px] [@media(pointer:coarse)]:min-h-[48px]'
+  'campo-login px-3.5 py-3 tableta:min-h-[52px] tableta:px-4 tableta:text-base escritorio:py-2.5 escritorio:text-[15px] [@media(pointer:coarse)]:min-h-[48px]'
 
+const CLASE_ETIQUETA = 'mb-1.5 block text-[13px] font-medium text-tinta-700'
+
+/*
+ * Un `<button>` propio y no `Boton`: el primario de la app se oscurece a
+ * haaco-900 al pasar el ratón, y cuando el botón es la única masa de color de
+ * la pantalla eso lo apaga en vez de responder. No se puede corregir desde
+ * `className` por el mismo problema de orden de la hoja.
+ */
 function BotonEntrar() {
   const { pending } = useFormStatus()
   return (
-    <Boton
+    <button
       type="submit"
       disabled={pending}
-      className="min-h-[50px] w-full text-[17px] tableta:min-h-[54px] tableta:rounded-xl tableta:text-[17px] tableta:font-semibold escritorio:min-h-[44px] escritorio:text-[15px] escritorio:font-semibold"
+      className="boton-entrar inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-[17px] font-semibold disabled:cursor-not-allowed tableta:min-h-[54px] escritorio:min-h-[46px] escritorio:text-[15px]"
     >
       {pending && <Loader2 size={17} className="animate-spin" />}
       {pending ? 'Entrando…' : 'Entrar'}
-    </Boton>
+    </button>
   )
 }
 
@@ -56,7 +71,9 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
     // abre el teclado y se come media pantalla nada más entrar.
     if (!window.matchMedia('(min-width: 1024px) and (pointer: fine)').matches) return
     const destino = guardado ? claveRef.current : correoRef.current
-    destino?.focus()
+    // Sin `preventScroll`, en una ventana baja el foco arrastra la página justo
+    // mientras el formulario se está asomando, y el movimiento salta.
+    destino?.focus({ preventScroll: true })
   }, [])
 
   // Corre antes de la server action; sin preventDefault, el envío sigue su curso.
@@ -69,16 +86,16 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
   return (
     <form action={accion} onSubmit={guardarCorreo} className="space-y-4">
       {aviso && (
-        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200 escritorio:rounded-lg escritorio:text-[13px]">
+        <p className="rounded-[14px] bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200 escritorio:text-[13px]">
           {aviso}
         </p>
       )}
 
       <div>
-        <label htmlFor="correo" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
+        <label htmlFor="correo" className={CLASE_ETIQUETA}>
           Correo
         </label>
-        <Entrada
+        <input
           ref={correoRef}
           id="correo"
           name="correo"
@@ -94,11 +111,11 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
       </div>
 
       <div>
-        <label htmlFor="contrasena" className="mb-1.5 block text-[13px] font-medium text-tinta-700">
+        <label htmlFor="contrasena" className={CLASE_ETIQUETA}>
           Contraseña
         </label>
         <div className="relative">
-          <Entrada
+          <input
             ref={claveRef}
             id="contrasena"
             name="contrasena"
@@ -106,7 +123,7 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
             autoComplete="current-password"
             required
             aria-invalid={estado.error ? true : undefined}
-            className={`pr-11 ${CLASE_ENTRADA}`}
+            className={`${CLASE_ENTRADA} pr-11`}
             placeholder="••••••••"
           />
           <button
@@ -134,7 +151,7 @@ export function FormularioLogin({ aviso }: { aviso?: string }) {
       {estado.error && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200 escritorio:rounded-lg escritorio:text-[13px]"
+          className="flex items-start gap-2 rounded-[14px] bg-red-50 px-3.5 py-2.5 text-sm text-red-700 ring-1 ring-red-200 escritorio:text-[13px]"
         >
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           {estado.error}
