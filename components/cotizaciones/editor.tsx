@@ -680,10 +680,14 @@ export function EditorCotizacion({
         </aside>
       </div>
 
-      {/* Barra fija de guardado ------------------------------------------- */}
+      {/* Barra fija de guardado. En el teléfono va como tarjeta de cristal
+          flotante, a juego con la pastilla de pestañas que vive debajo: dos
+          capas del mismo material y el contenido corriendo por debajo de
+          ambas. La franja pegada al borde queda sólo en escritorio, donde no
+          hay pastilla con la que rimar. ------------------------------------ */}
       {!bloqueado && (
-        <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur-xl lg:bottom-0 lg:pl-72">
-          <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 px-4 lg:pointer-events-auto lg:bottom-0 lg:border-t-[0.5px] lg:border-tinta-200 lg:bg-white/95 lg:py-3 lg:pl-72 lg:backdrop-blur-xl">
+          <div className="pointer-events-auto relative mx-auto flex max-w-7xl flex-col gap-2 max-lg:cristal max-lg:cristal-brillo max-lg:rounded-[1.625rem] max-lg:px-4 max-lg:py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="flex min-w-0 items-baseline gap-2 sm:block">
               <p className="text-xs text-tinta-500">
                 {doc.requiere_factura ? 'Total con IVA' : 'Total sin IVA'}

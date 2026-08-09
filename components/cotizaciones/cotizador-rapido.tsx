@@ -363,8 +363,10 @@ export function CotizadorRapido({
 
       {/* Total gigante ----------------------------------------------------- */}
       {(paso === 'partidas' || totales.total > 0) && (
-        <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-4 backdrop-blur-xl lg:bottom-0 lg:pl-72">
-          <div className="mx-auto max-w-4xl">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 px-4 lg:pointer-events-auto lg:bottom-0 lg:border-t-[0.5px] lg:border-tinta-200 lg:bg-white/95 lg:py-4 lg:pl-72 lg:backdrop-blur-xl">
+          {/* Como en el editor: tarjeta de cristal flotante en el teléfono,
+              franja pegada al borde sólo en escritorio. */}
+          <div className="pointer-events-auto relative mx-auto max-w-4xl max-lg:cristal max-lg:cristal-brillo max-lg:rounded-[1.625rem] max-lg:px-4 max-lg:py-4">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-wide text-tinta-500">

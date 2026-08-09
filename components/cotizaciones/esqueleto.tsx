@@ -62,9 +62,12 @@ export default function EsqueletoCotizacion() {
       </div>
 
       {/* La barra de guardar vive fija sobre las pestañas: si el esqueleto no
-          la reserva, el contenido salta al hidratar. */}
-      <div className="fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 border-t-[0.5px] border-tinta-200 bg-white/95 px-4 py-3 backdrop-blur-xl lg:bottom-0 lg:pl-72">
-        <div className="mx-auto h-12 max-w-5xl rounded-[14px] bg-tinta-150 lg:h-9 lg:w-40" />
+          la reserva, el contenido salta al hidratar. Misma planta que la del
+          editor: tarjeta de cristal en el teléfono, franja en escritorio. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[var(--alto-tabs)] z-30 px-4 lg:pointer-events-auto lg:bottom-0 lg:border-t-[0.5px] lg:border-tinta-200 lg:bg-white/95 lg:py-3 lg:pl-72 lg:backdrop-blur-xl">
+        <div className="pointer-events-auto relative mx-auto max-w-7xl max-lg:cristal max-lg:cristal-brillo max-lg:rounded-[1.625rem] max-lg:px-4 max-lg:py-3">
+          <div className="h-12 rounded-[14px] bg-tinta-150 lg:h-9 lg:w-40" />
+        </div>
       </div>
     </div>
   )
