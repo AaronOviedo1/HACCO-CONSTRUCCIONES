@@ -10,6 +10,8 @@ import {
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables } from '@/components/meses'
 import { PanelNomina } from '@/components/finanzas/nomina'
+import { EnviarRecibo } from '@/components/finanzas/enviar-recibo'
+import { ChipsFiltro } from '@/components/movil/piezas'
 import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
 
@@ -18,30 +20,45 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaNomina({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; t?: string }>
+  searchParams: Promise<{ mes?: string; t?: string; saldados?: string }>
 }) {
   await requerirRol(['admin', 'administracion'])
-  const { mes = mesActual(), t } = await searchParams
+  const { mes = mesActual(), t, saldados } = await searchParams
   const vista = t === 'prenomina' ? 'prenomina' : t === 'prestamos' ? 'prestamos' : 'mensual'
+  const verSaldados = saldados === '1'
   const { desde, hasta } = rangoMes(mes)
 
   const supabase = await crearClienteServidor()
 
-  const [{ data: contratos }, { data: prenomina }, { data: pagos }, { data: deducciones }, { data: recibos }] =
-    await Promise.all([
-      supabase.from('v_nomina_contratos').select('*').order('trabajador'),
-      supabase.from('v_prenomina').select('*').order('trabajador'),
-      supabase.from('nomina_pagos').select('*').gte('fecha', desde).lt('fecha', hasta).order('fecha'),
-      supabase.from('deducciones').select('*').order('fecha', { ascending: false }),
-      supabase
-        .from('recibos_nomina')
-        .select('*')
-        .gte('fecha', desde)
-        .lt('fecha', hasta)
-        .order('fecha', { ascending: false }),
-    ])
+  const [
+    { data: contratos }, { data: prenomina }, { data: pagos }, { data: deducciones },
+    { data: recibos }, { data: gente },
+  ] = await Promise.all([
+    supabase.from('v_nomina_contratos').select('*').order('trabajador'),
+    supabase.from('v_prenomina').select('*').order('trabajador'),
+    supabase.from('nomina_pagos').select('*').gte('fecha', desde).lt('fecha', hasta).order('fecha'),
+    supabase.from('deducciones').select('*').order('fecha', { ascending: false }),
+    supabase
+      .from('recibos_nomina')
+      .select('*')
+      .gte('fecha', desde)
+      .lt('fecha', hasta)
+      .order('fecha', { ascending: false }),
+    // El teléfono no viaja en las vistas de nómina y mandar el recibo por
+    // WhatsApp lo necesita. Sale más barato traerlo aparte que recrear
+    // v_nomina_contratos y v_prenomina, que van encadenadas.
+    supabase.from('profiles').select('id, nombre, telefono'),
+  ])
 
-  const filas = (contratos ?? []).filter((c) => c.estatus === 'activo')
+  const telefonos = new Map((gente ?? []).map((p) => [p.id, p.telefono]))
+  const nombres = new Map((gente ?? []).map((p) => [p.id, p.nombre]))
+
+  // Un contrato pagado por completo ya no es trabajo pendiente, aunque su OT
+  // siga abierta: se sale de la lista y se consulta con el chip. El criterio es
+  // el saldo, no un estatus nuevo — si el contrato sube de monto, vuelve solo.
+  const activos = (contratos ?? []).filter((c) => c.estatus === 'activo')
+  const saldadosDelMes = activos.filter((c) => Number(c.por_pagar) <= 0)
+  const filas = verSaldados ? saldadosDelMes : activos.filter((c) => Number(c.por_pagar) > 0)
   const pagosDelMes = pagos ?? []
 
   // Fechas distintas con pago: son las columnas de abono del Excel.
@@ -52,14 +69,16 @@ export default async function PaginaNomina({
     pagosPorContratoFecha.set(clave, (pagosPorContratoFecha.get(clave) ?? 0) + Number(p.monto))
   }
 
-  const totalMO = filas.reduce((s, c) => s + Number(c.mano_obra), 0)
-  const totalRetencion = filas.reduce((s, c) => s + Number(c.retencion_haaco), 0)
-  const totalPagado = filas.reduce((s, c) => s + Number(c.pagado), 0)
-  const totalDisponible = filas.reduce((s, c) => s + Number(c.disponible), 0)
+  // Los indicadores van sobre todos los contratos activos, no sobre lo que se
+  // está viendo: la mano de obra contratada del mes no encoge porque un
+  // contrato se haya terminado de pagar.
+  const totalMO = activos.reduce((s, c) => s + Number(c.mano_obra), 0)
+  const totalRetencion = activos.reduce((s, c) => s + Number(c.retencion_haaco), 0)
+  const totalPagado = activos.reduce((s, c) => s + Number(c.pagado), 0)
+  const totalDisponible = activos.reduce((s, c) => s + Number(c.disponible), 0)
   // Lo que se le sigue debiendo a la cuadrilla por lo ya contratado, sin
   // importar el avance: es la deuda completa, no lo que toca pagar hoy.
-  const totalPorPagar = filas.reduce((s, c) => s + Number(c.por_pagar), 0)
-  const alTope = filas.filter((c) => Number(c.pct_pagado) >= 100)
+  const totalPorPagar = activos.reduce((s, c) => s + Number(c.por_pagar), 0)
 
   // Lo que de verdad sale de la caja esta semana: devengado menos préstamos.
   const aPagarSemana = (prenomina ?? []).reduce(
@@ -140,7 +159,7 @@ export default async function PaginaNomina({
         <Indicador
           etiqueta="Mano de obra contratada"
           valor={pesosCortos(totalMO)}
-          nota={`${filas.length} contratos · retención ${pesosCortos(totalRetencion)}`}
+          nota={`${activos.length} contratos · retención ${pesosCortos(totalRetencion)}`}
         />
         <Indicador etiqueta="Pagado" valor={pesosCortos(totalPagado)} tono="verde" />
         <Indicador
@@ -158,15 +177,24 @@ export default async function PaginaNomina({
         />
       </div>
 
-      {alTope.length > 0 && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <strong>
-            {alTope.length} {alTope.length === 1 ? 'contrato llegó' : 'contratos llegaron'} al 100% de
-            lo pactado
-          </strong>
-          : {alTope.map((c) => `${c.trabajador} · ${c.obra}`).join(', ')}. Cualquier pago adicional
-          sale del contrato.
-        </div>
+      {/* Los saldados no se pierden: se apartan. Cualquier pago adicional a uno
+          de ellos sale del contrato, así que se consultan aparte. */}
+      {vista === 'mensual' && saldadosDelMes.length > 0 && (
+        <ChipsFiltro
+          className="mb-4"
+          opciones={[
+            {
+              titulo: `Por pagar (${activos.length - saldadosDelMes.length})`,
+              href: `/admin/nomina?t=mensual&mes=${mes}`,
+              activo: !verSaldados,
+            },
+            {
+              titulo: `Saldados (${saldadosDelMes.length})`,
+              href: `/admin/nomina?t=mensual&mes=${mes}&saldados=1`,
+              activo: verSaldados,
+            },
+          ]}
+        />
       )}
 
       <nav className="mb-4 flex flex-wrap items-center gap-2">
@@ -189,32 +217,53 @@ export default async function PaginaNomina({
         ))}
         <FiltroMes mes={mes} titulo="Mes de la nómina" />
         <PanelNomina
-          contratos={filas}
+          contratos={activos}
           prenomina={prenomina ?? []}
           deducciones={deducciones ?? []}
           mes={mes}
         />
       </nav>
 
-      {filas.length === 0 ? (
+      {/* El chip de saldados sólo recorta la vista mensual: la prenómina y los
+          préstamos siguen viéndose completos. */}
+      {(vista === 'mensual' ? filas.length : activos.length) === 0 ? (
         <Tarjeta>
-          <EstadoVacio
-            titulo="Sin contratos activos"
-            descripcion="Los contratos de mano de obra se crean desde la pestaña Contratos de cada obra."
-            accion={
-              <Link
-                href="/admin/obras"
-                className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
-              >
-                Ir a obras
-              </Link>
-            }
-          />
+          {activos.length > 0 && !verSaldados ? (
+            <EstadoVacio
+              titulo="No queda nada por pagar"
+              descripcion={`Los ${activos.length} contratos activos están pagados por completo. Se consultan en «Saldados».`}
+              accion={
+                <Link
+                  href={`/admin/nomina?t=mensual&mes=${mes}&saldados=1`}
+                  className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+                >
+                  Ver saldados
+                </Link>
+              }
+            />
+          ) : (
+            <EstadoVacio
+              titulo="Sin contratos activos"
+              descripcion="Los contratos de mano de obra se crean desde la pestaña Contratos de cada obra."
+              accion={
+                <Link
+                  href="/admin/obras"
+                  className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+                >
+                  Ir a obras
+                </Link>
+              }
+            />
+          )}
         </Tarjeta>
       ) : vista === 'mensual' ? (
         <Tarjeta
           className="hidden lg:block"
-          pie="Una fila por trabajador y obra, con una columna por cada fecha en que se pagó."
+          pie={
+            verSaldados
+              ? 'Contratos pagados por completo. Su OT puede seguir abierta; cualquier pago adicional sale del contrato.'
+              : 'Una fila por trabajador y obra, con una columna por cada fecha en que se pagó.'
+          }
         >
           <Tabla>
             <thead>
@@ -362,12 +411,11 @@ export default async function PaginaNomina({
                     etiqueta={grupo.etiqueta}
                     detalle={`${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, d) => s + Number(d.monto), 0))}`}
                   >
-                    {grupo.filas.map((d) => {
-                      const trabajador = (prenomina ?? []).find((p) => p.trabajador_id === d.trabajador_id)
-                      return (
+                    {grupo.filas.map((d) => (
                         <tr key={d.id} className="hover:bg-tinta-50/60">
                           <Td className="whitespace-nowrap text-tinta-500">{fecha(d.fecha)}</Td>
-                          <Td className="font-medium text-tinta-900">{trabajador?.trabajador ?? '—'}</Td>
+                          {/* Del perfil: un préstamo sobrevive a sus contratos. */}
+                          <Td className="font-medium text-tinta-900">{nombres.get(d.trabajador_id) ?? '—'}</Td>
                           <Td className="capitalize text-tinta-600">{d.tipo}</Td>
                           <Td numerico className="font-medium">{pesos(d.monto)}</Td>
                           <Td>
@@ -377,8 +425,7 @@ export default async function PaginaNomina({
                           </Td>
                           <Td className="text-tinta-500">{d.notas ?? '—'}</Td>
                         </tr>
-                      )
-                    })}
+                    ))}
                   </CuerpoMes>
                 ))}
               </MesesPlegables>
@@ -391,12 +438,14 @@ export default async function PaginaNomina({
         <Tarjeta titulo="Recibos de abono del mes" className="mt-4">
           <ul className="divide-y divide-tinta-100">
             {(recibos ?? []).map((r) => {
-              const trabajador = (prenomina ?? []).find((p) => p.trabajador_id === r.trabajador_id)
+              // Por el perfil y no por la prenómina: a un trabajador cuyos
+              // contratos ya se cerraron se le sigue pudiendo mandar su recibo.
+              const trabajador = nombres.get(r.trabajador_id) ?? '—'
               return (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 text-sm">
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-xs text-haaco-700">{r.folio}</span>
-                    <span className="font-medium text-tinta-900">{trabajador?.trabajador ?? '—'}</span>
+                    <span className="font-medium text-tinta-900">{trabajador}</span>
                     <span className="text-xs text-tinta-400">{fecha(r.fecha)}</span>
                   </span>
                   <span className="flex items-center gap-3">
@@ -404,6 +453,13 @@ export default async function PaginaNomina({
                       <span className="text-xs text-red-600">- {pesos(r.deducciones)}</span>
                     )}
                     <span className="font-medium tabular-nums text-tinta-900">{pesos(r.total)}</span>
+                    <EnviarRecibo
+                      reciboId={r.id}
+                      folio={r.folio}
+                      trabajador={trabajador}
+                      telefono={telefonos.get(r.trabajador_id) ?? null}
+                      total={Number(r.total)}
+                    />
                     <a
                       href={`/api/recibos-nomina/${r.id}/pdf`}
                       target="_blank"

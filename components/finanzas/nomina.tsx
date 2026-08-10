@@ -6,7 +6,6 @@ import { HandCoins, Wallet } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
-import { Etiqueta } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
@@ -15,6 +14,13 @@ import { guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
 import type {
   Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina,
 } from '@/types/database'
+
+/**
+ * Cómo se capturó el abono de un contrato: en pesos o en porcentaje del
+ * contrato. Se guarda el texto tal cual se tecleó y el importe se deriva, para
+ * que «20 %» siga diciendo 20 y no 2,000 en cuanto se toca otra cosa.
+ */
+type Captura = { modo: 'monto' | 'pct'; texto: string }
 
 export function PanelNomina({
   contratos, prenomina, deducciones,
@@ -48,8 +54,10 @@ export function PanelNomina({
 
       {pagando && (
         <DialogoPago
-          contratos={contratos}
-          prenomina={prenomina}
+          // Un contrato ya saldado no se ofrece para abonar: lo que aparece en
+          // el diálogo es lo que todavía se le debe a alguien.
+          contratos={contratos.filter((c) => Number(c.por_pagar) > 0)}
+          prenomina={prenomina.filter((p) => Number(p.pendiente) > 0)}
           deducciones={deducciones.filter((d) => !d.saldado)}
           onCerrar={() => setPagando(false)}
         />
@@ -79,7 +87,7 @@ function DialogoPago({
   const [fecha, setFecha] = useState(hoyISO())
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
   const [notas, setNotas] = useState('')
-  const [montos, setMontos] = useState<Record<string, string>>({})
+  const [capturas, setCapturas] = useState<Record<string, Captura>>({})
   const [elegidas, setElegidas] = useState<string[]>([])
 
   const suyos = contratos.filter((c) => c.trabajador_id === trabajadorId)
@@ -87,10 +95,24 @@ function DialogoPago({
   // Lo que se le sigue debiendo a este trabajador antes de capturar el abono.
   const suSaldo = redondear(suyos.reduce((s, c) => s + Number(c.por_pagar), 0))
 
+  const capturaDe = (c: VNominaContrato): Captura =>
+    capturas[c.contrato_id] ?? { modo: 'monto', texto: '' }
+
+  /**
+   * El importe del abono, se haya capturado en pesos o en porcentaje. El
+   * porcentaje va siempre sobre el total del contrato: «le pago el 20%» es el
+   * 20% de lo pactado, que es lo mismo que dice la etiqueta del renglón y lo
+   * que se guarda en el recibo.
+   */
+  const importeDe = (c: VNominaContrato) => {
+    const { modo, texto } = capturaDe(c)
+    return modo === 'pct' ? redondear((Number(c.total) * num(texto)) / 100) : num(texto)
+  }
+
   // Sin useMemo: el compilador de React ya memoiza esto solo, y hacerlo a mano
   // le impedía optimizar el componente completo.
   const totales = (() => {
-    const subtotal = suyos.reduce((s, c) => s + num(montos[c.contrato_id] ?? ''), 0)
+    const subtotal = suyos.reduce((s, c) => s + importeDe(c), 0)
     const descuento = susDeducciones
       .filter((d) => elegidas.includes(d.id))
       .reduce((s, d) => s + Number(d.monto), 0)
@@ -99,17 +121,40 @@ function DialogoPago({
 
   const cambiarTrabajador = (id: string) => {
     setTrabajadorId(id)
-    setMontos({})
+    setCapturas({})
     setElegidas([])
   }
 
-  /** Precarga lo que se le puede pagar hoy según el avance de cada obra. */
+  const capturar = (contratoId: string, captura: Captura) =>
+    setCapturas((m) => ({ ...m, [contratoId]: captura }))
+
+  /** Al cambiar de unidad el número no se pierde: se convierte a la otra. */
+  const cambiarModo = (c: VNominaContrato, modo: Captura['modo']) => {
+    const actual = capturaDe(c)
+    if (actual.modo === modo) return
+    const total = Number(c.total)
+    const texto =
+      actual.texto.trim() === ''
+        ? ''
+        : modo === 'pct'
+          ? total > 0 ? String(redondear((num(actual.texto) / total) * 100)) : ''
+          : String(redondear((total * num(actual.texto)) / 100))
+    capturar(c.contrato_id, { modo, texto })
+  }
+
+  /** Lo que se le puede pagar hoy de un contrato según el avance de su obra. */
+  const devengarUno = (c: VNominaContrato) =>
+    capturar(c.contrato_id, { modo: 'monto', texto: String(Number(c.disponible)) })
+
+  /** Lo mismo, pero de golpe en todos sus contratos y con sus préstamos. */
   const sugerir = () => {
-    const nuevos: Record<string, string> = {}
+    const nuevas: Record<string, Captura> = {}
     for (const c of suyos) {
-      if (Number(c.disponible) > 0) nuevos[c.contrato_id] = String(Number(c.disponible))
+      if (Number(c.disponible) > 0) {
+        nuevas[c.contrato_id] = { modo: 'monto', texto: String(Number(c.disponible)) }
+      }
     }
-    setMontos(nuevos)
+    setCapturas(nuevas)
     setElegidas(susDeducciones.map((d) => d.id))
   }
 
@@ -121,12 +166,20 @@ function DialogoPago({
         fecha,
         metodo,
         pagos: suyos.map((c) => {
-          const monto = num(montos[c.contrato_id] ?? '')
+          const { modo, texto } = capturaDe(c)
+          const monto = importeDe(c)
           return {
             contrato_id: c.contrato_id,
             monto,
-            // El % del recibo representa sólo lo de este pago, no el acumulado.
-            porcentaje: Number(c.total) > 0 ? redondear((monto / Number(c.total)) * 100) : null,
+            // Capturado en porcentaje va el que se tecleó, sin volver a
+            // derivarlo del importe ya redondeado. El % del recibo representa
+            // sólo lo de este pago, no el acumulado.
+            porcentaje:
+              modo === 'pct'
+                ? num(texto)
+                : Number(c.total) > 0
+                  ? redondear((monto / Number(c.total)) * 100)
+                  : null,
           }
         }),
         deducciones: elegidas,
@@ -148,20 +201,27 @@ function DialogoPago({
       descripcion="Un recibo puede cubrir varias obras del mismo trabajador."
     >
       <CuerpoDialogo>
-        <Campo
-          etiqueta="Trabajador"
-          hijo={
-            <Seleccion value={trabajadorId} onChange={(e) => cambiarTrabajador(e.target.value)}>
-              {prenomina.map((p) => (
-                <option key={p.trabajador_id} value={p.trabajador_id}>
-                  {p.trabajador}
-                  {p.es_externo ? ' (externo)' : ''} · disponible {pesos(p.disponible)} · pendiente{' '}
-                  {pesos(p.pendiente)}
-                </option>
-              ))}
-            </Seleccion>
-          }
-        />
+        {prenomina.length === 0 ? (
+          <p className="rounded-lg bg-tinta-50 px-3 py-3 text-sm text-tinta-500 sm:col-span-2">
+            No hay nadie con saldo pendiente: todos los contratos activos están pagados. Si falta
+            pagar algo, revisa que el contrato tenga el monto correcto.
+          </p>
+        ) : (
+          <Campo
+            etiqueta="Trabajador"
+            hijo={
+              <Seleccion value={trabajadorId} onChange={(e) => cambiarTrabajador(e.target.value)}>
+                {prenomina.map((p) => (
+                  <option key={p.trabajador_id} value={p.trabajador_id}>
+                    {p.trabajador}
+                    {p.es_externo ? ' (externo)' : ''} · disponible {pesos(p.disponible)} · pendiente{' '}
+                    {pesos(p.pendiente)}
+                  </option>
+                ))}
+              </Seleccion>
+            }
+          />
+        )}
         <Campo
           etiqueta="Fecha"
           ancho="medio"
@@ -202,13 +262,15 @@ function DialogoPago({
 
           {suyos.length === 0 ? (
             <p className="rounded-lg bg-tinta-50 px-3 py-3 text-sm text-tinta-500">
-              Este trabajador no tiene contratos activos.
+              Este trabajador no tiene contratos con saldo.
             </p>
           ) : (
             <ul className="divide-y divide-tinta-100 overflow-hidden rounded-xl border border-tinta-200">
               {suyos.map((c) => {
-                const monto = num(montos[c.contrato_id] ?? '')
+                const { modo, texto } = capturaDe(c)
+                const monto = importeDe(c)
                 const excede = monto > Number(c.por_pagar)
+                const pct = Number(c.total) > 0 ? (monto / Number(c.total)) * 100 : 0
                 return (
                   <li key={c.contrato_id} className="px-3 py-2.5">
                     <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -219,26 +281,37 @@ function DialogoPago({
                         <strong className="text-tinta-700">{pesos(c.por_pagar)}</strong>
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ConmutadorUnidad modo={modo} onCambio={(m) => cambiarModo(c, m)} />
                       <Numero
-                        value={montos[c.contrato_id] ?? ''}
-                        onChange={(e) =>
-                          setMontos((m) => ({ ...m, [c.contrato_id]: e.target.value }))
-                        }
-                        placeholder="0.00"
-                        className="max-w-36"
+                        value={texto}
+                        onChange={(e) => capturar(c.contrato_id, { modo, texto: e.target.value })}
+                        placeholder={modo === 'pct' ? '0' : '0.00'}
+                        className="max-w-28"
+                        aria-label={modo === 'pct' ? 'Porcentaje del contrato' : 'Importe del abono'}
                       />
+                      {/* La otra unidad, siempre a la vista: se captura en una
+                          y se cobra en la otra. */}
                       <span className="text-xs text-tinta-500">
-                        de {pesos(c.total)} · disponible{' '}
-                        <strong className="text-haaco-700">{pesos(c.disponible)}</strong>
+                        {monto > 0
+                          ? modo === 'pct'
+                            ? <>= <strong className="text-tinta-800">{pesos(monto)}</strong> de {pesos(c.total)}</>
+                            : <>= <strong className="text-tinta-800">{porcentaje(pct, 1)}</strong> de {pesos(c.total)}</>
+                          : <>de {pesos(c.total)}</>}
                         {monto > 0 && !excede && (
                           <> · quedan {pesos(redondear(Number(c.por_pagar) - monto))}</>
                         )}
                       </span>
-                      {monto > 0 && (
-                        <Etiqueta tono={excede ? 'rojo' : 'gris'}>
-                          {porcentaje(Number(c.total) > 0 ? (monto / Number(c.total)) * 100 : 0, 0)}
-                        </Etiqueta>
+                      {/* Sin devengado sin pagar no hay atajo que ofrecer: lo
+                          que se devengó ya está arriba, en el renglón. */}
+                      {Number(c.disponible) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => devengarUno(c)}
+                          className="ml-auto shrink-0 rounded-lg border border-tinta-200 px-2 py-1 text-xs font-medium text-haaco-700 transition hover:bg-haaco-50"
+                        >
+                          Devengado {pesos(c.disponible)}
+                        </button>
                       )}
                     </div>
                     {excede && (
@@ -349,6 +422,37 @@ function DialogoPago({
         </button>
       </PieDialogo>
     </Dialogo>
+  )
+}
+
+/**
+ * Pesos o porcentaje. Va pegado al campo y con su mismo alto: es la unidad de
+ * lo que se está tecleando, no una opción del formulario.
+ */
+function ConmutadorUnidad({
+  modo, onCambio,
+}: {
+  modo: Captura['modo']
+  onCambio: (modo: Captura['modo']) => void
+}) {
+  return (
+    <div className="flex shrink-0 overflow-hidden rounded-[14px] border border-tinta-300 lg:rounded-lg">
+      {([['monto', '$'], ['pct', '%']] as const).map(([clave, texto]) => (
+        <button
+          key={clave}
+          type="button"
+          onClick={() => onCambio(clave)}
+          aria-pressed={modo === clave}
+          className={`w-10 py-3 text-sm font-semibold transition lg:py-2 ${
+            modo === clave
+              ? 'bg-haaco-700 text-white'
+              : 'bg-white text-tinta-500 hover:bg-tinta-50'
+          }`}
+        >
+          {texto}
+        </button>
+      ))}
+    </div>
   )
 }
 

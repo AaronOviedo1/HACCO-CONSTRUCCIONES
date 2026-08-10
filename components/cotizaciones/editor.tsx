@@ -18,6 +18,7 @@ import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
 import { pesos } from '@/lib/format'
+import { compartirPdf } from '@/lib/compartir'
 import { precioPagado } from '@/lib/sugerencias'
 import { REGLAS } from '@/lib/empresa'
 import {
@@ -191,42 +192,14 @@ export function EditorCotizacion({
 
   const compartir = async () => {
     if (!cotizacionId) return
-    const url = `${window.location.origin}/api/cotizaciones/${cotizacionId}/pdf`
     try {
-      const respuesta = await fetch(url)
-      if (!respuesta.ok) throw new Error('No se pudo generar el PDF')
-      const blob = await respuesta.blob()
-      const archivo = new File([blob], `Cotizacion ${folio ?? ''}.pdf`, { type: 'application/pdf' })
-
-      // Sólo en el teléfono y el iPad: ahí la hoja de compartir manda el PDF
-      // directo al chat. En escritorio la hoja del sistema no trae WhatsApp,
-      // así que se va directo al chat del cliente.
-      const esTactil = navigator.maxTouchPoints > 0
-      if (esTactil && navigator.canShare?.({ files: [archivo] })) {
-        await navigator.share({
-          files: [archivo],
-          title: `Cotización ${folio ?? ''}`,
-          text: `Cotización ${folio ?? ''} · HAACO PRO RECUBRIMIENTOS`,
-        })
-        return
-      }
-      // Sin hoja de compartir (escritorio): se descarga el PDF y se abre el
-      // chat del cliente con el mensaje listo; sólo falta arrastrar el archivo.
-      const enlace = document.createElement('a')
-      enlace.href = URL.createObjectURL(blob)
-      enlace.download = archivo.name
-      enlace.click()
-      URL.revokeObjectURL(enlace.href)
-
-      const digitos = (cliente?.telefono ?? '').replace(/\D/g, '')
-      const telefono = digitos.length === 10 ? `52${digitos}` : digitos
-      const mensaje = encodeURIComponent(
-        `Buen día${cliente ? ` ${cliente.nombre}` : ''}, le comparto la cotización ${folio ?? ''} de HAACO PRO RECUBRIMIENTOS.`,
-      )
-      window.open(
-        telefono ? `https://wa.me/${telefono}?text=${mensaje}` : 'https://web.whatsapp.com',
-        '_blank',
-      )
+      await compartirPdf({
+        url: `/api/cotizaciones/${cotizacionId}/pdf`,
+        nombreArchivo: `Cotizacion ${folio ?? ''}.pdf`,
+        telefono: cliente?.telefono,
+        titulo: `Cotización ${folio ?? ''}`,
+        mensaje: `Buen día${cliente ? ` ${cliente.nombre}` : ''}, le comparto la cotización ${folio ?? ''} de HAACO PRO RECUBRIMIENTOS.`,
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo compartir el PDF.')
     }
