@@ -12,8 +12,8 @@ import {
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
 import { FolioAbriendo, PuntoAbriendo } from '@/components/enlace-abriendo'
-import { BotonGrande } from '@/components/movil/piezas'
-import type { EstatusCotizacion, TipoCotizacion } from '@/types/database'
+import { BotonGrande, ChipsFiltro } from '@/components/movil/piezas'
+import type { EstatusCotizacion, TipoCotizacion, VCotizacion } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +24,17 @@ type Filtros = {
   desde?: string
   hasta?: string
   q?: string
+  v?: string
 }
+
+/**
+ * Los meses son para el contador: cada mes se le manda cerrado y no se deben
+ * revolver. Pero para perseguir lo que está vivo estorban, porque una
+ * cotización de marzo que sigue en seguimiento queda enterrada tres bloques
+ * arriba. El concentrado es esa otra lectura: todo junto, sin cortes, y sólo
+ * lo que sigue abierto.
+ */
+const ACTIVAS: EstatusCotizacion[] = ['borrador', 'enviada', 'seguimiento', 'aprobada']
 
 export default async function PaginaCotizaciones({
   searchParams,
@@ -33,11 +43,19 @@ export default async function PaginaCotizaciones({
 }) {
   await requerirRol(['admin', 'administracion'])
   const filtros = await searchParams
+  const concentrado = filtros.v === 'concentrado'
   const supabase = await crearClienteServidor()
 
-  let consulta = supabase.from('v_cotizaciones').select('*').order('fecha', { ascending: false })
+  // En el concentrado manda el orden en que se fueron capturando: la más vieja
+  // sin resolver arriba, que es la que lleva más tiempo esperando respuesta.
+  let consulta = concentrado
+    ? supabase.from('v_cotizaciones').select('*').order('created_at')
+    : supabase.from('v_cotizaciones').select('*').order('fecha', { ascending: false })
 
+  // Un estatus elegido a mano manda sobre el recorte de la vista: si se pide
+  // ver las rechazadas en el concentrado, se ven.
   if (filtros.estatus) consulta = consulta.eq('estatus', filtros.estatus as EstatusCotizacion)
+  else if (concentrado) consulta = consulta.in('estatus', ACTIVAS)
   if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo as TipoCotizacion)
   if (filtros.cliente) consulta = consulta.eq('cliente_id', filtros.cliente)
 
@@ -64,10 +82,81 @@ export default async function PaginaCotizaciones({
   const pendientes = filas.filter((c) => c.estatus === 'borrador' || c.estatus === 'enviada')
 
   // La lista viene ordenada por fecha, así que cada mes sale como un bloque.
-  const meses = agruparPorMes(filas, (c) => c.fecha)
+  // En el concentrado no se agrupa nada: es una sola corrida.
+  const meses = concentrado ? [] : agruparPorMes(filas, (c) => c.fecha)
   const detalleMes = (grupo: (typeof meses)[number]) =>
     `${grupo.filas.length} · ${pesos(grupo.filas.reduce((s, c) => s + Number(c.total), 0))}`
   const plegados = await mesesPlegados('cotizaciones', meses.map((g) => g.mes))
+
+  /* Los renglones se definen una vez y se pintan sueltos o dentro de un mes,
+     según la vista: lo que cambia es el agrupamiento, no la fila. */
+  const renglonMovil = (c: VCotizacion) => (
+    <Link
+      key={c.id}
+      href={`/admin/cotizaciones/${c.id}`}
+      prefetch={false}
+      className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
+        <FolioAbriendo folio={c.folio} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
+          {c.cliente}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-tinta-400">
+          {c.nombre_obra ?? 'Sin nombre de obra'} · {TIPO_COTIZACION[c.tipo]}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span className="text-[14.5px] font-semibold tabular-nums">{pesos(c.total)}</span>
+        <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+          {ESTATUS_COTIZACION[c.estatus].texto}
+        </Etiqueta>
+      </span>
+    </Link>
+  )
+
+  const renglonEscritorio = (c: VCotizacion) => (
+    /* Se puede dar clic en cualquier celda: la fila le pasa el toque al enlace
+       del folio, que es un enlace de verdad. */
+    <FilaEnlace key={c.id}>
+      <Td className="font-medium">
+        <Link
+          href={`/admin/cotizaciones/${c.id}`}
+          prefetch={false}
+          data-enlace-fila
+          className="text-haaco-700 hover:underline"
+        >
+          {c.folio}
+          <PuntoAbriendo />
+        </Link>
+      </Td>
+      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+      <Td>{c.cliente}</Td>
+      <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
+      <Td className="text-tinta-500">{TIPO_COTIZACION[c.tipo]}</Td>
+      <Td numerico className="font-medium">{pesos(c.total)}</Td>
+      <Td>
+        <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
+          {ESTATUS_COTIZACION[c.estatus].texto}
+        </Etiqueta>
+      </Td>
+      <Td numerico className="text-tinta-500">{c.obras > 0 ? c.obras : '—'}</Td>
+      <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
+    </FilaEnlace>
+  )
+
+  /** Cambia de vista sin tirar los filtros que ya estaban puestos. */
+  const enlaceVista = (vista?: string) => {
+    const params = new URLSearchParams()
+    for (const [clave, valor] of Object.entries(filtros)) {
+      if (valor && clave !== 'v') params.set(clave, valor)
+    }
+    if (vista) params.set('v', vista)
+    const cadena = params.toString()
+    return `/admin/cotizaciones${cadena ? `?${cadena}` : ''}`
+  }
 
   return (
     <>
@@ -87,9 +176,13 @@ export default async function PaginaCotizaciones({
 
       <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-4 lg:gap-3">
         <Indicador
-          etiqueta="Cotizaciones"
+          etiqueta={concentrado ? 'Cotizaciones abiertas' : 'Cotizaciones'}
           valor={String(filas.length)}
-          nota={periodo.filtrado ? periodo.etiqueta : 'con los filtros actuales'}
+          nota={
+            concentrado
+              ? 'sin terminar ni rechazar'
+              : periodo.filtrado ? periodo.etiqueta : 'con los filtros actuales'
+          }
         />
         <Indicador etiqueta="Monto cotizado" valor={pesos(montoTotal)} />
         <Indicador
@@ -103,6 +196,15 @@ export default async function PaginaCotizaciones({
           valor={String(pendientes.length)}
           nota="borrador y enviadas"
           tono="ambar"
+        />
+      </div>
+
+      <div className="mb-3.5 lg:mb-4">
+        <ChipsFiltro
+          opciones={[
+            { titulo: 'Por mes', href: enlaceVista(), activo: !concentrado },
+            { titulo: 'Concentrado', href: enlaceVista('concentrado'), activo: concentrado },
+          ]}
         />
       </div>
 
@@ -122,44 +224,23 @@ export default async function PaginaCotizaciones({
               Ahora la cotización se pide al tocarla y el renglón lo acusa de
               recibo —ver components/enlace-abriendo—. */}
           <div className="overflow-hidden rounded-[20px] border-[0.5px] border-tinta-200 bg-white shadow-tarjeta">
-            <MesesPlegables lista="cotizaciones" plegados={plegados}>
-            {meses.map((grupo) => (
-              <SeccionMes
-                key={grupo.mes}
-                mes={grupo.mes}
-                enTarjeta
-                etiqueta={grupo.etiqueta}
-                detalle={detalleMes(grupo)}
-              >
-                {grupo.filas.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/admin/cotizaciones/${c.id}`}
-                    prefetch={false}
-                    className="flex items-center gap-3 border-b-[0.5px] border-tinta-100 p-3.5 transition last:border-b-0 active:bg-tinta-50"
+            {concentrado ? (
+              filas.map(renglonMovil)
+            ) : (
+              <MesesPlegables lista="cotizaciones" plegados={plegados}>
+                {meses.map((grupo) => (
+                  <SeccionMes
+                    key={grupo.mes}
+                    mes={grupo.mes}
+                    enTarjeta
+                    etiqueta={grupo.etiqueta}
+                    detalle={detalleMes(grupo)}
                   >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-haaco-50 font-mono text-xs font-bold text-haaco-700">
-                      <FolioAbriendo folio={c.folio} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-semibold -tracking-[0.2px]">
-                        {c.cliente}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-tinta-400">
-                        {c.nombre_obra ?? 'Sin nombre de obra'} · {TIPO_COTIZACION[c.tipo]}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="text-[14.5px] font-semibold tabular-nums">{pesos(c.total)}</span>
-                      <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
-                        {ESTATUS_COTIZACION[c.estatus].texto}
-                      </Etiqueta>
-                    </span>
-                  </Link>
+                    {grupo.filas.map(renglonMovil)}
+                  </SeccionMes>
                 ))}
-              </SeccionMes>
-            ))}
-            </MesesPlegables>
+              </MesesPlegables>
+            )}
           </div>
 
           <BotonGrande
@@ -186,7 +267,11 @@ export default async function PaginaCotizaciones({
 
       <Tarjeta
         className={filas.length > 0 ? 'hidden lg:block' : ''}
-        pie={`${filas.length} ${filas.length === 1 ? 'cotización' : 'cotizaciones'}`}
+        pie={
+          concentrado
+            ? `${filas.length} ${filas.length === 1 ? 'cotización abierta' : 'cotizaciones abiertas'}, de la más vieja a la más nueva. Las terminadas y rechazadas no salen aquí.`
+            : `${filas.length} ${filas.length === 1 ? 'cotización' : 'cotizaciones'}`
+        }
       >
         {error ? (
           <EstadoVacio
@@ -222,47 +307,23 @@ export default async function PaginaCotizaciones({
                 <Th>Factura</Th>
               </tr>
             </thead>
-            <MesesPlegables lista="cotizaciones" plegados={plegados}>
-              {meses.map((grupo) => (
-                <CuerpoMes
-                  key={grupo.mes}
-                  mes={grupo.mes}
-                  columnas={9}
-                  etiqueta={grupo.etiqueta}
-                  detalle={detalleMes(grupo)}
-                >
-                  {grupo.filas.map((c) => (
-                    /* Se puede dar clic en cualquier celda: la fila le pasa el
-                       toque al enlace del folio, que es un enlace de verdad. */
-                    <FilaEnlace key={c.id}>
-                      <Td className="font-medium">
-                        <Link
-                          href={`/admin/cotizaciones/${c.id}`}
-                          prefetch={false}
-                          data-enlace-fila
-                          className="text-haaco-700 hover:underline"
-                        >
-                          {c.folio}
-                          <PuntoAbriendo />
-                        </Link>
-                      </Td>
-                      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
-                      <Td>{c.cliente}</Td>
-                      <Td className="text-tinta-500">{c.nombre_obra ?? '—'}</Td>
-                      <Td className="text-tinta-500">{TIPO_COTIZACION[c.tipo]}</Td>
-                      <Td numerico className="font-medium">{pesos(c.total)}</Td>
-                      <Td>
-                        <Etiqueta tono={ESTATUS_COTIZACION[c.estatus].tono}>
-                          {ESTATUS_COTIZACION[c.estatus].texto}
-                        </Etiqueta>
-                      </Td>
-                      <Td numerico className="text-tinta-500">{c.obras > 0 ? c.obras : '—'}</Td>
-                      <Td className="text-tinta-500">{c.requiere_factura ? 'Sí' : 'No'}</Td>
-                    </FilaEnlace>
-                  ))}
-                </CuerpoMes>
-              ))}
-            </MesesPlegables>
+            {concentrado ? (
+              <tbody>{filas.map(renglonEscritorio)}</tbody>
+            ) : (
+              <MesesPlegables lista="cotizaciones" plegados={plegados}>
+                {meses.map((grupo) => (
+                  <CuerpoMes
+                    key={grupo.mes}
+                    mes={grupo.mes}
+                    columnas={9}
+                    etiqueta={grupo.etiqueta}
+                    detalle={detalleMes(grupo)}
+                  >
+                    {grupo.filas.map(renglonEscritorio)}
+                  </CuerpoMes>
+                ))}
+              </MesesPlegables>
+            )}
           </Tabla>
         )}
       </Tarjeta>

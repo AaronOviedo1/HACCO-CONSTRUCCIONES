@@ -136,10 +136,14 @@ export default async function PaginaCobranza({
     ? Math.round(diasDeCobro.reduce((s, d) => s + d, 0) / diasDeCobro.length)
     : null
 
-  const [plegadoRegistro, plegadoHistorial, plegadoConcentrado] = await Promise.all([
+  // El concentrado no se pliega: es la corrida completa de lo que se debe, de
+  // la cotización más vieja a la más nueva. Cortarlo por meses era pedirle al
+  // contador que sumara siete bloques para saber el total.
+  const concentrado = conSaldo.slice().sort((a, b) => a.fecha.localeCompare(b.fecha))
+
+  const [plegadoRegistro, plegadoHistorial] = await Promise.all([
     mesesPlegados('cobranza-registro', mesesConSaldo.map((g) => g.mes)),
     mesesPlegados('cobranza-historial', mesesHistorial.map((g) => g.mes)),
-    mesesPlegados('cobranza-concentrado', mesesConSaldo.map((g) => g.mes)),
   ])
 
   /** Cambia de pestaña sin perder lo que se está buscando. */
@@ -539,49 +543,39 @@ export default async function PaginaCobranza({
                 <Th numerico>% pendiente</Th>
               </tr>
             </thead>
-            <MesesPlegables lista="cobranza-concentrado" plegados={plegadoConcentrado}>
-              {mesesConSaldo.map((grupo) => (
-                <CuerpoMes
-                  key={grupo.mes}
-                  mes={grupo.mes}
-                  columnas={8}
-                  etiqueta={grupo.etiqueta}
-                  detalle={`${pesos(grupo.filas.reduce((s, c) => s + Number(c.saldo), 0))} por cobrar`}
-                >
-                  {grupo.filas.map((c) => (
-                    <FilaEnlace key={c.cotizacion_id}>
-                      <Td className="font-medium text-tinta-900">{c.cliente}</Td>
-                      <Td>
-                        {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
-                        <Link
-                          href={`/admin/cotizaciones/${c.cotizacion_id}`}
-                          prefetch={false}
-                          data-enlace-fila
-                          className="font-mono text-xs text-haaco-700 hover:underline"
-                        >
-                          {c.folio}
-                          <PuntoAbriendo />
-                        </Link>
-                      </Td>
-                      <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
-                      <Td>
-                        <Etiqueta tono={c.requiere_factura ? 'azul' : 'gris'}>
-                          {c.requiere_factura ? 'Sí' : 'No'}
-                        </Etiqueta>
-                      </Td>
-                      <Td numerico>{pesos(c.cotizado)}</Td>
-                      <Td numerico className="text-tinta-500">{pesos(c.cobrado)}</Td>
-                      <Td numerico className="font-semibold text-amber-700">{pesos(c.saldo)}</Td>
-                      <Td numerico>
-                        <Etiqueta tono={tonoCobranza(Number(c.pct_pendiente))}>
-                          {porcentaje(c.pct_pendiente, 0)}
-                        </Etiqueta>
-                      </Td>
-                    </FilaEnlace>
-                  ))}
-                </CuerpoMes>
+            <tbody>
+              {concentrado.map((c) => (
+                <FilaEnlace key={c.cotizacion_id}>
+                  <Td className="font-medium text-tinta-900">{c.cliente}</Td>
+                  <Td>
+                    {/* Aquí no se cobra, se revisa: el renglón lleva a la cotización. */}
+                    <Link
+                      href={`/admin/cotizaciones/${c.cotizacion_id}`}
+                      prefetch={false}
+                      data-enlace-fila
+                      className="font-mono text-xs text-haaco-700 hover:underline"
+                    >
+                      {c.folio}
+                      <PuntoAbriendo />
+                    </Link>
+                  </Td>
+                  <Td className="whitespace-nowrap text-tinta-500">{fecha(c.fecha)}</Td>
+                  <Td>
+                    <Etiqueta tono={c.requiere_factura ? 'azul' : 'gris'}>
+                      {c.requiere_factura ? 'Sí' : 'No'}
+                    </Etiqueta>
+                  </Td>
+                  <Td numerico>{pesos(c.cotizado)}</Td>
+                  <Td numerico className="text-tinta-500">{pesos(c.cobrado)}</Td>
+                  <Td numerico className="font-semibold text-amber-700">{pesos(c.saldo)}</Td>
+                  <Td numerico>
+                    <Etiqueta tono={tonoCobranza(Number(c.pct_pendiente))}>
+                      {porcentaje(c.pct_pendiente, 0)}
+                    </Etiqueta>
+                  </Td>
+                </FilaEnlace>
               ))}
-            </MesesPlegables>
+            </tbody>
             <tbody>
               <tr className="bg-haaco-50/60">
                 <Td className="font-semibold text-tinta-900">TOTAL GENERAL</Td>
