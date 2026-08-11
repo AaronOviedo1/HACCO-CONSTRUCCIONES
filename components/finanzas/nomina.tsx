@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { HandCoins, Wallet } from 'lucide-react'
+import { HandCoins, Pencil, Wallet } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -10,7 +10,7 @@ import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { METODO_PAGO, TIPO_DEDUCCION } from '@/lib/finanzas'
-import { guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
+import { eliminarDeduccion, guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
 import type {
   Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina,
 } from '@/types/database'
@@ -457,25 +457,67 @@ function ConmutadorUnidad({
 }
 
 // ---------------------------------------------------------------------------
+/**
+ * Un préstamo mal capturado sólo se podía dejar así: la acción de servidor ya
+ * sabía actualizar y borrar, pero nada en la pantalla le pasaba el id. Un
+ * préstamo ya aplicado a un recibo no se toca — se corrige el recibo.
+ */
+export function BotonEditarPrestamo({
+  deduccion, prenomina,
+}: {
+  deduccion: Deduccion
+  prenomina: VPrenomina[]
+}) {
+  const [abierto, setAbierto] = useState(false)
+
+  if (deduccion.saldado) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="rounded p-1 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-700"
+        aria-label="Corregir el préstamo"
+      >
+        <Pencil size={13} />
+      </button>
+
+      {abierto && (
+        <DialogoPrestamo
+          prenomina={prenomina}
+          deduccion={deduccion}
+          onCerrar={() => setAbierto(false)}
+        />
+      )}
+    </>
+  )
+}
+
 function DialogoPrestamo({
-  prenomina, onCerrar,
+  prenomina, deduccion, onCerrar,
 }: {
   prenomina: VPrenomina[]
+  /** Presente al corregir; ausente al registrar uno nuevo. */
+  deduccion?: Deduccion
   onCerrar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [trabajadorId, setTrabajadorId] = useState(prenomina[0]?.trabajador_id ?? '')
-  const [tipo, setTipo] = useState<TipoDeduccion>('prestamo')
-  const [monto, setMonto] = useState('')
-  const [fecha, setFecha] = useState(hoyISO())
-  const [notas, setNotas] = useState('')
+  const [trabajadorId, setTrabajadorId] = useState(
+    deduccion?.trabajador_id ?? prenomina[0]?.trabajador_id ?? '',
+  )
+  const [tipo, setTipo] = useState<TipoDeduccion>(deduccion?.tipo ?? 'prestamo')
+  const [monto, setMonto] = useState(deduccion ? String(Number(deduccion.monto)) : '')
+  const [fecha, setFecha] = useState(deduccion?.fecha ?? hoyISO())
+  const [notas, setNotas] = useState(deduccion?.notas ?? '')
 
   const guardar = () =>
     iniciar(async () => {
       setError(null)
       const r = await guardarDeduccion({
+        id: deduccion?.id,
         trabajador_id: trabajadorId,
         tipo,
         monto: num(monto),
@@ -487,11 +529,21 @@ function DialogoPrestamo({
       router.refresh()
     })
 
+  const borrar = () =>
+    iniciar(async () => {
+      if (!deduccion) return
+      if (!confirm('¿Borrar este préstamo?')) return
+      const r = await eliminarDeduccion(deduccion.id)
+      if (!r.ok) return setError(r.error)
+      onCerrar()
+      router.refresh()
+    })
+
   return (
     <Dialogo
       abierto
       onCerrar={onCerrar}
-      titulo="Préstamo o adelanto"
+      titulo={deduccion ? 'Corregir préstamo' : 'Préstamo o adelanto'}
       descripcion="Queda pendiente hasta que se aplique como deducción en un recibo de abono."
     >
       <CuerpoDialogo>
@@ -538,6 +590,16 @@ function DialogoPrestamo({
       </CuerpoDialogo>
 
       <PieDialogo>
+        {deduccion && (
+          <button
+            type="button"
+            onClick={borrar}
+            disabled={pendiente}
+            className="mr-auto rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            Borrar
+          </button>
+        )}
         <button
           type="button"
           onClick={onCerrar}
@@ -551,7 +613,7 @@ function DialogoPrestamo({
           disabled={pendiente || num(monto) <= 0 || !trabajadorId}
           className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
         >
-          {pendiente ? 'Guardando…' : 'Registrar'}
+          {pendiente ? 'Guardando…' : deduccion ? 'Guardar' : 'Registrar'}
         </button>
       </PieDialogo>
     </Dialogo>

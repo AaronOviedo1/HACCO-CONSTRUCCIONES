@@ -66,6 +66,9 @@ export async function GET(peticion: Request, { params }: { params: Promise<{ id:
     totalDeducciones: Number(recibo.deducciones),
     total: Number(recibo.total),
     notas: recibo.notas,
+    cancelacion: recibo.cancelado_en
+      ? { fecha: recibo.cancelado_en, motivo: recibo.motivo_cancelacion }
+      : null,
   }
 
   return responderPdf(

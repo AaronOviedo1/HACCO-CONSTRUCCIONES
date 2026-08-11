@@ -60,6 +60,20 @@ const e = StyleSheet.create({
   },
   leyenda: { fontSize: 8, color: GRIS, marginBottom: 2 },
 
+  cancelado: {
+    borderWidth: 1.2,
+    borderColor: '#b91c1c',
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  canceladoTitulo: {
+    fontFamily: 'Figtree', fontWeight: 700, fontSize: 15, letterSpacing: 3, color: '#b91c1c',
+  },
+  canceladoNota: { fontSize: 8, color: '#b91c1c', marginTop: 2, textAlign: 'center' },
+
   firmas: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 34 },
   firma: { width: '44%', alignItems: 'center' },
   lineaFirma: { borderTopWidth: 0.8, borderTopColor: TINTA, width: '100%', marginBottom: 4 },
@@ -79,6 +93,8 @@ export type DatosReciboNomina = {
   totalDeducciones: number
   total: number
   notas: string | null
+  /** Con motivo (o cadena vacía), el recibo está cancelado y no vale. */
+  cancelacion?: { fecha: string; motivo: string | null } | null
 }
 
 /** RECIBO DE ABONO A MANO DE OBRA · réplica del formato que imprimen hoy. */
@@ -94,6 +110,18 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
             {EMPRESA.telefono ? <Text style={e.contacto}>{EMPRESA.telefono}</Text> : null}
           </View>
         </View>
+
+        {/* Un recibo cancelado se sigue pudiendo abrir —el folio existe y el
+            papel anda por ahí—, pero lo primero que se lee es que no vale. */}
+        {datos.cancelacion && (
+          <View style={e.cancelado}>
+            <Text style={e.canceladoTitulo}>CANCELADO</Text>
+            <Text style={e.canceladoNota}>
+              Este recibo quedó sin efecto el {fechaLarga(datos.cancelacion.fecha)}
+              {datos.cancelacion.motivo ? ` · ${datos.cancelacion.motivo}` : ''}
+            </Text>
+          </View>
+        )}
 
         <View style={e.encabezado}>
           <Text style={e.titulo}>RECIBO DE ABONO A MANO DE OBRA</Text>

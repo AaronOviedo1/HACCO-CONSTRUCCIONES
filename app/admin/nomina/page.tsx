@@ -9,8 +9,9 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables } from '@/components/meses'
-import { PanelNomina } from '@/components/finanzas/nomina'
+import { BotonEditarPrestamo, PanelNomina } from '@/components/finanzas/nomina'
 import { EnviarRecibo } from '@/components/finanzas/enviar-recibo'
+import { BotonEditarRecibo } from '@/components/finanzas/editar-recibo'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
@@ -423,7 +424,12 @@ export default async function PaginaNomina({
                               {d.saldado ? 'Saldado' : 'Pendiente'}
                             </Etiqueta>
                           </Td>
-                          <Td className="text-tinta-500">{d.notas ?? '—'}</Td>
+                          <Td className="text-tinta-500">
+                            <span className="flex items-center justify-between gap-2">
+                              {d.notas ?? '—'}
+                              <BotonEditarPrestamo deduccion={d} prenomina={prenomina ?? []} />
+                            </span>
+                          </Td>
                         </tr>
                     ))}
                   </CuerpoMes>
@@ -441,25 +447,52 @@ export default async function PaginaNomina({
               // Por el perfil y no por la prenómina: a un trabajador cuyos
               // contratos ya se cerraron se le sigue pudiendo mandar su recibo.
               const trabajador = nombres.get(r.trabajador_id) ?? '—'
+              const cancelado = Boolean(r.cancelado_en)
               return (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-haaco-700">{r.folio}</span>
-                    <span className="font-medium text-tinta-900">{trabajador}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className={`font-mono text-xs ${cancelado ? 'text-tinta-400 line-through' : 'text-haaco-700'}`}>
+                      {r.folio}
+                    </span>
+                    <span className={`font-medium ${cancelado ? 'text-tinta-400' : 'text-tinta-900'}`}>
+                      {trabajador}
+                    </span>
                     <span className="text-xs text-tinta-400">{fecha(r.fecha)}</span>
+                    {cancelado && (
+                      <>
+                        <Etiqueta tono="rojo">Cancelado</Etiqueta>
+                        {r.motivo_cancelacion && (
+                          <span className="text-xs text-tinta-400">{r.motivo_cancelacion}</span>
+                        )}
+                      </>
+                    )}
                   </span>
                   <span className="flex items-center gap-3">
-                    {Number(r.deducciones) > 0 && (
+                    {!cancelado && Number(r.deducciones) > 0 && (
                       <span className="text-xs text-red-600">- {pesos(r.deducciones)}</span>
                     )}
-                    <span className="font-medium tabular-nums text-tinta-900">{pesos(r.total)}</span>
-                    <EnviarRecibo
-                      reciboId={r.id}
-                      folio={r.folio}
-                      trabajador={trabajador}
-                      telefono={telefonos.get(r.trabajador_id) ?? null}
-                      total={Number(r.total)}
-                    />
+                    <span
+                      className={`font-medium tabular-nums ${cancelado ? 'text-tinta-400 line-through' : 'text-tinta-900'}`}
+                    >
+                      {pesos(r.total)}
+                    </span>
+                    {!cancelado && (
+                      <>
+                        <BotonEditarRecibo
+                          recibo={r}
+                          pagos={pagosDelMes.filter((p) => p.recibo_id === r.id)}
+                          contratos={contratos ?? []}
+                          trabajador={trabajador}
+                        />
+                        <EnviarRecibo
+                          reciboId={r.id}
+                          folio={r.folio}
+                          trabajador={trabajador}
+                          telefono={telefonos.get(r.trabajador_id) ?? null}
+                          total={Number(r.total)}
+                        />
+                      </>
+                    )}
                     <a
                       href={`/api/recibos-nomina/${r.id}/pdf`}
                       target="_blank"

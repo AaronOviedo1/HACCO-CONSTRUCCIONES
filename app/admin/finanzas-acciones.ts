@@ -273,6 +273,56 @@ export async function pagarNomina(datos: {
   return { ok: true, datos: { reciboId: data as string } }
 }
 
+/**
+ * Corrige un recibo ya emitido. Se manda el documento completo —los renglones
+ * que quedan, no un parche— porque la base rehace los totales desde ellos.
+ */
+export async function editarReciboNomina(datos: {
+  recibo_id: string
+  fecha: string
+  metodo: MetodoPago
+  pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+  notas: string | null
+}): Promise<Resultado> {
+  const conMonto = datos.pagos.filter((p) => p.monto > 0)
+  if (conMonto.length === 0) return { ok: false, error: 'Deja al menos un abono con importe.' }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('editar_recibo_nomina', {
+    p_recibo: datos.recibo_id,
+    p_fecha: datos.fecha,
+    p_metodo: datos.metodo,
+    p_pagos: conMonto,
+    p_notas: datos.notas,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/**
+ * Echa atrás un recibo. Los abonos se borran —el saldo de los contratos vuelve
+ * solo— y los préstamos que descontaba regresan a pendientes, pero el folio se
+ * queda en la lista marcado como cancelado: se entregó en papel y firmado.
+ */
+export async function cancelarReciboNomina(
+  reciboId: string,
+  motivo: string | null,
+): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.rpc('cancelar_recibo_nomina', {
+    p_recibo: reciboId,
+    p_motivo: motivo,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
 export async function guardarDeduccion(deduccion: {
   id?: string
   trabajador_id: string

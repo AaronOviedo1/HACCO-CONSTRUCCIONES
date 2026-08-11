@@ -38,6 +38,10 @@ export type TipoMovimientoCaja = 'entrada' | 'salida'
 export type EstatusTarea = 'pendiente' | 'en_proceso' | 'terminada'
 export type EstadoCxp = 'pagada' | 'vencida' | 'urgente' | 'proxima' | 'al_corriente' | 'cancelada'
 export type RubroMaterial = 'herreria' | 'pintura' | 'otro'
+/** De dónde salió un precio observado. Nunca «actual»: siempre su procedencia. */
+export type OrigenPrecio = 'factura' | 'llamada' | 'captura' | 'lista'
+export type EstatusPropuesta = 'pendiente' | 'aceptada' | 'rechazada'
+export type EstatusRonda = 'pendiente' | 'confirmado' | 'pospuesto'
 export type EventoObra =
   | 'apertura' | 'estatus' | 'cronograma' | 'avance' | 'contrato'
   | 'pagare' | 'material' | 'entrega' | 'cierre' | 'reapertura' | 'nota'
@@ -116,6 +120,15 @@ export type Producto = {
   precio_super: number | null
   proveedor_id: string | null
   tipo: TipoProducto
+  /** El texto del nombre normalizado; lo calcula la base. */
+  clave_busqueda: string | null
+  /** Si entra en la ronda de precios de la mañana. */
+  seguir_precio: boolean
+  /** Cuánto aguanta su precio antes de estar viejo. Nulo = el de su tipo. */
+  dias_vigencia_precio: number | null
+  precio_actualizado_en: string | null
+  /** La última vez que alguien lo miró y lo dio por bueno. */
+  precio_revisado_en: string | null
   notas: string | null
   activo: boolean
   created_at: string
@@ -281,11 +294,14 @@ export type Gasto = {
   monto: number
   folio_factura: string | null
   proveedor_id: string | null
+  producto_id: string | null
   metodo: MetodoPago
   condicion: CondicionCompra
   foto_ticket_path: string | null
   fecha: string
   ocr_raw: unknown
+  /** A qué cuenta por pagar pertenece: los renglones de una factura comparten una. */
+  cxp_id: string | null
   registrado_por: string | null
   created_at: string
   updated_at: string
@@ -399,6 +415,7 @@ export type SolicitudMaterial = {
 
 export type CuentaPorPagar = {
   id: string
+  /** Qué gasto la abrió. Dato de origen: la liga viva es gastos.cxp_id. */
   gasto_id: string | null
   proveedor_id: string
   folio_factura: string
@@ -411,6 +428,8 @@ export type CuentaPorPagar = {
   notas: string | null
   vencimiento: string
   saldo: number
+  /** true = la cuadra el sistema con los gastos de la factura; false = capturada a mano. */
+  automatica: boolean
   created_at: string
   updated_at: string
 }
@@ -486,6 +505,51 @@ export type CajaChica = {
   created_at: string
   updated_at: string
   editado_por: string | null
+}
+
+/** Un aviso a mandar: el recordatorio pendiente ya cruzado con su teléfono. */
+export type AvisoRecordatorio = {
+  recordatorio_id: string
+  titulo: string
+  nota: string | null
+  fecha: string
+  vencido: boolean
+  cotizacion_id: string | null
+  obra_id: string | null
+  suscripcion_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+/** Un teléfono dado de alta para recibir avisos. Uno por aparato, no por persona. */
+export type PushSuscripcion = {
+  id: string
+  profile_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  agente: string | null
+  ultimo_envio: string | null
+  created_at: string
+}
+
+/** Un pendiente con fecha. Cuelga de una cotización, de una obra, o de nada. */
+export type Recordatorio = {
+  id: string
+  cotizacion_id: string | null
+  obra_id: string | null
+  titulo: string
+  nota: string | null
+  fecha: string
+  /** Sin hora es un pendiente del día; con hora es una cita. */
+  hora: string | null
+  para: string | null
+  atendido_en: string | null
+  atendido_por: string | null
+  creado_por: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type PolizaGarantia = {
@@ -568,6 +632,8 @@ export type VInsumoExistencia = {
 export type VCuentaPorPagar = CuentaPorPagar & {
   proveedor: string
   dias_restantes: number
+  /** De cuántos gastos capturados sale su importe. 0 = capturada a mano. */
+  gastos: number
   estado: EstadoCxp
 }
 
@@ -716,6 +782,133 @@ export type ReciboNomina = {
   notas: string | null
   registrado_por: string | null
   created_at: string
+  updated_at: string
+  editado_por: string | null
+  /** Con fecha, el recibo ya no vale: sus abonos se borraron. */
+  cancelado_en: string | null
+  cancelado_por: string | null
+  motivo_cancelacion: string | null
+}
+
+// ---------------------------------------------------------------------------
+// PRECIOS VIVOS
+// ---------------------------------------------------------------------------
+
+/** Lo que se pagó por un material, cuándo y a quién. Nunca se pisa: se acumula. */
+export type PrecioMaterial = {
+  id: string
+  producto_id: string
+  proveedor_id: string | null
+  fecha: string
+  costo: number | null
+  iva: number | null
+  precio_neto: number
+  /** La unidad EN QUE se observó, que no siempre es la del catálogo. */
+  unidad: string | null
+  origen: OrigenPrecio
+  gasto_id: string | null
+  folio_factura: string | null
+  nota: string | null
+  registrado_por: string | null
+  created_at: string
+}
+
+/** Cómo escribe cada proveedor un producto del catálogo. */
+export type ProductoAlias = {
+  id: string
+  producto_id: string
+  texto_norm: string
+  veces: number
+  origen: string | null
+  created_at: string
+}
+
+/** Un renglón de factura que no se pudo ligar. Nunca se adivina. */
+export type RenglonSinLigar = {
+  id: string
+  gasto_id: string | null
+  texto: string
+  texto_norm: string
+  precio_neto: number | null
+  unidad: string | null
+  proveedor_id: string | null
+  folio_factura: string | null
+  fecha: string
+  resuelto: boolean
+  producto_id: string | null
+  created_at: string
+}
+
+/** Un precio que el sistema dedujo y espera visto bueno. */
+export type PrecioPropuesto = {
+  id: string
+  producto_id: string
+  proveedor_id: string | null
+  observacion_id: string | null
+  costo_actual: number | null
+  neto_actual: number | null
+  costo_nuevo: number | null
+  iva_nuevo: number | null
+  neto_nuevo: number
+  variacion_pct: number | null
+  estado: EstatusPropuesta
+  motivo: string | null
+  resuelta_por: string | null
+  resuelta_en: string | null
+  created_at: string
+}
+
+/** Qué precios conviene preguntar hoy. La arma el cron cada mañana. */
+export type RondaPrecio = {
+  fecha: string
+  producto_id: string
+  motivo: string | null
+  orden: number
+  estado: EstatusRonda
+  created_at: string
+}
+
+/** Último precio pagado por producto, con su origen y qué tan viejo está. */
+export type VPrecioVigente = {
+  producto_id: string
+  observacion_id: string
+  producto: string
+  tipo: TipoProducto
+  unidad_catalogo: string | null
+  costo_catalogo: number | null
+  neto_catalogo: number | null
+  seguir_precio: boolean
+  unidad_observada: string | null
+  proveedor_id: string | null
+  proveedor: string | null
+  proveedor_telefono: string | null
+  costo: number | null
+  iva: number | null
+  precio_neto: number
+  fecha: string
+  origen: OrigenPrecio
+  folio_factura: string | null
+  gasto_id: string | null
+  nota: string | null
+  dias: number
+  vigencia: number
+  semaforo: 'verde' | 'ambar' | 'rojo'
+  unidad_distinta: boolean
+}
+
+/** Qué tan viejo está el precio de cada producto y cuánto se cotiza. */
+export type VPrecioFrescura = {
+  producto_id: string
+  nombre: string
+  tipo: TipoProducto
+  unidad: string
+  seguir_precio: boolean
+  neto_catalogo: number | null
+  ultima_observacion: string | null
+  visto_en: string | null
+  vigencia: number
+  dias: number | null
+  usos: number
 }
 
 export type VGasto = Gasto & {
@@ -780,12 +973,23 @@ export type GastoSql = {
   monto: number
   folio_factura?: string | null
   proveedor_id?: string | null
+  /** Qué material del catálogo se compró: de ahí sale su precio vigente. */
+  producto_id?: string | null
   metodo: MetodoPago
   condicion: CondicionCompra
   foto_ticket_path?: string | null
   fecha: string
   /** Si es material de una obra, crea también el renglón REAL. */
   crear_material?: boolean
+  /** Compra para el stock: da entrada al kardex del taller en el mismo movimiento. */
+  al_inventario?: boolean
+  /** A qué insumo del catálogo entra. Sin él se da de alta con el nombre. */
+  inventario_producto_id?: string | null
+  /** Cuánto entra. Sin él entran las piezas del gasto. */
+  inventario_cantidad?: number | null
+  /** Nombre del insumo nuevo. Sin él se usa la descripción del gasto. */
+  inventario_nombre?: string | null
+  inventario_unidad?: string | null
 }
 
 export type ObraNuevaSql = {
@@ -918,13 +1122,22 @@ export type Database = {
       pagos_fijos: Tabla<PagoFijo>
       caja_chica: Tabla<CajaChica>
       polizas_garantia: Tabla<PolizaGarantia>
+      recordatorios: Tabla<Recordatorio>
+      push_suscripciones: Tabla<PushSuscripcion>
       consecutivos: Tabla<Consecutivo>
       recibos: Tabla<Recibo>
       recibos_nomina: Tabla<ReciboNomina>
       obra_detalles: Tabla<ObraDetalle>
       bitacora_obra: Tabla<BitacoraObra>
+      precios_material: Tabla<PrecioMaterial>
+      producto_alias: Tabla<ProductoAlias>
+      renglones_sin_ligar: Tabla<RenglonSinLigar>
+      precios_propuestos: Tabla<PrecioPropuesto>
+      ronda_precios: Tabla<RondaPrecio>
     }
     Views: {
+      v_precios_vigentes: Vista<VPrecioVigente>
+      v_precios_frescura: Vista<VPrecioFrescura>
       v_cotizaciones: Vista<VCotizacion>
       v_gastos: Vista<VGasto>
       v_insumos_existencia: Vista<VInsumoExistencia>
@@ -989,6 +1202,7 @@ export type Database = {
       eliminar_obra: { Args: { p_obra: string }; Returns: ResultadoBorradoObra }
       registrar_gasto: { Args: { p_datos: GastoSql }; Returns: string }
       editar_gasto: { Args: { p_gasto: string; p_datos: GastoSql }; Returns: string }
+      eliminar_gasto: { Args: { p_gasto: string }; Returns: undefined }
       eliminar_material_obra: { Args: { p_material: string }; Returns: undefined }
       entrada_inventario_desde_gasto: {
         Args: {
@@ -1020,7 +1234,49 @@ export type Database = {
         }
         Returns: string
       }
+      editar_recibo_nomina: {
+        Args: {
+          p_recibo: string
+          p_fecha: string
+          p_metodo: MetodoPago
+          p_pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+          p_notas: string | null
+        }
+        Returns: undefined
+      }
+      cancelar_recibo_nomina: {
+        Args: { p_recibo: string; p_motivo: string | null }
+        Returns: undefined
+      }
       generar_quincena: { Args: { p_quincena: string }; Returns: number }
+      registrar_precio: {
+        Args: {
+          p_producto: string
+          p_proveedor: string | null
+          p_neto: number
+          p_origen: OrigenPrecio
+          p_unidad: string | null
+          p_nota: string | null
+          p_aprobar: boolean
+        }
+        Returns: string
+      }
+      agregar_a_ronda: { Args: { p_producto: string }; Returns: undefined }
+      ligar_renglon: {
+        Args: { p_renglon: string; p_producto: string | null }
+        Returns: string | null
+      }
+      aceptar_propuesta_precio: { Args: { p_id: string }; Returns: string }
+      rechazar_propuesta_precio: {
+        Args: { p_id: string; p_motivo: string | null }
+        Returns: string
+      }
+      ronda_precios_del_dia: { Args: { p_fecha: string | null }; Returns: number }
+      observar_precios_de_gasto: { Args: { p_gasto: string }; Returns: string | null }
+      /* Sólo para el cron: `service_role` no lee las tablas de este esquema. */
+      avisos_de_recordatorios: { Args: Record<string, never>; Returns: AvisoRecordatorio[] }
+      olvidar_suscripciones: { Args: { p_ids: string[] }; Returns: number }
+      marcar_envio_push: { Args: { p_ids: string[] }; Returns: undefined }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
