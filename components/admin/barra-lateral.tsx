@@ -7,7 +7,9 @@ import {
   LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
 } from 'lucide-react'
 import { Membrete } from '@/components/marca'
+import { BotonNovedades } from '@/components/novedades'
 import { GRUPOS, type Seccion } from '@/lib/nav'
+import type { RolUsuario } from '@/types/database'
 import type { LucideIcon } from 'lucide-react'
 
 const ICONOS: Record<string, LucideIcon> = {
@@ -40,11 +42,15 @@ export function BarraLateral({
   secciones,
   nombre,
   rol,
+  rolClave,
   cerrarSesion,
 }: {
   secciones: Seccion[]
   nombre: string
+  /** El rol como se dice en voz alta: «Dirección». */
   rol: string
+  /** El rol como lo guarda la base, para lo que decide por rol. */
+  rolClave: RolUsuario
   cerrarSesion: () => Promise<void>
 }) {
   const pathname = usePathname()
@@ -112,6 +118,10 @@ export function BarraLateral({
             <p className="truncate text-sm font-medium text-white">{nombre}</p>
             <p className="text-xs text-haaco-300">{rol}</p>
           </div>
+          {/* En el escritorio no hay pantalla «Más» a la que ir: el aviso de lo
+              nuevo se vuelve a abrir desde aquí. */}
+          <BotonNovedades rol={rolClave} variante="lateral" />
+
           <form action={cerrarSesion}>
             <button
               type="submit"

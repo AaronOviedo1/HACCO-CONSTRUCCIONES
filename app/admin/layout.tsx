@@ -19,6 +19,7 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
         secciones={seccionesDe(perfil.rol)}
         nombre={perfil.nombre}
         rol={NOMBRE_ROL[perfil.rol]}
+        rolClave={perfil.rol}
         cerrarSesion={cerrarSesion}
       />
 

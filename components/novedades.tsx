@@ -56,25 +56,46 @@ export function Novedades({ rol }: { rol: RolUsuario }) {
 }
 
 /**
- * El mismo aviso, pero pedido a mano desde «Más».
+ * El mismo aviso, pero pedido a mano.
  *
  * Quien lo cerró sin leerlo —o quien quiere volver a ver cómo era una cosa—
  * tiene dónde. Un aviso que sólo existe una vez y para siempre no sirve de
  * nada al que ese día andaba de prisa.
+ *
+ * Va en los dos lados: en «Más» para el teléfono y al pie de la barra lateral
+ * en el escritorio, que es donde vive lo de «esta app» y donde no hay ninguna
+ * pantalla «Más» a la que ir.
  */
-export function BotonNovedades({ rol }: { rol: RolUsuario }) {
+export function BotonNovedades({
+  rol,
+  variante = 'menu',
+}: {
+  rol: RolUsuario
+  variante?: 'menu' | 'lateral'
+}) {
   const [abierto, setAbierto] = useState(false)
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="flex min-h-[52px] w-full items-center gap-3 border-b-[0.5px] border-tinta-100 px-4 text-left text-[15.5px] transition last:border-b-0 active:bg-tinta-50"
-      >
-        <span className="flex-1">Novedades</span>
-        <span className="text-[13px] text-tinta-400">{FECHA_NOVEDADES}</span>
-      </button>
+      {variante === 'lateral' ? (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-haaco-100/80 transition hover:bg-white/8 hover:text-white"
+        >
+          <Sparkles size={17} className="text-haaco-200/70" />
+          Novedades
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="flex min-h-[52px] w-full items-center gap-3 border-b-[0.5px] border-tinta-100 px-4 text-left text-[15.5px] transition last:border-b-0 active:bg-tinta-50"
+        >
+          <span className="flex-1">Novedades</span>
+          <span className="text-[13px] text-tinta-400">{FECHA_NOVEDADES}</span>
+        </button>
+      )}
 
       {abierto && (
         <HojaNovedades
