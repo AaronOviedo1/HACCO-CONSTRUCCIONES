@@ -330,7 +330,11 @@ if (process.env.DEBUG_HOJA) {
 // ---------------------------------------------------------------------------
 // Contra la base
 // ---------------------------------------------------------------------------
-const bd = new pg.Client({ connectionString: cadena, ssl: { rejectUnauthorized: false } })
+// Supabase exige TLS; el Postgres que levanta `supabase start` en la máquina no
+// lo ofrece siquiera, así que pedirlo ahí tumba la conexión.
+const esLocal = /(^|@|\/\/)(localhost|127\.0\.0\.1)/.test(cadena)
+const sslDeLaCadena = esLocal ? false : { rejectUnauthorized: false }
+const bd = new pg.Client({ connectionString: cadena, ssl: sslDeLaCadena })
 await bd.connect()
 
 try {

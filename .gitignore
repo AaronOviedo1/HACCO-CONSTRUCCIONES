@@ -50,3 +50,6 @@ next-env.d.ts
 
 # Personalización del editor (color de la barra de título)
 /.vscode
+
+# Capturas de verificación visual: son artefactos de trabajo, no del producto.
+capturas-landing/

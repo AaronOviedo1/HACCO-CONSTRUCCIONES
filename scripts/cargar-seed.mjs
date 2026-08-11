@@ -26,7 +26,11 @@ if (!cadena) {
 const aqui = dirname(fileURLToPath(import.meta.url))
 const sql = await readFile(join(aqui, '..', 'supabase', 'seed.sql'), 'utf8')
 
-const cliente = new pg.Client({ connectionString: cadena, ssl: { rejectUnauthorized: false } })
+// Supabase exige TLS; el Postgres que levanta `supabase start` en la máquina no
+// lo ofrece siquiera, así que pedirlo ahí tumba la conexión.
+const esLocal = /(^|@|\/\/)(localhost|127\.0\.0\.1)/.test(cadena)
+const sslDeLaCadena = esLocal ? false : { rejectUnauthorized: false }
+const cliente = new pg.Client({ connectionString: cadena, ssl: sslDeLaCadena })
 await cliente.connect()
 
 try {
