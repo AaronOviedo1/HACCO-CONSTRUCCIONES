@@ -35,6 +35,11 @@ export type DesgloseComprobante = {
   /** El IVA. */
   impuesto: number | null
   total: number | null
+  /**
+   * Si el papel dice que el IVA ya viene dentro de los precios («Impuesto
+   * Incl.»). Null cuando no lo dice de ninguna forma.
+   */
+  impuesto_incluido?: boolean | null
 }
 
 /** Lo que devuelve el cuadre: los netos y si la cuenta cerró. */
@@ -109,16 +114,44 @@ export function cuadrarRenglones(
   // se calcula sobre lo que queda después del descuento. Repartirlo sobre el
   // bruto desviaría los renglones cuando los descuentos son de porcentajes
   // distintos, aunque el total siguiera cuadrando.
-  const netos = leidos.map((r, i) => {
-    const impuesto = conImpuesto
-      ? (r.impuesto ?? 0)
-      : baseTotal > 0
-        ? impuestoPie * (bases[i] / baseTotal)
-        : 0
-    // Un solo redondeo sobre la cuenta completa: descuento, base e impuesto son
-    // cifras intermedias y encadenar sus redondeos podría desviar un peso.
-    return redondear(bases[i] + impuesto)
-  })
+  const netosCon = (sumarImpuesto: boolean) =>
+    leidos.map((r, i) => {
+      const impuesto = !sumarImpuesto
+        ? 0
+        : conImpuesto
+          ? (r.impuesto ?? 0)
+          : baseTotal > 0
+            ? impuestoPie * (bases[i] / baseTotal)
+            : 0
+      // Un solo redondeo sobre la cuenta completa: descuento, base e impuesto son
+      // cifras intermedias y encadenar sus redondeos podría desviar un peso.
+      return redondear(bases[i] + impuesto)
+    })
+
+  /*
+   * ¿El IVA ya venía dentro de los precios?
+   *
+   * La tienda de mostrador imprime «Impuesto Incl.» y sus precios ya lo traen;
+   * la factura lo lista aparte y hay que sumarlo. Tratar el primero como el
+   * segundo infla el gasto un dieciséis por ciento, y encima reparte de más en
+   * cada renglón.
+   *
+   * No se decide por el texto —que a veces ni se alcanza a leer en la foto—
+   * sino por la cuenta: se prueban las dos y gana la que se acerque al total
+   * impreso, que es la cifra que se firma. Sólo cuando no hay total legible se
+   * hace caso de lo que el papel haya dicho.
+   */
+  const hayImpuesto = conImpuesto ? leidos.some((r) => (r.impuesto ?? 0) > 0) : impuestoPie > 0
+
+  let netos = netosCon(!(hayImpuesto && desglose.impuesto_incluido === true))
+
+  if (hayImpuesto && desglose.total !== null) {
+    const lejosDelTotal = (ns: number[]) =>
+      Math.abs(desglose.total! - ns.reduce((s, n) => s + n, 0))
+    const sumado = netosCon(true)
+    const incluido = netosCon(false)
+    netos = lejosDelTotal(incluido) < lejosDelTotal(sumado) ? incluido : sumado
+  }
 
   const armar = (montos: number[]): RenglonTicket[] =>
     leidos.map((r, i) => ({

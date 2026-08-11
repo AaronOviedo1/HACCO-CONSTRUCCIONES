@@ -41,12 +41,19 @@ Reglas:
   piezas. Su «importe» es lo que dice la columna de importe, tal cual, ANTES de descuento e
   impuesto. Si el ticket es de un solo artículo, la lista lleva ese único renglón. Las líneas que
   no son un artículo —descuentos, redondeos, propinas— no van en la lista.
-- «descuento» e «impuesto» del renglón: sólo cuando el comprobante los desglosa renglón por
-  renglón, como hacen las facturas. Cópialos en positivo, cada uno con el suyo. Si el comprobante
-  no los separa así, van en null y ya: el sistema los reparte.
+- «descuento» e «impuesto» del renglón: sólo cuando el comprobante los pega a ese renglón. Cópialos
+  en positivo, cada uno con el suyo. Si el comprobante no los separa así, van en null y ya: el
+  sistema los reparte. Ojo con el «Ud. ahorra», «Ahorro» o «Dscto.» que las tiendas imprimen en el
+  renglón de abajo del artículo: ése es el descuento DE ESE artículo, no una línea aparte ni un
+  descuento del ticket completo.
 - «desglose» son las cifras del pie, tal como están impresas: «subtotal», «descuento» (la suma de
   los descuentos, en positivo), «impuesto» (el IVA) y «total». Lo que no venga impreso va en null.
   Un ticket de tiendita casi siempre trae nada más el total: los demás en null y ya.
+- «impuesto_incluido»: true cuando el papel avisa que el IVA ya viene DENTRO de los precios
+  —«Impuesto Incl.», «IVA incluido», «I.V.A. INC», «precios con IVA»—, que es lo normal en la
+  tienda de mostrador. false cuando el IVA se suma aparte al final, como en una factura. Si no lo
+  dice de ninguna forma, null. Fíjate también en la cuenta: si subtotal e importes ya dan el total
+  sin sumarle el impuesto, es que viene incluido.
 - «piezas»: si el ticket es de un solo artículo, su cantidad. Si trae varios artículos distintos, pon 1
   (el sistema divide monto entre piezas para sacar el costo unitario, y esa cuenta sólo sirve con un artículo).
 - «descripcion»: corta y en el español de la obra, como la escribiría el maestro. Ej. «4 cubetas Rivinol 7 blanco».
@@ -156,8 +163,12 @@ export async function POST(peticion: Request) {
           descuento: { type: ['number', 'null'], description: 'La suma de los descuentos, en positivo' },
           impuesto: { type: ['number', 'null'], description: 'El IVA del comprobante' },
           total: { type: ['number', 'null'] },
+          impuesto_incluido: {
+            type: ['boolean', 'null'],
+            description: 'true si el IVA ya viene dentro de los precios («Impuesto Incl.»)',
+          },
         },
-        required: ['subtotal', 'descuento', 'impuesto', 'total'],
+        required: ['subtotal', 'descuento', 'impuesto', 'total', 'impuesto_incluido'],
       },
       metodo: { type: ['string', 'null'], enum: [...Object.keys(METODO_PAGO), null] },
       categoria: { type: ['string', 'null'], enum: [...Object.keys(CATEGORIA_GASTO), null] },
@@ -245,6 +256,7 @@ export async function POST(peticion: Request) {
       descuento: positivo(pie.descuento),
       impuesto: positivo(pie.impuesto),
       total: numero(pie.total) ?? numero(leido.monto),
+      impuesto_incluido: typeof pie.impuesto_incluido === 'boolean' ? pie.impuesto_incluido : null,
     }
     const { renglones } = cuadrarRenglones(leidos, desglose)
 
@@ -253,8 +265,13 @@ export async function POST(peticion: Request) {
       piezas: entero(leido.piezas),
       monto: numero(leido.monto) ?? desglose.total,
       renglones,
-      // Sin una sola cifra del pie no hay nada que enseñar ni con qué comparar.
-      desglose: Object.values(desglose).some((v) => v !== null) ? desglose : null,
+      // Sin una sola CIFRA del pie no hay nada que enseñar ni con qué comparar.
+      // `impuesto_incluido` no cuenta: es una marca, no un número.
+      desglose: [desglose.subtotal, desglose.descuento, desglose.impuesto, desglose.total].some(
+        (v) => v !== null,
+      )
+        ? desglose
+        : null,
       metodo: clave<MetodoPago>(leido.metodo, METODO_PAGO),
       categoria: clave<CategoriaGasto>(leido.categoria, CATEGORIA_GASTO),
       folio: texto(leido.folio),
