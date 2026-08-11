@@ -25,6 +25,8 @@ export const maxDuration = 60
 
 const MAXIMO = 8 * 1024 * 1024
 const TIPOS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+/** Cuántos nombres del catálogo se le enseñan al modelo. */
+const TOPE_PRODUCTOS = 150
 
 const INSTRUCCIONES = `Eres el capturista de una empresa de pintura y herrería en Hermosillo, Sonora.
 Te llega la foto de un ticket, una nota de remisión o una factura y llenas la captura del gasto.
@@ -54,6 +56,10 @@ Reglas:
 - «metodo»: efectivo o «contado» → efectivo; terminal, TDC, TDD o cualquier tarjeta → tarjeta_empresa;
   SPEI o transferencia → transferencia; cheque → cheque; ficha de depósito → deposito.
 - «proveedor»: elige uno de la lista sólo si el negocio del ticket es ese, aunque venga abreviado. Si no, null.
+- «producto» de cada renglón: elige del catálogo sólo si el renglón ES ese material, aunque el ticket lo
+  escriba abreviado o con la medida pegada («PTR 1X1 CAL.14 6.10M» es el PTR 1x1 calibre 14). Si dudas,
+  null: el sistema pregunta después. Vale más un null que un material equivocado, porque de ahí sale el
+  precio con el que se cotiza.
 - «folio»: el número del ticket, nota o factura, tal cual.
 - No inventes: lo que no se vea en la imagen va en null.
 - Si la imagen no es un comprobante de compra, TODOS los campos van en null y sólo escribes el aviso.
@@ -91,6 +97,14 @@ export async function POST(peticion: Request) {
     (formulario.get('proveedores') as string) || '[]',
   ) as { id: string; nombre: string }[]
 
+  // El catálogo viaja igual: reconocer aquí el material es lo que convierte la
+  // factura en el precio con el que después se cotiza. Se acota porque el
+  // prompt no puede crecer con el catálogo; si algún día no cabe, el ligado se
+  // resuelve solo por alias y en la pantalla de precios, sin romper nada.
+  const productos = (
+    JSON.parse((formulario.get('productos') as string) || '[]') as { id: string; nombre: string }[]
+  ).slice(0, TOPE_PRODUCTOS)
+
   const datos = Buffer.from(await archivo.arrayBuffer()).toString('base64')
   const hoy = new Date().toISOString().slice(0, 10)
 
@@ -123,8 +137,13 @@ export async function POST(peticion: Request) {
               type: ['number', 'null'],
               description: 'El IVA DE ESE RENGLÓN, si el comprobante lo desglosa',
             },
+            producto: {
+              type: ['string', 'null'],
+              enum: [...productos.map((p) => p.nombre), null],
+              description: 'Qué material del catálogo es este renglón, o null si no está claro',
+            },
           },
-          required: ['descripcion', 'piezas', 'importe', 'descuento', 'impuesto'],
+          required: ['descripcion', 'piezas', 'importe', 'descuento', 'impuesto', 'producto'],
         },
       },
       // Requerido y sin null: así el modelo tiene que mirar el pie y decir «aquí
@@ -145,9 +164,14 @@ export async function POST(peticion: Request) {
       folio: { type: ['string', 'null'] },
       fecha: { type: ['string', 'null'], description: 'AAAA-MM-DD' },
       proveedor: { type: ['string', 'null'], enum: [...proveedores.map((p) => p.nombre), null] },
+      producto: {
+        type: ['string', 'null'],
+        enum: [...productos.map((p) => p.nombre), null],
+        description: 'Si el ticket es de un solo material, cuál del catálogo es',
+      },
       aviso: { type: ['string', 'null'] },
     },
-    required: ['descripcion', 'piezas', 'monto', 'renglones', 'desglose', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'aviso'],
+    required: ['descripcion', 'piezas', 'monto', 'renglones', 'desglose', 'metodo', 'categoria', 'folio', 'fecha', 'proveedor', 'producto', 'aviso'],
   }
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -192,6 +216,10 @@ export async function POST(peticion: Request) {
 
     const leido = bloque.input as Record<string, unknown>
     const nombre = typeof leido.proveedor === 'string' ? leido.proveedor : null
+    // El enum es cerrado, así que un nombre que no esté en la lista es que el
+    // modelo se lo inventó: se descarta igual que el proveedor.
+    const producto = (v: unknown) =>
+      typeof v === 'string' ? (productos.find((p) => p.nombre === v)?.id ?? null) : null
 
     // Renglones del ticket tal como vienen impresos: sólo pasan los que traen
     // descripción e importe, que es lo mínimo para poder cuadrarlos.
@@ -204,6 +232,7 @@ export async function POST(peticion: Request) {
           importe: numero(fila.importe),
           descuento: positivo(fila.descuento),
           impuesto: positivo(fila.impuesto),
+          producto_id: producto(fila.producto),
         }
       })
       .filter((r): r is RenglonLeido => Boolean(r.descripcion && r.importe))
@@ -231,6 +260,7 @@ export async function POST(peticion: Request) {
       folio: texto(leido.folio),
       fecha: /^\d{4}-\d{2}-\d{2}$/.test(String(leido.fecha)) ? String(leido.fecha) : null,
       proveedor_id: proveedores.find((p) => p.nombre === nombre)?.id ?? null,
+      producto_id: producto(leido.producto),
       aviso: texto(leido.aviso),
     }
 

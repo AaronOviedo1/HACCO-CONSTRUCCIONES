@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useRef, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { Camera, Loader2, Pencil, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones, PieDialogo, Seleccion,
@@ -14,7 +14,7 @@ import { pesos } from '@/lib/format'
 import { CATEGORIA_GASTO, CONDICION, METODO_PAGO } from '@/lib/finanzas'
 import { prepararTicket, type DesgloseComprobante, type LecturaTicket } from '@/lib/ticket'
 import {
-  actualizarGasto, agregarProductoAlCatalogo, eliminarGasto, entradaInventario, registrarGasto,
+  actualizarGasto, agregarProductoAlCatalogo, eliminarGasto, registrarGasto,
 } from '@/app/admin/finanzas-acciones'
 import type {
   CategoriaGasto, CondicionCompra, Gasto, MetodoPago, ObraConcepto, Proveedor,
@@ -23,12 +23,30 @@ import type {
 
 type ObraSimple = { id: string; nombre: string; ot_numero: string | null }
 
+/** Un artículo de la factura: se registra como su propio gasto. */
+type Renglon = {
+  descripcion: string
+  piezas: string
+  monto: string
+  producto_id: string | null
+  /** null = no entra al taller · '' = insumo nuevo con esta descripción · uuid = insumo del catálogo */
+  insumo: string | null
+  /** Cuánto entra al taller. Vacío = las piezas del renglón. */
+  cantidad: string
+}
+
+const renglonVacio = (): Renglon => ({
+  descripcion: '', piezas: '1', monto: '', producto_id: null, insumo: null, cantidad: '',
+})
+
 /** Lo que hace falta del gasto para volver a abrirlo y corregirlo. */
 export type GastoEditable = Pick<
   Gasto,
   | 'id' | 'obra_id' | 'concepto_id' | 'categoria' | 'descripcion' | 'piezas' | 'monto'
   | 'folio_factura' | 'proveedor_id' | 'metodo' | 'condicion' | 'fecha'
 > & {
+  /** Puede no venir: las listas viejas no lo seleccionan. */
+  producto_id?: string | null
   /** El nombre de su obra, para poder nombrarla aunque ya esté cerrada. */
   obra?: string | null
   ot_numero?: string | null
@@ -117,13 +135,19 @@ function FormularioGasto({
   const [conceptoId, setConceptoId] = useState(gasto?.concepto_id ?? '')
   const [categoria, setCategoria] = useState<CategoriaGasto>(gasto?.categoria ?? 'material')
   const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? '')
+  // Qué material del catálogo es este gasto. Va a la base para que la compra
+  // quede como el precio vigente de ese material, sin volver a preguntarlo.
+  const [productoId, setProductoId] = useState<string | null>(gasto?.producto_id ?? null)
   const [piezas, setPiezas] = useState(gasto ? String(gasto.piezas ?? 1) : '1')
   const [monto, setMonto] = useState(gasto ? String(gasto.monto) : '')
   // Cuando el ticket trae varios artículos, se captura renglón por renglón y
   // se registra un gasto por cada uno; null = captura sencilla de siempre.
-  const [renglones, setRenglones] = useState<
-    { descripcion: string; piezas: string; monto: string }[] | null
-  >(null)
+  //
+  // `insumo` dice qué hace ese renglón con el taller, y tiene tres estados que
+  // no se pueden confundir: null es que no entra —lo normal—, cadena vacía es
+  // que entra con un insumo nuevo a nombre del renglón, y un uuid es que se le
+  // suma a uno que ya está en el catálogo.
+  const [renglones, setRenglones] = useState<Renglon[] | null>(null)
   const [folio, setFolio] = useState(gasto?.folio_factura ?? '')
   const [proveedorId, setProveedorId] = useState(gasto?.proveedor_id ?? '')
   const [metodo, setMetodo] = useState<MetodoPago>(gasto?.metodo ?? 'efectivo')
@@ -159,11 +183,33 @@ function FormularioGasto({
   // Compras para el stock del taller: material o herramienta sin obra asignada.
   // Al corregir un gasto no se ofrece: la entrada al inventario ya se dio (o no)
   // cuando se capturó, y repetirla duplicaría la existencia.
+  //
+  // Una factura partida en conceptos SÍ entra: es justo el caso normal —los
+  // insumos del taller llegan por factura, con varios artículos— y antes se
+  // quedaba fuera porque el bloque se apagaba en cuanto había renglones.
   const puedeInventario =
-    !editando && (categoria === 'material' || categoria === 'herramienta') && !obraId && !renglones
-  const enCatalogo = sugerencias.some(
-    (s) => s.producto_id && s.texto.toLowerCase() === descripcion.trim().toLowerCase(),
+    !editando && (categoria === 'material' || categoria === 'herramienta') && !obraId
+  const aTaller = puedeInventario && alInventario
+  // Si el gasto se carga a una OT el bloque desaparece, y quien lo había
+  // prendido merece saber por qué en vez de creer que dio una entrada.
+  const tallerTapadoPorObra =
+    !editando && (categoria === 'material' || categoria === 'herramienta') &&
+    Boolean(obraId) && alInventario
+  // El catálogo, sacado de las sugerencias que ya vienen ligadas a un producto.
+  // Viaja con la foto del ticket para que el modelo reconozca el material, y
+  // sirve para resolver por nombre lo que se teclee a mano.
+  const catalogo = useMemo(
+    () =>
+      sugerencias
+        .filter((s) => s.producto_id)
+        .map((s) => ({ id: s.producto_id as string, nombre: s.texto })),
+    [sugerencias],
   )
+  /** Qué producto es un texto, sólo por nombre exacto. Nunca por parecido. */
+  const productoDe = (texto: string) =>
+    catalogo.find((p) => p.nombre.toLowerCase() === texto.trim().toLowerCase())?.id ?? null
+
+  const enCatalogo = Boolean(productoDe(descripcion))
 
   const elegir = (f: File | null) => {
     if (!f) return
@@ -195,6 +241,9 @@ function FormularioGasto({
         'proveedores',
         JSON.stringify(proveedores.map(({ id, nombre }) => ({ id, nombre }))),
       )
+      // Con el catálogo a la vista, la lectura ya dice qué material es cada
+      // renglón: de ahí sale el precio con el que después se cotiza.
+      cuerpo.append('productos', JSON.stringify(catalogo))
 
       const r = await fetch('/api/ticket', { method: 'POST', body: cuerpo })
       const datos = await r.json()
@@ -227,9 +276,15 @@ function FormularioGasto({
     if (porConceptos && !tocado.current.has('conceptos')) {
       setRenglones(
         l.renglones.map((r) => ({
+          ...renglonVacio(),
           descripcion: r.descripcion,
           piezas: String(r.piezas),
           monto: String(r.monto),
+          // Lo que la lectura reconoció; si no, el nombre exacto del catálogo.
+          producto_id: r.producto_id ?? productoDe(r.descripcion),
+          // Si ya se dijo que la factura es de taller, los conceptos que llegan
+          // entran también: la lectura no debería apagar lo que ya se pidió.
+          insumo: alInventario ? '' : null,
         })),
       )
       // El desglose acompaña a los renglones que salieron de ESTA lectura: si
@@ -241,6 +296,11 @@ function FormularioGasto({
       poner('descripción', l.descripcion, setDescripcion)
       poner('piezas', l.piezas === null ? null : String(l.piezas), setPiezas)
       poner('monto', l.monto === null ? null : String(l.monto), setMonto)
+      // Acompaña a la descripción: si ésta se respetó por venir escrita a mano,
+      // el material se resuelve por nombre en vez de por lo que leyó la foto.
+      if (!tocado.current.has('descripción')) {
+        setProductoId(l.producto_id ?? productoDe(l.descripcion ?? ''))
+      }
     }
     poner('método', l.metodo, setMetodo)
     poner('categoría', l.categoria, setCategoria)
@@ -257,9 +317,28 @@ function FormularioGasto({
   /** Marca un campo como escrito a mano para que la foto ya no lo pise. */
   const mio = (campo: string) => tocado.current.add(campo)
 
-  const cambiarRenglon = (i: number, parche: Partial<{ descripcion: string; piezas: string; monto: string }>) => {
+  const cambiarRenglon = (i: number, parche: Partial<Renglon>) => {
     mio('conceptos')
-    setRenglones((lista) => (lista ?? []).map((r, j) => (j === i ? { ...r, ...parche } : r)))
+    setRenglones((lista) =>
+      (lista ?? []).map((r, j) =>
+        j === i
+          ? {
+              ...r,
+              ...parche,
+              // Si se reescribe el texto, el material se vuelve a resolver por
+              // nombre: dejar pegado el producto anterior guardaría el precio
+              // de un fierro en otro. Y por lo mismo el insumo elegido a mano
+              // se suelta: le sumaría existencia al material equivocado.
+              ...(parche.descripcion === undefined
+                ? {}
+                : {
+                    producto_id: productoDe(parche.descripcion),
+                    insumo: r.insumo === null ? null : '',
+                  }),
+            }
+          : r,
+      ),
+    )
   }
 
   const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && num(r.monto) > 0)
@@ -274,21 +353,37 @@ function FormularioGasto({
       ? redondear(totalRenglones - totalTicket)
       : 0
 
+  // Lo que de esta factura va a dar entrada al taller. Sin cantidad propia
+  // entran las piezas del renglón, que es lo que dice el papel.
+  const cantidadDeRenglon = (r: Renglon) => num(r.cantidad) || num(r.piezas) || 1
+  const filasAlTaller = filasValidas.filter((r) => r.insumo !== null)
+  const cantidadAlTaller = filasAlTaller.reduce((s, r) => s + cantidadDeRenglon(r), 0)
+
   /** De la captura sencilla al modo por conceptos y de regreso. */
   const dividir = () => {
     mio('conceptos')
     setRenglones([
-      { descripcion, piezas, monto },
-      { descripcion: '', piezas: '1', monto: '' },
+      {
+        ...renglonVacio(),
+        descripcion, piezas, monto, producto_id: productoId,
+        insumo: alInventario ? insumoId : null,
+        cantidad: alInventario ? insumoCantidad : '',
+      },
+      { ...renglonVacio(), insumo: alInventario ? '' : null },
     ])
   }
   const unir = () => {
     const primero = renglones?.[0]
     if (primero) {
       setDescripcion(primero.descripcion)
+      setProductoId(primero.producto_id)
       setPiezas(primero.piezas)
       // Un solo gasto por lo que costó todo, no por lo del primer renglón.
       setMonto(String(totalRenglones || num(primero.monto)))
+      // Lo del taller también se junta: el insumo del primer renglón y la suma
+      // de lo que iba a entrar, porque ahora es una sola entrada.
+      setInsumoId(primero.insumo ?? '')
+      setInsumoCantidad(String(cantidadAlTaller || ''))
     }
     setRenglones(null)
     setDesgloseTicket(null)
@@ -297,6 +392,22 @@ function FormularioGasto({
   const guardar = () =>
     iniciar(async () => {
       setError(null)
+
+      // Se revisa antes de subir nada: una cantidad imposible en el concepto 7
+      // no se debe descubrir cuando los seis primeros ya están guardados.
+      if (aTaller && renglones) {
+        const malo = filasAlTaller.findIndex((r) => r.cantidad.trim() && num(r.cantidad) <= 0)
+        if (malo >= 0) {
+          const r = filasAlTaller[malo]
+          return setError(
+            `«${r.descripcion}» entra al taller con cantidad ${r.cantidad}: corrígela o quítalo del taller.`,
+          )
+        }
+      }
+      if (aTaller && !renglones && insumoCantidad.trim() && num(insumoCantidad) <= 0) {
+        return setError('La cantidad que entra al taller tiene que ser mayor a cero.')
+      }
+
       let ruta: string | null = null
 
       if (archivo) {
@@ -338,6 +449,7 @@ function FormularioGasto({
           {
             ...base,
             descripcion,
+            producto_id: productoId,
             piezas: num(piezas) || 1,
             costo_unitario: num(piezas) > 0 ? num(monto) / num(piezas) : null,
             monto: num(monto),
@@ -346,14 +458,21 @@ function FormularioGasto({
         )
         if (!r.ok) return setError(r.error)
       } else if (renglones) {
-        // Un gasto por concepto: comparten ticket, folio, proveedor y forma de pago.
+        // Un gasto por concepto: comparten ticket, folio, proveedor y forma de
+        // pago, y cada uno se lleva su entrada al taller si le toca.
         for (const [i, r] of filasValidas.entries()) {
+          const alTaller = aTaller && r.insumo !== null
           const res = await registrarGasto({
             ...base,
             descripcion: r.descripcion,
+            producto_id: r.producto_id,
             piezas: num(r.piezas) || 1,
             costo_unitario: num(r.piezas) > 0 ? num(r.monto) / num(r.piezas) : null,
             monto: num(r.monto),
+            al_inventario: alTaller,
+            inventario_producto_id: alTaller ? r.insumo || null : null,
+            inventario_cantidad: alTaller ? cantidadDeRenglon(r) : null,
+            inventario_unidad: alTaller && !r.insumo ? insumoUnidad : null,
           })
           if (!res.ok) {
             setError(`Concepto ${i + 1} («${r.descripcion}»): ${res.error}`)
@@ -364,26 +483,16 @@ function FormularioGasto({
         const r = await registrarGasto({
           ...base,
           descripcion,
+          producto_id: productoId,
           piezas: num(piezas) || 1,
           costo_unitario: num(piezas) > 0 ? num(monto) / num(piezas) : null,
           monto: num(monto),
+          al_inventario: aTaller,
+          inventario_producto_id: aTaller ? insumoId || null : null,
+          inventario_cantidad: aTaller ? num(insumoCantidad) || num(piezas) || 1 : null,
+          inventario_unidad: aTaller && !insumoId ? insumoUnidad : null,
         })
         if (!r.ok) return setError(r.error)
-
-        if (puedeInventario && alInventario && r.datos) {
-          const cantidad = num(insumoCantidad) || num(piezas) || 1
-          const re = await entradaInventario(
-            r.datos.id,
-            cantidad,
-            insumoId || null,
-            insumoId ? null : descripcion,
-            insumoId ? null : insumoUnidad,
-          )
-          if (!re.ok) {
-            setError(`El gasto quedó guardado, pero la entrada al inventario falló: ${re.error}`)
-            return
-          }
-        }
       }
 
       onCerrar()
@@ -567,7 +676,10 @@ function FormularioGasto({
                 type="button"
                 onClick={() => {
                   mio('conceptos')
-                  setRenglones((lista) => [...(lista ?? []), { descripcion: '', piezas: '1', monto: '' }])
+                  setRenglones((lista) => [
+                    ...(lista ?? []),
+                    { ...renglonVacio(), insumo: alInventario ? '' : null },
+                  ])
                 }}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-haaco-700 hover:underline"
               >
@@ -609,11 +721,13 @@ function FormularioGasto({
                 onCambio={(v) => {
                   mio('descripción')
                   setDescripcion(v)
+                  setProductoId(productoDe(v))
                   setCatalogoListo(false)
                 }}
                 onElegir={(s) => {
                   mio('descripción')
                   setDescripcion(s.texto)
+                  setProductoId(s.producto_id ?? productoDe(s.texto))
                   if (s.monto && !num(monto)) {
                     mio('importe')
                     setMonto(String(Math.round(s.monto * (num(piezas) || 1) * 100) / 100))
@@ -896,18 +1010,100 @@ function FormularioGasto({
           </label>
         )}
 
+        {tallerTapadoPorObra && (
+          <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800 sm:col-span-2">
+            <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+            <span>
+              Con obra asignada esto no entra al inventario del taller: su material va al bloque REAL
+              de la obra. Deja la obra en «Gasto general» si es compra para el taller.
+            </span>
+          </p>
+        )}
+
         {puedeInventario && (
           <div className="rounded-lg bg-tinta-50 px-3 py-2.5 sm:col-span-2">
             <label className="flex items-center gap-2.5 text-sm text-tinta-700">
               <input
                 type="checkbox"
                 checked={alInventario}
-                onChange={(e) => setAlInventario(e.target.checked)}
+                onChange={(e) => {
+                  const v = e.target.checked
+                  setAlInventario(v)
+                  // Prenderlo mete todos los conceptos; apagarlo los saca. Cada
+                  // uno se puede quitar después: una factura trae de todo.
+                  setRenglones((lista) =>
+                    lista === null ? null : lista.map((r) => ({ ...r, insumo: v ? r.insumo ?? '' : null })),
+                  )
+                }}
                 className="h-4 w-4 rounded border-tinta-300 text-haaco-700 focus:ring-haaco-600"
               />
-              Dar entrada al inventario del taller
+              {renglones ? 'Estos materiales son insumos del taller' : 'Dar entrada al inventario del taller'}
             </label>
-            {alInventario && (
+
+            {alInventario && renglones && (
+              <div className="mt-2.5 space-y-1.5">
+                <p className="text-xs text-tinta-500">
+                  Se suman al inventario al guardar. Quita del taller los conceptos que no lo sean.
+                </p>
+                {renglones.map((r, i) =>
+                  r.descripcion.trim() ? (
+                    <div
+                      key={i}
+                      className="grid grid-cols-1 items-center gap-1.5 border-t border-tinta-200 pt-1.5 sm:grid-cols-[1fr_auto] sm:border-0 sm:pt-0"
+                    >
+                      <span className="truncate text-sm font-medium text-tinta-800">
+                        {r.descripcion}
+                      </span>
+                      <div className="grid grid-cols-[1fr_5rem] gap-1.5">
+                        <Seleccion
+                          value={r.insumo ?? 'no'}
+                          onChange={(e) =>
+                            cambiarRenglon(i, {
+                              insumo: e.target.value === 'no' ? null : e.target.value,
+                            })
+                          }
+                        >
+                          <option value="no">No entra al taller</option>
+                          <option value="">Insumo nuevo con este nombre</option>
+                          {insumos.map((s) => (
+                            <option key={s.producto_id} value={s.producto_id}>
+                              {s.nombre} · {Number(s.existencia)} {s.unidad}
+                            </option>
+                          ))}
+                        </Seleccion>
+                        <Numero
+                          value={r.cantidad}
+                          onChange={(e) => cambiarRenglon(i, { cantidad: e.target.value })}
+                          placeholder={r.piezas || '1'}
+                          disabled={r.insumo === null}
+                        />
+                      </div>
+                    </div>
+                  ) : null,
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  {filasAlTaller.some((r) => !r.insumo) && (
+                    <Campo
+                      etiqueta="Unidad de los insumos nuevos"
+                      hijo={
+                        <Entrada
+                          value={insumoUnidad}
+                          onChange={(e) => setInsumoUnidad(e.target.value)}
+                          placeholder="pza"
+                        />
+                      }
+                    />
+                  )}
+                  <span className="ml-auto text-xs font-medium tabular-nums text-tinta-600">
+                    {filasAlTaller.length === 0
+                      ? 'Nada entra al taller'
+                      : `Entran ${cantidadAlTaller} de ${filasAlTaller.length} ${filasAlTaller.length === 1 ? 'concepto' : 'conceptos'}`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {alInventario && !renglones && (
               <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
                 <Campo
                   etiqueta="Insumo"
@@ -1012,7 +1208,8 @@ function resumenComprobante(d: DesgloseComprobante) {
 }
 
 /**
- * Borra el gasto con todo y sus rastros: cuenta por pagar y material real.
+ * Borra el gasto con todo y sus rastros: lo que le toca de la cuenta por pagar,
+ * el material real de la obra y lo que sumó al inventario del taller.
  *
  * La confirmación se pide en un diálogo propio y no con el `confirm()` del
  * navegador: al tercer aviso seguido, Safari ofrece callar los cuadros de esta
@@ -1057,8 +1254,8 @@ export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcio
         >
           <CuerpoDialogo>
             <p className="text-sm text-tinta-600 sm:col-span-2">
-              También se quitan su cuenta por pagar y el material que dejó en la obra. No se puede
-              deshacer.
+              También se quita el material que dejó en la obra, lo que sumó al inventario del taller
+              y su parte de la cuenta por pagar. No se puede deshacer.
             </p>
             <MensajeError mensaje={error} />
           </CuerpoDialogo>

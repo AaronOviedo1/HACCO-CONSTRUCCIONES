@@ -406,6 +406,10 @@ function FormularioCxp({
   const [notas, setNotas] = useState(cuenta?.notas ?? '')
 
   const proveedor = proveedores.find((p) => p.id === proveedorId)
+  // El importe de una factura armada con gastos sale de la suma de sus
+  // conceptos: se recalcula cada vez que uno se corrige o se borra, así que
+  // teclearlo aquí duraría hasta la siguiente corrección y sin avisar.
+  const importeDeGastos = Boolean(cuenta?.automatica && cuenta.gastos > 0)
 
   const elegirProveedor = (id: string) => {
     setProveedorId(id)
@@ -473,7 +477,19 @@ function FormularioCxp({
         <Campo
           etiqueta="Importe"
           ancho="medio"
-          hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} />}
+          hijo={
+            <Numero
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              readOnly={importeDeGastos}
+              className={importeDeGastos ? 'bg-tinta-50 text-tinta-500' : ''}
+            />
+          }
+          ayuda={
+            importeDeGastos
+              ? `Sale de los ${cuenta?.gastos} conceptos capturados de esta factura; corrígelos en Gastos.`
+              : undefined
+          }
         />
         <Campo
           etiqueta="Fecha de factura"

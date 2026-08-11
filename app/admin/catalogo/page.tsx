@@ -225,7 +225,10 @@ async function TablaInsumos({
   const supabase = await crearClienteServidor()
   const [{ data }, { data: productos }] = await Promise.all([
     supabase.from('v_insumos_existencia').select('*').order('nombre'),
-    supabase.from('productos').select('*').eq('tipo', 'insumo_taller'),
+    // Sin filtrar por tipo: la existencia ahora es la del kardex, así que en el
+    // taller puede haber material que el catálogo tenga como pintura u otro, y
+    // esos renglones también necesitan su botón de editar.
+    supabase.from('productos').select('*'),
   ])
 
   const filas = (data ?? []).filter(
@@ -316,7 +319,14 @@ async function TablaInsumos({
                         tipo="salida"
                       />
                       {producto && (
-                        <BotonEditarProducto producto={producto} proveedores={proveedores} esInsumo />
+                        // esInsumo fuerza el tipo a «insumo de taller» al guardar:
+                        // sólo va cuando ya lo es, o editar desde aquí una pintura
+                        // con existencia la sacaría del cotizador sin avisar.
+                        <BotonEditarProducto
+                          producto={producto}
+                          proveedores={proveedores}
+                          esInsumo={producto.tipo === 'insumo_taller'}
+                        />
                       )}
                     </div>
                   </Td>

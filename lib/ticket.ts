@@ -7,6 +7,11 @@ export type RenglonTicket = {
   piezas: number
   /** El neto de ese renglón: su importe, menos su descuento y más su IVA. */
   monto: number
+  /**
+   * Qué producto del catálogo es, si se reconoció. Es lo que convierte el
+   * renglón de una factura en el precio vigente de ese material.
+   */
+  producto_id: string | null
 }
 
 /** Un artículo tal como viene impreso, antes de sacarle el neto. */
@@ -15,6 +20,7 @@ export type RenglonLeido = {
   piezas: number
   /** El importe del renglón según el comprobante, sin descuento ni impuesto. */
   importe: number
+  producto_id: string | null
   /** El descuento de ese renglón, cuando el comprobante lo desglosa así. */
   descuento: number | null
   /** El IVA de ese renglón, cuando el comprobante lo desglosa así. */
@@ -55,6 +61,8 @@ export type LecturaTicket = {
   folio: string | null
   fecha: string | null
   proveedor_id: string | null
+  /** El producto del catálogo cuando el ticket es de un solo artículo. */
+  producto_id: string | null
   /** Frase corta cuando la foto salió mal o no es un comprobante. */
   aviso: string | null
 }
@@ -113,7 +121,12 @@ export function cuadrarRenglones(
   })
 
   const armar = (montos: number[]): RenglonTicket[] =>
-    leidos.map((r, i) => ({ descripcion: r.descripcion, piezas: r.piezas, monto: montos[i] }))
+    leidos.map((r, i) => ({
+      descripcion: r.descripcion,
+      piezas: r.piezas,
+      monto: montos[i],
+      producto_id: r.producto_id,
+    }))
 
   // Sin un total legible no hay contra qué cuadrar: los netos van como salieron.
   if (desglose.total === null) return { renglones: armar(netos), cuadra: true, diferencia: 0 }

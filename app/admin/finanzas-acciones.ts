@@ -38,6 +38,8 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
   revalidatePath('/admin/gastos')
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin')
+  // El inventario del taller se ve en el catálogo, y la compra pudo darle entrada.
+  if (gasto.al_inventario) revalidatePath('/admin/catalogo')
   if (gasto.obra_id) revalidatePath(`/admin/obras/${gasto.obra_id}`)
   return { ok: true, datos: { id: data as string } }
 }
@@ -77,33 +79,6 @@ export async function actualizarGasto(
   return { ok: true, datos: { id } }
 }
 
-/**
- * Da entrada al inventario del taller con lo que se compró en un gasto.
- * Con producto_id abona a un insumo existente; con nombre crea el insumo.
- */
-export async function entradaInventario(
-  gastoId: string,
-  cantidad: number,
-  productoId: string | null,
-  nombre: string | null,
-  unidad: string | null,
-): Promise<Resultado> {
-  if (cantidad <= 0) return { ok: false, error: 'La cantidad tiene que ser mayor a cero.' }
-
-  const supabase = await staff()
-  const { error } = await supabase.rpc('entrada_inventario_desde_gasto', {
-    p_gasto: gastoId,
-    p_cantidad: cantidad,
-    p_producto: productoId,
-    p_nombre: nombre,
-    p_unidad: unidad,
-  })
-
-  if (error) return fallo(error)
-  revalidatePath('/admin/catalogo')
-  return { ok: true }
-}
-
 /** Alta rápida en el catálogo desde el gasto, para compras que se repiten. */
 export async function agregarProductoAlCatalogo(datos: {
   nombre: string
@@ -133,18 +108,21 @@ export async function agregarProductoAlCatalogo(datos: {
   return { ok: true }
 }
 
+/**
+ * Borra un gasto y todo lo que dejó. Va en una sola función de la base porque
+ * los rastros tienen que caer juntos: el material de la obra, la entrada al
+ * taller —que antes se quedaba y dejaba la existencia inflada— y su parte de la
+ * cuenta por pagar, que baja a lo que de verdad se le debe al proveedor.
+ */
 export async function eliminarGasto(id: string): Promise<Resultado> {
   const supabase = await staff()
-
-  // Primero se sueltan los rastros que dejó: material de obra y cuenta por pagar.
-  await supabase.from('obra_materiales').delete().eq('gasto_id', id)
-  await supabase.from('cuentas_por_pagar').delete().eq('gasto_id', id)
-
-  const { error } = await supabase.from('gastos').delete().eq('id', id)
+  const { error } = await supabase.rpc('eliminar_gasto', { p_gasto: id })
   if (error) return fallo(error)
 
   revalidatePath('/admin/gastos')
   revalidatePath('/admin/cuentas-por-pagar')
+  revalidatePath('/admin/catalogo')
+  revalidatePath('/admin')
   return { ok: true }
 }
 
@@ -376,14 +354,48 @@ export async function guardarCuentaPorPagar(cxp: {
   if (!cxp.folio_factura.trim()) return { ok: false, error: 'Falta el folio de la factura.' }
 
   const supabase = await staff()
-  const fila = { ...cxp, folio_factura: cxp.folio_factura.trim() }
-  delete (fila as { id?: string }).id
+  const folio = cxp.folio_factura.trim()
+  // El importe va aparte: una factura armada con gastos no lo acepta de aquí.
+  const fila = {
+    proveedor_id: cxp.proveedor_id,
+    folio_factura: folio,
+    fecha_factura: cxp.fecha_factura,
+    dias_credito: cxp.dias_credito,
+    cancelada: cxp.cancelada,
+    notas: cxp.notas,
+  }
 
-  const { error } = cxp.id
-    ? await supabase.from('cuentas_por_pagar').update(fila).eq('id', cxp.id)
-    : await supabase.from('cuentas_por_pagar').insert(fila)
+  if (cxp.id) {
+    // Si la factura se armó con los gastos capturados, su importe es la suma de
+    // ellos: aquí se deja pasar todo lo demás —el folio, la fecha, los días—
+    // pero el importe no, porque el siguiente recálculo lo pisaría de vuelta.
+    const { data: previa } = await supabase
+      .from('cuentas_por_pagar')
+      .select('automatica')
+      .eq('id', cxp.id)
+      .single()
 
-  if (error) return fallo(error)
+    const { error } = await supabase
+      .from('cuentas_por_pagar')
+      .update(previa?.automatica ? fila : { ...fila, monto: cxp.monto })
+      .eq('id', cxp.id)
+    if (error) return fallo(error)
+
+    // Corregir el folio aquí lo corrige para los conceptos de la factura: si se
+    // quedaran con el viejo, capturar uno más abriría otra cuenta.
+    if (previa?.automatica) {
+      const { error: errorFolio } = await supabase
+        .from('gastos')
+        .update({ folio_factura: folio })
+        .eq('cxp_id', cxp.id)
+      if (errorFolio) return fallo(errorFolio)
+      revalidatePath('/admin/gastos')
+    }
+  } else {
+    const { error } = await supabase.from('cuentas_por_pagar').insert({ ...fila, monto: cxp.monto })
+    if (error) return fallo(error)
+  }
+
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin')
   return { ok: true }
@@ -435,9 +447,25 @@ export async function abonarLoteCuentasPorPagar(
 
 export async function eliminarCuentaPorPagar(id: string): Promise<Resultado> {
   const supabase = await staff()
+
+  // Una factura que se armó con gastos capturados no se borra desde aquí: los
+  // gastos seguirían siendo a crédito y quedarían sin a quién pagarle.
+  const { count } = await supabase
+    .from('gastos')
+    .select('id', { count: 'exact', head: true })
+    .eq('cxp_id', id)
+
+  if (count && count > 0) {
+    return {
+      ok: false,
+      error: `Esta factura sale de ${count} ${count === 1 ? 'gasto capturado' : 'gastos capturados'}. Bórralos o pásalos a contado desde Gastos.`,
+    }
+  }
+
   const { error } = await supabase.from('cuentas_por_pagar').delete().eq('id', id)
   if (error) return fallo(error)
   revalidatePath('/admin/cuentas-por-pagar')
+  revalidatePath('/admin')
   return { ok: true }
 }
 

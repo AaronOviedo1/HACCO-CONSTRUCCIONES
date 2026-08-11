@@ -95,7 +95,7 @@ export function TablaCxp({
               titulo={sinDatos ? 'Sin cuentas por pagar' : 'Nada pendiente aquí'}
               descripcion={
                 sinDatos
-                  ? 'Se abren solas cuando registras un gasto a crédito, o puedes capturarlas a mano.'
+                  ? 'Se abre una por factura cuando registras un gasto a crédito, o puedes capturarlas a mano.'
                   : 'Todo al corriente con este filtro.'
               }
             />
