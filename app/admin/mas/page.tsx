@@ -3,6 +3,7 @@ import { NOMBRE_ROL, requerirPerfil } from '@/lib/auth'
 import { GRUPOS, seccionesDe } from '@/lib/nav'
 import { EncabezadoPagina } from '@/components/ui'
 import { BotonSalir, GrupoMenu, OpcionMenu, TarjetaPerfil } from '@/components/movil/menu'
+import { ActivarAvisos } from '@/components/recordatorios/activar-avisos'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,12 @@ export default async function PaginaMas() {
         rol={NOMBRE_ROL[perfil.rol]}
         detalle={perfil.correo ?? perfil.telefono}
       />
+
+      {/* Los avisos se encienden por aparato y sólo desde el aparato: aquí,
+          que es la pantalla que se abre en el teléfono. */}
+      <div className="mt-3.5">
+        <ActivarAvisos llavePublica={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''} />
+      </div>
 
       {GRUPOS.map((grupo) => {
         const items = secciones.filter((s) => s.grupo === grupo)

@@ -20,7 +20,10 @@ export default async function PaginaCotizacion({
     procesos: [],
   }))
 
-  const [{ cotizacion, borrador, obras }, { clientes, textos, productos, precios }] = await Promise.all([
+  const [
+    { cotizacion, borrador, obras, recordatorios },
+    { clientes, textos, productos, precios },
+  ] = await Promise.all([
     cargarCotizacion(id),
     cargarCatalogos(),
   ])
@@ -37,6 +40,7 @@ export default async function PaginaCotizacion({
       productos={productos}
       precios={precios}
       obras={obras}
+      recordatorios={recordatorios}
       sugerencias={sugerencias}
     />
   )

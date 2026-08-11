@@ -18,6 +18,7 @@ import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
 import { PrecioVivo } from '@/components/precios/precio-vivo'
+import { PanelRecordatorios } from '@/components/recordatorios/panel'
 import { pesos } from '@/lib/format'
 import { compartirPdf } from '@/lib/compartir'
 import { normalizarMaterial, type PrecioVigente } from '@/lib/precios'
@@ -34,7 +35,9 @@ import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
 } from '@/app/admin/cotizaciones/acciones'
 import { preguntarPrecio } from '@/app/admin/precios/acciones'
-import type { Cliente, EstatusCotizacion, Obra, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
+import type {
+  Cliente, EstatusCotizacion, Obra, Producto, Recordatorio, TextoProceso, TipoCotizacion,
+} from '@/types/database'
 
 type ObraLigada = Pick<Obra, 'id' | 'ot_numero' | 'nombre' | 'estatus'>
 
@@ -73,12 +76,14 @@ type Props = {
   /** Último precio pagado de cada material, para el semáforo de los costos. */
   precios: PrecioVigente[]
   obras: ObraLigada[]
+  /** Los pendientes con fecha de esta cotización. Vacío en una nueva. */
+  recordatorios: Recordatorio[]
   sugerencias: Promise<SugerenciasCotizacion>
 }
 
 export function EditorCotizacion({
   cotizacionId, folio, estatus, inicial, clientes, textos, productos, precios, obras,
-  sugerencias: promesaSugerencias,
+  recordatorios, sugerencias: promesaSugerencias,
 }: Props) {
   const router = useRouter()
   const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
@@ -91,6 +96,7 @@ export function EditorCotizacion({
   const [borrando, setBorrando] = useState(false)
   const [pendiente, iniciar] = useTransition()
 
+  const recordatoriosAbiertos = recordatorios.filter((r) => !r.atendido_en)
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
   // Materiales conocidos: los del catálogo de productos más los ya cotizados.
   const materialesSugeridos = useMemo(() => {
@@ -567,6 +573,28 @@ export function EditorCotizacion({
             </div>
           </TarjetaPlegable>
 
+          {/* Recordatorios --------------------------------------------------
+              Sólo con la cotización guardada: un recordatorio cuelga de un
+              folio, y un borrador que aún no existe no tiene de dónde colgar. */}
+          {cotizacionId && (
+            <TarjetaPlegable
+              titulo="Recordatorios"
+              abierta={recordatoriosAbiertos.length > 0}
+              resumen={
+                recordatoriosAbiertos.length > 0
+                  ? `${recordatoriosAbiertos.length} pendiente${recordatoriosAbiertos.length === 1 ? '' : 's'}`
+                  : 'ninguno'
+              }
+            >
+              <div className="px-5 py-5">
+                <PanelRecordatorios
+                  cotizacionId={cotizacionId}
+                  titulo={`${folio ?? 'Cotización'} · ${cliente?.nombre ?? 'cliente'}`}
+                  recordatorios={recordatorios}
+                />
+              </div>
+            </TarjetaPlegable>
+          )}
         </div>
 
         {/* Resumen ---------------------------------------------------------- */}

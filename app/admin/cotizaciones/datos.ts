@@ -75,8 +75,10 @@ export async function cargarCotizacion(id: string) {
   const { data: cotizacion } = await supabase.from('cotizaciones').select('*').eq('id', id).maybeSingle()
   if (!cotizacion) notFound()
 
-  const [{ data: procesos }, { data: items }, { data: desglose }, { data: materiales }, { data: obras }] =
-    await Promise.all([
+  const [
+    { data: procesos }, { data: items }, { data: desglose }, { data: materiales },
+    { data: obras }, { data: recordatorios },
+  ] = await Promise.all([
     supabase.from('cotizacion_procesos').select('*').eq('cotizacion_id', id).order('orden'),
     supabase.from('cotizacion_items').select('*').eq('cotizacion_id', id).order('orden'),
     supabase.from('cotizacion_herreria_desglose').select('*').eq('cotizacion_id', id).order('orden'),
@@ -86,6 +88,8 @@ export async function cargarCotizacion(id: string) {
       .select('id, ot_numero, nombre, estatus')
       .eq('cotizacion_id', id)
       .order('ot_numero'),
+    // Lo que falta por atender primero, y lo atendido después, ambos por fecha.
+    supabase.from('recordatorios').select('*').eq('cotizacion_id', id).order('fecha'),
   ])
 
   const base = borradorVacio(cotizacion.tipo)
@@ -149,5 +153,10 @@ export async function cargarCotizacion(id: string) {
       })),
   }
 
-  return { cotizacion, borrador, obras: obras ?? [] }
+  return {
+    cotizacion,
+    borrador,
+    obras: obras ?? [],
+    recordatorios: recordatorios ?? [],
+  }
 }

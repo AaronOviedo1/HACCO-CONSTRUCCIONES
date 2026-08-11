@@ -36,6 +36,7 @@ export default async function NuevaCotizacion() {
       productos={productos}
       precios={precios}
       obras={[]}
+      recordatorios={[]}
       sugerencias={sugerencias}
     />
   )

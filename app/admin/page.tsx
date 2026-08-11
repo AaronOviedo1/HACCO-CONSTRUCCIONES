@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
-import { fecha, pesos, pesosCortos } from '@/lib/format'
+import { fecha, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
@@ -19,6 +19,8 @@ import { GraficaObrasCosto } from '@/components/admin/grafica-obras-costo'
 import { CalendarioPagos } from '@/components/admin/calendario-pagos'
 import { TileResumen } from '@/components/admin/tile-resumen'
 import { VentasDelMes } from '@/components/admin/ventas-del-mes'
+import { pendientesDePrecios } from '@/app/admin/precios/datos'
+import { AvisosDelDia } from '@/components/recordatorios/avisos-del-dia'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -64,7 +66,7 @@ export default async function Dashboard() {
 
   const [
     historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina,
-    concentrado, fijos, recientes, meta,
+    concentrado, fijos, recientes, meta, recordatorios,
   ] = await Promise.all([
       supabase
         .from('v_cotizaciones')
@@ -90,7 +92,23 @@ export default async function Dashboard() {
       supabase.from('pagos_fijos').select('quincena, monto, estado').neq('estado', 'pagado'),
       supabase.from('v_cotizaciones').select('*').order('updated_at', { ascending: false }).limit(5),
       supabase.from('ajustes').select('valor').eq('clave', 'meta_venta_mensual').maybeSingle(),
+      // Lo que toca hoy y lo que se pasó de fecha sin atender. Lo vencido
+      // también sale: un recordatorio que nadie hizo no deja de existir porque
+      // amaneció.
+      // Con el día de Hermosillo y no con `hoyIso`: esta consulta corre en el
+      // servidor, que va en UTC, y de las cinco de la tarde en adelante
+      // traería los recordatorios de mañana.
+      supabase
+        .from('recordatorios')
+        .select('*')
+        .is('atendido_en', null)
+        .lte('fecha', hoyHermosillo())
+        .order('fecha'),
     ])
+
+  // Los precios que hay que preguntar hoy y los que esperan visto bueno. Va
+  // aparte porque son dos conteos y no dependen de nada de arriba.
+  const precios = await pendientesDePrecios()
 
   const bdLista = !historico.error && !obras.error
 
@@ -304,6 +322,30 @@ export default async function Dashboard() {
         {/* Lo vendido contra la meta ----------------------------------------- */}
         <VentasDelMes vendido={vendidoMes} meta={metaVenta} etiqueta={etiquetaMes(mes)} />
       </div>
+
+      {/* Lo que toca hoy ---------------------------------------------------- */}
+      <AvisosDelDia recordatorios={recordatorios.data ?? []} />
+
+      {/* Precios, cuando hay algo que hacer con ellos ------------------------ */}
+      {(precios.porPreguntar > 0 || precios.porRevisar > 0) && (
+        <Link
+          href={precios.porPreguntar > 0 ? '/admin/precios' : '/admin/precios?t=propuestas'}
+          className="mt-3.5 flex min-h-11 items-center gap-2 rounded-[14px] border-[0.5px] border-tinta-200 bg-white px-4 py-2.5 text-sm text-tinta-600 transition hover:bg-tinta-50"
+        >
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+          <span className="min-w-0">
+            {[
+              precios.porPreguntar > 0 &&
+                `${precios.porPreguntar} ${precios.porPreguntar === 1 ? 'precio' : 'precios'} por preguntar hoy`,
+              precios.porRevisar > 0 &&
+                `${precios.porRevisar} ${precios.porRevisar === 1 ? 'precio nuevo' : 'precios nuevos'} de facturas por revisar`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+          <span className="ml-auto shrink-0 text-xs font-medium text-haaco-700">Ver</span>
+        </Link>
+      )}
 
       {/* Los cuatro números del día ------------------------------------------ */}
       <div className="mt-3.5 grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
