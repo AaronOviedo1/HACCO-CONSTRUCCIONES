@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { hoyHermosillo } from '@/lib/format'
 import { casilla, explicar, numero, opcional, texto, type EstadoAccion } from '@/lib/acciones'
 import type { EstadoHerramienta, TipoMovimiento, TipoProducto } from '@/types/database'
 
@@ -109,7 +110,8 @@ export async function eliminarProveedor(_prev: EstadoAccion, d: FormData): Promi
 // PRODUCTOS E INSUMOS
 // ===========================================================================
 export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {
-  const supabase = await staff()
+  const perfil = await requerirRol(['admin', 'administracion'])
+  const supabase = await crearClienteServidor()
   const id = opcional(d, 'id')
   const nombre = texto(d, 'nombre')
   if (!nombre) return { error: 'El nombre del producto es obligatorio.' }
@@ -117,6 +119,15 @@ export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise
   const costo = numero(d, 'costo') ?? 0
   // Si no capturan el IVA se calcula al 16%; el precio neto siempre es la suma.
   const iva = numero(d, 'iva') ?? Math.round(costo * (REGLAS.ivaPct / 100) * 100) / 100
+  const neto = Math.round((costo + iva) * 100) / 100
+
+  // A cómo estaba antes de este guardado: si el número cambió, es que alguien
+  // preguntó y le dijeron otra cosa, y eso merece quedar escrito.
+  const { data: antes } = id
+    ? await supabase.from('productos').select('precio_neto').eq('id', id).maybeSingle()
+    : { data: null }
+
+  const cambioElPrecio = neto > 0 && Number(antes?.precio_neto ?? 0) !== neto
 
   const fila = {
     nombre,
@@ -125,7 +136,12 @@ export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise
     tipo: (texto(d, 'tipo') || 'otro') as TipoProducto,
     costo,
     iva,
-    precio_neto: Math.round((costo + iva) * 100) / 100,
+    precio_neto: neto,
+    // El precio se acaba de mirar y dar por bueno: las dos fechas cuentan como
+    // frescura, igual que si hubiera entrado por una factura.
+    ...(cambioElPrecio
+      ? { precio_actualizado_en: hoyHermosillo(), precio_revisado_en: hoyHermosillo() }
+      : {}),
     // Lo que se le cobra al cliente por metro aplicado, que no tiene nada que
     // ver con lo de arriba. Sólo lo llevan las pinturas que se ofrecen al
     // cotizar; vacío = esa pintura no sale en el cotizador.
@@ -138,11 +154,37 @@ export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise
     activo: d.has('activo') ? casilla(d, 'activo') : true,
   }
 
-  const { error } = id
-    ? await supabase.from('productos').update(fila).eq('id', id)
-    : await supabase.from('productos').insert(fila)
+  const { data: guardado, error } = id
+    ? await supabase.from('productos').update(fila).eq('id', id).select('id').single()
+    : await supabase.from('productos').insert(fila).select('id').single()
 
   if (error) return { error: explicar(error) }
+
+  /*
+   * El precio nuevo se guarda además como una observación más del historial.
+   *
+   * Sin esto, corregir el costo a mano lo pisa y el anterior deja de existir:
+   * no queda quién lo cambió, ni cuándo, ni de dónde salió. Con esto, el
+   * camino de siempre —marcar al proveedor y capturar lo que dicten— deja el
+   * mismo rastro que una factura, y la ficha puede contar la historia.
+   *
+   * No se reusa la RPC `registrar_precio`: desglosa costo e IVA con la tasa
+   * vieja del producto y pisaría el IVA que se acaba de capturar.
+   */
+  if (cambioElPrecio && guardado) {
+    await supabase.from('precios_material').insert({
+      producto_id: guardado.id,
+      proveedor_id: fila.proveedor_id,
+      fecha: hoyHermosillo(),
+      costo,
+      iva,
+      precio_neto: neto,
+      unidad: fila.unidad,
+      origen: 'captura',
+      registrado_por: perfil.id,
+    })
+  }
+
   revalidatePath('/admin/catalogo')
   return { ok: true }
 }

@@ -9,9 +9,14 @@
 
 export type Semaforo = 'verde' | 'ambar' | 'rojo'
 
+/** De dónde salió un precio. Espejo del enum `origen_precio` de la base. */
+export type Origen = 'factura' | 'llamada' | 'captura' | 'lista'
+
 /** El último precio conocido de un material, tal como lo da v_precios_vigentes. */
 export type PrecioVigente = {
   producto_id: string
+  /** La fila de `precios_material` de la que salió: distingue el último de los de antes. */
+  observacion_id: string
   producto: string
   precio_neto: number
   unidad_catalogo: string | null
@@ -20,7 +25,7 @@ export type PrecioVigente = {
   proveedor_id: string | null
   proveedor: string | null
   proveedor_telefono: string | null
-  origen: 'factura' | 'llamada' | 'captura' | 'lista'
+  origen: Origen
   folio_factura: string | null
   fecha: string
   dias: number
@@ -29,7 +34,7 @@ export type PrecioVigente = {
 }
 
 /** De dónde salió el precio, dicho como se diría en voz alta. */
-export const ORIGEN_PRECIO: Record<PrecioVigente['origen'], string> = {
+export const ORIGEN_PRECIO: Record<Origen, string> = {
   factura: 'factura',
   llamada: 'por teléfono',
   captura: 'capturado',
@@ -48,8 +53,15 @@ export function antiguedad(dias: number): string {
  *
  * Sin la antigüedad a propósito — la pone quien lo pinta, porque a veces va en
  * su propia columna y repetirla ahí se lee como un error.
+ *
+ * Pide lo mínimo y no un `PrecioVigente` entero: lo mismo se dice del último
+ * precio que de cualquier renglón del historial, y la regla vive en un lugar.
  */
-export function procedencia(p: PrecioVigente): string {
+export function procedencia(p: {
+  origen: Origen
+  folio_factura: string | null
+  proveedor: string | null
+}): string {
   const de = p.origen === 'factura' && p.folio_factura
     ? `factura ${p.folio_factura}`
     : ORIGEN_PRECIO[p.origen]

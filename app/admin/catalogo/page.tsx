@@ -3,13 +3,16 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { NIVELES_PRECIO, precioPorNivel, tieneTarifas } from '@/lib/cotizaciones'
-import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
+import {
+  EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, TarjetaPlegable, Td, Th,
+} from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
 import { FilaLista } from '@/components/movil/piezas'
 import {
   BotonEditarProducto, BotonEditarProveedor, BotonEditarTexto, BotonMovimiento,
   BotonNuevoProducto, BotonNuevoProveedor, BotonNuevoTexto,
 } from '@/components/catalogos/formularios-catalogo'
+import { SinLigar, type RenglonHuerfano } from '@/components/catalogos/sin-ligar'
 import type { Proveedor } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -109,12 +112,22 @@ async function TablaProductos({
   busqueda: string
 }) {
   const supabase = await crearClienteServidor()
-  const { data } = await supabase
-    .from('productos')
-    .select('*')
-    .neq('tipo', 'insumo_taller')
-    .order('tipo')
-    .order('nombre')
+  const [{ data }, { data: huerfanos }] = await Promise.all([
+    supabase
+      .from('productos')
+      .select('*')
+      .neq('tipo', 'insumo_taller')
+      .order('tipo')
+      .order('nombre'),
+    // Los renglones de factura que el sistema no supo a qué material eran.
+    // Casi siempre son cero, porque la captura del gasto ya elige el producto.
+    supabase
+      .from('renglones_sin_ligar')
+      .select('id, texto, precio_neto, proveedor_id, fecha, folio_factura')
+      .eq('resuelto', false)
+      .order('fecha', { ascending: false })
+      .limit(20),
+  ])
 
   const nombreProveedor = new Map(proveedores.map((p) => [p.id, p.nombre]))
   const filas = (data ?? []).filter(
@@ -126,6 +139,21 @@ async function TablaProductos({
   )
   const tipoProducto = (t: string) =>
     t === 'pintura' ? 'Pintura' : t === 'herreria' ? 'Herrería' : 'Otro'
+
+  const sinLigar: RenglonHuerfano[] = (huerfanos ?? []).map((h) => ({
+    id: h.id,
+    texto: h.texto,
+    precio_neto: h.precio_neto,
+    proveedor: h.proveedor_id ? (nombreProveedor.get(h.proveedor_id) ?? null) : null,
+    fecha: h.fecha,
+    folio: h.folio_factura,
+  }))
+
+  // El catálogo entero para el selector, insumos incluidos: un renglón de
+  // factura puede ser cualquier cosa. Sólo se pide cuando hay algo que ligar.
+  const { data: paraLigar } = sinLigar.length
+    ? await supabase.from('productos').select('id, nombre').eq('activo', true).order('nombre')
+    : { data: [] }
 
   return (
     <>
@@ -211,6 +239,25 @@ async function TablaProductos({
         </Tabla>
       )}
     </Tarjeta>
+
+    {/* Lo que llegó de una factura y nadie ha dicho qué material es. Mientras
+        siga aquí, ese precio no aparece en la ficha de ningún producto.
+
+        El pb deja subir la tarjeta por encima del botón flotante del teléfono:
+        es lo último de la página y si no, el resumen queda tapado. */}
+    {sinLigar.length > 0 && (
+      <div className="mt-4 pb-16 lg:pb-0">
+        <TarjetaPlegable
+          titulo="Materiales de factura sin identificar"
+          resumen={`${sinLigar.length} ${sinLigar.length === 1 ? 'renglón' : 'renglones'} por reconocer`}
+          pie="Al decir una sola vez qué material es, ese texto queda aprendido y no vuelve a preguntar."
+        >
+          <div className="px-5 py-5">
+            <SinLigar renglones={sinLigar} productos={paraLigar ?? []} />
+          </div>
+        </TarjetaPlegable>
+      </div>
+    )}
     </>
   )
 }

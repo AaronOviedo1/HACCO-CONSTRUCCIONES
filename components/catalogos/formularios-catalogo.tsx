@@ -10,6 +10,7 @@ import {
   eliminarHerramienta, eliminarProducto, eliminarProveedor, eliminarTexto,
   guardarHerramienta, guardarProducto, guardarProveedor, guardarTexto, moverKardex,
 } from '@/app/admin/acciones'
+import { HistorialPrecioProducto } from '@/components/catalogos/historial-precio'
 import type { EstadoAccion } from '@/lib/acciones'
 import { hoyISO } from '@/lib/cotizaciones'
 import type {
@@ -407,6 +408,10 @@ export function FormularioProducto({
           />
         </div>
       )}
+
+      {/* De dónde salió el costo de arriba y qué había antes. Sólo al editar:
+          en uno nuevo no hay nada que contar. */}
+      {producto && <HistorialPrecioProducto productoId={producto.id} />}
 
       <Campo etiqueta="Notas" hijo={<AreaTexto name="notas" defaultValue={producto?.notas ?? ''} rows={2} />} />
       {producto && <Casilla name="activo" etiqueta="Activo" defaultChecked={producto.activo} />}
