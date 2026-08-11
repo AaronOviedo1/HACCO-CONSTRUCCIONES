@@ -149,7 +149,7 @@ try {
   `)
 
   if (pendientes.length > 0) {
-    console.log('\n  Lo que más se repite sin reconocer (se resuelve en /admin/precios):')
+    console.log('\n  Lo que más se repite sin reconocer (se resuelve al pie de /admin/catalogo):')
     for (const p of pendientes) {
       console.log(`    ${String(p.veces).padStart(3)}×  ${p.ejemplo}`)
     }
@@ -174,7 +174,7 @@ try {
 
   if (ejecutar) {
     await c.query('commit')
-    console.log('\nListo. Revisa /admin/precios y abre una cotización de herrería.\n')
+    console.log('\nListo. Abre la ficha de un material en /admin/catalogo y una cotización de herrería.\n')
   } else {
     await c.query('rollback')
     console.log('\nEnsayo: no se guardó nada. Repite con --ejecutar para aplicarlo.\n')

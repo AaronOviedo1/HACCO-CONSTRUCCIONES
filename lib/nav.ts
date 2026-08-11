@@ -31,7 +31,6 @@ export const SECCIONES: Seccion[] = [
   { href: '/admin/caja-chica',         titulo: 'Caja chica',        icono: 'caja',        grupo: 'Dinero',    roles: ['admin', 'administracion'] },
 
   { href: '/admin/catalogo',           titulo: 'Catálogo',          icono: 'catalogo',    grupo: 'Catálogos', roles: ['admin', 'administracion'] },
-  { href: '/admin/precios',            titulo: 'Precios',           icono: 'precio',      grupo: 'Catálogos', roles: ['admin', 'administracion'] },
   { href: '/admin/herramientas',       titulo: 'Herramientas',      icono: 'herramienta', grupo: 'Catálogos', roles: ['admin', 'administracion'] },
 
   { href: '/admin/reportes',           titulo: 'Reportes',          icono: 'reporte',     grupo: 'Sistema',   roles: ['admin', 'administracion', 'contador'] },

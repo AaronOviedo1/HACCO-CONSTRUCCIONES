@@ -21,12 +21,9 @@ import {
 export function PrecioVivo({
   precio,
   onUsar,
-  onPreguntar,
 }: {
   precio: PrecioVigente
   onUsar: (monto: number) => void
-  /** Mete el material a la ronda de hoy sin salir de la cotización. */
-  onPreguntar?: () => void
 }) {
   const usable = sePuedeUsar(precio)
 
@@ -53,16 +50,6 @@ export function PrecioVivo({
       <span className="min-w-0 truncate">
         {procedencia(precio)} · {antiguedad(precio.dias)}
       </span>
-
-      {precio.semaforo === 'rojo' && onPreguntar && (
-        <button
-          type="button"
-          onClick={onPreguntar}
-          className="font-medium text-haaco-700 underline-offset-2 hover:underline"
-        >
-          Preguntar hoy
-        </button>
-      )}
     </p>
   )
 }

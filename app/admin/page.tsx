@@ -19,7 +19,6 @@ import { GraficaObrasCosto } from '@/components/admin/grafica-obras-costo'
 import { CalendarioPagos } from '@/components/admin/calendario-pagos'
 import { TileResumen } from '@/components/admin/tile-resumen'
 import { VentasDelMes } from '@/components/admin/ventas-del-mes'
-import { pendientesDePrecios } from '@/app/admin/precios/datos'
 import { AvisosDelDia } from '@/components/recordatorios/avisos-del-dia'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
@@ -105,10 +104,6 @@ export default async function Dashboard() {
         .lte('fecha', hoyHermosillo())
         .order('fecha'),
     ])
-
-  // Los precios que hay que preguntar hoy y los que esperan visto bueno. Va
-  // aparte porque son dos conteos y no dependen de nada de arriba.
-  const precios = await pendientesDePrecios()
 
   const bdLista = !historico.error && !obras.error
 
@@ -326,26 +321,6 @@ export default async function Dashboard() {
       {/* Lo que toca hoy ---------------------------------------------------- */}
       <AvisosDelDia recordatorios={recordatorios.data ?? []} />
 
-      {/* Precios, cuando hay algo que hacer con ellos ------------------------ */}
-      {(precios.porPreguntar > 0 || precios.porRevisar > 0) && (
-        <Link
-          href={precios.porPreguntar > 0 ? '/admin/precios' : '/admin/precios?t=propuestas'}
-          className="mt-3.5 flex min-h-11 items-center gap-2 rounded-[14px] border-[0.5px] border-tinta-200 bg-white px-4 py-2.5 text-sm text-tinta-600 transition hover:bg-tinta-50"
-        >
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-          <span className="min-w-0">
-            {[
-              precios.porPreguntar > 0 &&
-                `${precios.porPreguntar} ${precios.porPreguntar === 1 ? 'precio' : 'precios'} por preguntar hoy`,
-              precios.porRevisar > 0 &&
-                `${precios.porRevisar} ${precios.porRevisar === 1 ? 'precio nuevo' : 'precios nuevos'} de facturas por revisar`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-          <span className="ml-auto shrink-0 text-xs font-medium text-haaco-700">Ver</span>
-        </Link>
-      )}
 
       {/* Los cuatro números del día ------------------------------------------ */}
       <div className="mt-3.5 grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">

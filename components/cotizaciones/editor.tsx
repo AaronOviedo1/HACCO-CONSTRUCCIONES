@@ -34,7 +34,6 @@ import {
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
 } from '@/app/admin/cotizaciones/acciones'
-import { preguntarPrecio } from '@/app/admin/precios/acciones'
 import type {
   Cliente, EstatusCotizacion, Obra, Producto, Recordatorio, TextoProceso, TipoCotizacion,
 } from '@/types/database'
@@ -1376,7 +1375,6 @@ function ConceptoHerreria({
                   <PrecioVivo
                     precio={precioDe(m)!}
                     onUsar={(monto) => cambiarMaterial(i, { costo: String(monto) })}
-                    onPreguntar={() => preguntarPrecio(precioDe(m)!.producto_id)}
                   />
                 )}
               </div>
@@ -1590,7 +1588,6 @@ function BloqueMateriales({
                   <PrecioVivo
                     precio={precioDe(m)!}
                     onUsar={(monto) => actualizar(i, { costo: String(monto) })}
-                    onPreguntar={() => preguntarPrecio(precioDe(m)!.producto_id)}
                   />
                 )}
               </div>
