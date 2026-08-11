@@ -4,6 +4,7 @@ import { GRUPOS, seccionesDe } from '@/lib/nav'
 import { EncabezadoPagina } from '@/components/ui'
 import { BotonSalir, GrupoMenu, OpcionMenu, TarjetaPerfil } from '@/components/movil/menu'
 import { ActivarAvisos } from '@/components/recordatorios/activar-avisos'
+import { BotonNovedades } from '@/components/novedades'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,9 @@ export default async function PaginaMas() {
                 {s.titulo}
               </OpcionMenu>
             ))}
+            {/* El aviso de lo nuevo sale solo una vez; quien lo cerró de prisa
+                lo vuelve a abrir desde aquí. */}
+            {grupo === 'Sistema' && <BotonNovedades rol={perfil.rol} />}
           </GrupoMenu>
         )
       })}

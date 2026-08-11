@@ -1,5 +1,6 @@
 import { BarraLateral } from '@/components/admin/barra-lateral'
 import { BotonMas } from '@/components/movil/boton-mas'
+import { Novedades } from '@/components/novedades'
 import { BarraTabs } from '@/components/movil/tabs'
 import { cerrarSesion } from '@/app/login/acciones'
 import { NOMBRE_ROL, requerirRol } from '@/lib/auth'
@@ -28,6 +29,9 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
       <BarraTabs pestanas={pestanasDe(perfil.rol)} />
       {/* El contador sólo consulta: a él no le sale el botón de crear. */}
       {perfil.rol !== 'contador' && <BotonMas />}
+
+      {/* Qué cambió, una sola vez por versión y por aparato. */}
+      <Novedades rol={perfil.rol} />
     </div>
   )
 }
