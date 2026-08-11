@@ -461,7 +461,9 @@ export async function generarQuincena(quincena: string): Promise<Resultado<numbe
 // ===========================================================================
 // CAJA CHICA
 // ===========================================================================
+/** Con `id` corrige el movimiento; sin él lo da de alta. */
 export async function guardarMovimientoCaja(movimiento: {
+  id?: string
   tipo: TipoMovimientoCaja
   concepto: string
   monto: number
@@ -472,13 +474,17 @@ export async function guardarMovimientoCaja(movimiento: {
   if (movimiento.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
 
   const supabase = await staff()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { id, ...datos } = movimiento
+  const campos = { ...datos, concepto: datos.concepto.trim() }
 
-  const { error } = await supabase.from('caja_chica').insert({
-    ...movimiento,
-    concepto: movimiento.concepto.trim(),
-    registrado_por: user?.id ?? null,
-  })
+  // Al corregir no se toca `registrado_por`: quien capturó el movimiento
+  // siguió siendo quien lo capturó.
+  const { error } = id
+    ? await supabase.from('caja_chica').update(campos).eq('id', id)
+    : await supabase.from('caja_chica').insert({
+        ...campos,
+        registrado_por: (await supabase.auth.getUser()).data.user?.id ?? null,
+      })
 
   if (error) return fallo(error)
   revalidatePath('/admin/caja-chica')

@@ -305,6 +305,8 @@ export type ObraMaterial = {
   es_taller: boolean
   gasto_id: string | null
   created_at: string
+  updated_at: string
+  editado_por: string | null
 }
 
 export type InsumoKardex = {
@@ -380,6 +382,8 @@ export type Avance = {
   comentario: string | null
   porcentaje_avance: number | null
   created_at: string
+  updated_at: string
+  editado_por: string | null
 }
 
 export type SolicitudMaterial = {
@@ -480,6 +484,8 @@ export type CajaChica = {
   gasto_id: string | null
   registrado_por: string | null
   created_at: string
+  updated_at: string
+  editado_por: string | null
 }
 
 export type PolizaGarantia = {
@@ -540,6 +546,8 @@ export type BitacoraObra = {
   datos: unknown
   autor_id: string | null
   created_at: string
+  updated_at: string
+  editado_por: string | null
 }
 
 // ---------------------------------------------------------------------------

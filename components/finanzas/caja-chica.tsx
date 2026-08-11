@@ -2,14 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Pencil, Trash2 } from 'lucide-react'
 import {
   Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
 import { FiltroRango, SelectorFecha } from '@/components/filtro-fechas'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { eliminarMovimientoCaja, guardarMovimientoCaja } from '@/app/admin/finanzas-acciones'
-import type { TipoMovimientoCaja } from '@/types/database'
+import type { CajaChica, TipoMovimientoCaja } from '@/types/database'
 
 export function BarraCajaChica({
   obras,
@@ -69,25 +69,64 @@ export function BotonEliminarMovimiento({ id, concepto }: { id: string; concepto
   )
 }
 
+/**
+ * Corregir un movimiento en vez de borrarlo y volverlo a capturar. Un dígito
+ * de más en el monto no debería costar dos pasos, y borrar deja hueco en el
+ * corte del día.
+ */
+export function BotonEditarMovimiento({
+  movimiento, obras,
+}: {
+  movimiento: CajaChica
+  obras: { id: string; nombre: string; ot_numero: string | null }[]
+}) {
+  const [abierto, setAbierto] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="rounded p-1 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-700"
+        aria-label={`Corregir «${movimiento.concepto}»`}
+      >
+        <Pencil size={14} />
+      </button>
+
+      {abierto && (
+        <FormularioMovimiento
+          tipo={movimiento.tipo}
+          movimiento={movimiento}
+          obras={obras}
+          onCerrar={() => setAbierto(false)}
+        />
+      )}
+    </>
+  )
+}
+
 function FormularioMovimiento({
-  tipo, obras, onCerrar,
+  tipo, movimiento, obras, onCerrar,
 }: {
   tipo: TipoMovimientoCaja
+  /** Presente al corregir; ausente al dar de alta. */
+  movimiento?: CajaChica
   obras: { id: string; nombre: string; ot_numero: string | null }[]
   onCerrar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [concepto, setConcepto] = useState('')
-  const [monto, setMonto] = useState('')
-  const [fecha, setFecha] = useState(hoyISO())
-  const [obraId, setObraId] = useState('')
+  const [concepto, setConcepto] = useState(movimiento?.concepto ?? '')
+  const [monto, setMonto] = useState(movimiento ? String(Number(movimiento.monto)) : '')
+  const [fecha, setFecha] = useState(movimiento?.fecha ?? hoyISO())
+  const [obraId, setObraId] = useState(movimiento?.obra_id ?? '')
 
   const guardar = () =>
     iniciar(async () => {
       setError(null)
       const r = await guardarMovimientoCaja({
+        id: movimiento?.id,
         tipo,
         concepto,
         monto: num(monto),
@@ -103,11 +142,17 @@ function FormularioMovimiento({
     <Dialogo
       abierto
       onCerrar={onCerrar}
-      titulo={tipo === 'entrada' ? 'Entrada a caja chica' : 'Salida de caja chica'}
+      titulo={
+        movimiento
+          ? 'Corregir movimiento'
+          : tipo === 'entrada' ? 'Entrada a caja chica' : 'Salida de caja chica'
+      }
       descripcion={
-        tipo === 'entrada'
-          ? 'Reposición del fondo o devolución de efectivo.'
-          : 'Gasto pagado en efectivo desde la caja.'
+        movimiento
+          ? 'Se corrige el movimiento tal cual: no se borra ni se recaptura.'
+          : tipo === 'entrada'
+            ? 'Reposición del fondo o devolución de efectivo.'
+            : 'Gasto pagado en efectivo desde la caja.'
       }
     >
       <CuerpoDialogo>
@@ -165,7 +210,7 @@ function FormularioMovimiento({
           disabled={pendiente || !concepto.trim() || num(monto) <= 0}
           className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
         >
-          {pendiente ? 'Guardando…' : 'Registrar'}
+          {pendiente ? 'Guardando…' : movimiento ? 'Guardar' : 'Registrar'}
         </button>
       </PieDialogo>
     </Dialogo>

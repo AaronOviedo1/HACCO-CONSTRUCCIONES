@@ -49,17 +49,41 @@ export async function actualizarObra(
   return { ok: true }
 }
 
-export async function anotarEnBitacora(obraId: string, texto: string): Promise<Resultado> {
+/** Con `id` corrige la nota; sin él la agrega. */
+export async function anotarEnBitacora(
+  obraId: string,
+  texto: string,
+  id?: string,
+): Promise<Resultado> {
   const supabase = await staff()
+  if (!texto.trim()) return { ok: false, error: 'La nota no puede ir vacía.' }
+
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { error } = await supabase.from('bitacora_obra').insert({
-    obra_id: obraId,
-    tipo: 'nota',
-    descripcion: texto,
-    autor_id: user?.id ?? null,
-  })
+  // Sólo se corrigen las notas escritas a mano: los renglones que pone el
+  // sistema —una obra que cambió de estatus, un avance que entró— son el
+  // historial de lo que pasó y ahí no se escribe.
+  const { error } = id
+    ? await supabase
+        .from('bitacora_obra')
+        .update({ descripcion: texto.trim(), editado_por: user?.id ?? null })
+        .eq('id', id)
+        .eq('tipo', 'nota')
+    : await supabase.from('bitacora_obra').insert({
+        obra_id: obraId,
+        tipo: 'nota',
+        descripcion: texto.trim(),
+        autor_id: user?.id ?? null,
+      })
 
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarNotaBitacora(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('bitacora_obra').delete().eq('id', id).eq('tipo', 'nota')
   if (error) return fallo(error)
   refrescar(obraId)
   return { ok: true }
@@ -96,6 +120,59 @@ export async function registrarAvanceAdmin(
   })
 
   if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+/**
+ * Corrige la nota y el porcentaje de un avance ya subido. La foto no se toca:
+ * si la foto está mal, el avance se borra y se sube otro.
+ *
+ * Bajar el porcentaje baja el avance de la obra —lo recalcula el trigger de
+ * 20260810000030— y con él el devengado de los contratos de esa obra. Quien
+ * corrige tiene que saberlo antes de guardar, no después: el aviso lo da la
+ * pantalla, aquí sólo se guarda.
+ */
+export async function editarAvance(
+  obraId: string,
+  id: string,
+  datos: { comentario: string; porcentaje: number | null },
+): Promise<Resultado> {
+  const supabase = await staff()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('avances')
+    .update({
+      comentario: datos.comentario.trim() || null,
+      porcentaje_avance: datos.porcentaje,
+      editado_por: user?.id ?? null,
+    })
+    .eq('id', id)
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  return { ok: true }
+}
+
+export async function eliminarAvance(obraId: string, id: string): Promise<Resultado> {
+  const supabase = await staff()
+
+  // La foto se va con el avance: si se queda, ocupa el bucket para siempre y
+  // ya no hay nada que la enseñe.
+  const { data: avance } = await supabase
+    .from('avances')
+    .select('storage_path')
+    .eq('id', id)
+    .maybeSingle()
+
+  const { error } = await supabase.from('avances').delete().eq('id', id)
+  if (error) return fallo(error)
+
+  if (avance?.storage_path) {
+    await supabase.storage.from('avances').remove([avance.storage_path])
+  }
+
   refrescar(obraId)
   return { ok: true }
 }

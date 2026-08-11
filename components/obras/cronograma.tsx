@@ -8,9 +8,10 @@ import {
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
-import { fecha, fechaHora } from '@/lib/format'
+import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { ESTATUS_TAREA } from '@/lib/obras'
+import { RenglonBitacora } from '@/components/obras/editar-nota'
 import {
   anotarEnBitacora, crearCronogramaDesdePartidas, eliminarTarea, guardarTarea,
   marcarTareaTerminada, recorrerCronograma,
@@ -205,12 +206,12 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
         ) : (
           <ul className="max-h-[36rem] divide-y divide-tinta-100 overflow-y-auto">
             {datos.bitacora.map((b) => (
-              <li key={b.id} className="px-4 py-2.5">
-                <p className="text-sm text-tinta-700">{b.descripcion}</p>
-                <p className="mt-0.5 text-xs text-tinta-400">
-                  {fechaHora(b.created_at)} · {b.tipo}
-                </p>
-              </li>
+              <RenglonBitacora
+                key={b.id}
+                obraId={datos.obra.id}
+                entrada={b}
+                editable={!cerrada && b.tipo === 'nota'}
+              />
             ))}
           </ul>
         )}

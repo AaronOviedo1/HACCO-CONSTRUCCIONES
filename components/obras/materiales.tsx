@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { PackageOpen, Plus, Trash2 } from 'lucide-react'
+import { PackageOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo, Seleccion,
 } from '@/components/formulario'
@@ -21,6 +21,7 @@ import type { DatosObra } from '@/app/admin/obras/datos'
 export function PanelMateriales({ datos }: { datos: DatosObra }) {
   const router = useRouter()
   const [nuevo, setNuevo] = useState<OrigenMaterial | null>(null)
+  const [editando, setEditando] = useState<DatosObra['materiales'][number] | null>(null)
   const [taller, setTaller] = useState(false)
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -138,6 +139,7 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
           cerrada={cerrada}
           onAgregar={() => setNuevo('cotizado')}
           onBorrar={borrar}
+          onEditar={setEditando}
         />
 
         <TablaMateriales
@@ -149,6 +151,7 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
           cerrada={cerrada}
           onAgregar={() => setNuevo('real')}
           onBorrar={borrar}
+          onEditar={setEditando}
           accionExtra={
             !cerrada ? (
               <button
@@ -175,6 +178,18 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
         />
       )}
 
+      {editando && (
+        <FormularioMaterial
+          obraId={datos.obra.id}
+          origen={editando.origen}
+          renglon={editando}
+          conceptos={datos.conceptos}
+          sugerencias={datos.sugerenciasMateriales}
+          insumos={datos.insumos}
+          onCerrar={() => setEditando(null)}
+        />
+      )}
+
       {taller && (
         <FormularioSalidaTaller
           obraId={datos.obra.id}
@@ -189,7 +204,8 @@ export function PanelMateriales({ datos }: { datos: DatosObra }) {
 
 // ---------------------------------------------------------------------------
 function TablaMateriales({
-  titulo, descripcion, filas, total, nombreConcepto, cerrada, onAgregar, onBorrar, accionExtra,
+  titulo, descripcion, filas, total, nombreConcepto, cerrada, onAgregar, onBorrar, onEditar,
+  accionExtra,
 }: {
   titulo: string
   descripcion: string
@@ -199,8 +215,13 @@ function TablaMateriales({
   cerrada: boolean
   onAgregar: () => void
   onBorrar: (id: string) => void
+  onEditar: (material: DatosObra['materiales'][number]) => void
   accionExtra?: React.ReactNode
 }) {
+  /* Un renglón que salió del taller ya descontó el insumo del kardex.
+     Corregirle las piezas dejaría el inventario diciendo otra cosa, así que
+     ésos se arreglan quitándolos y volviéndolos a sacar. */
+  const corregible = (m: DatosObra['materiales'][number]) => !cerrada && !m.es_taller
   return (
     <Tarjeta
       titulo={
@@ -238,6 +259,16 @@ function TablaMateriales({
               <span className="shrink-0 text-sm font-medium tabular-nums text-tinta-900">
                 {pesos(m.total)}
               </span>
+              {corregible(m) && (
+                <button
+                  type="button"
+                  onClick={() => onEditar(m)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-tinta-400"
+                  aria-label={`Corregir ${m.material}`}
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
               {!cerrada && (
                 <button
                   type="button"
@@ -271,7 +302,7 @@ function TablaMateriales({
                 <th className="w-24 border-b border-tinta-200 bg-tinta-50/70 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-tinta-500">
                   Folio
                 </th>
-                <th className="w-8 border-b border-tinta-200 bg-tinta-50/70" />
+                <th className="w-16 border-b border-tinta-200 bg-tinta-50/70" />
               </tr>
             </thead>
             <tbody>
@@ -304,16 +335,28 @@ function TablaMateriales({
                     )}
                   </td>
                   <td className="border-b border-tinta-100 px-1 py-2">
-                    {!cerrada && (
-                      <button
-                        type="button"
-                        onClick={() => onBorrar(m.id)}
-                        className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
-                        aria-label="Quitar renglón"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <span className="flex items-center gap-0.5">
+                      {corregible(m) && (
+                        <button
+                          type="button"
+                          onClick={() => onEditar(m)}
+                          className="rounded p-1 text-tinta-400 hover:bg-tinta-100 hover:text-tinta-700"
+                          aria-label="Corregir renglón"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                      {!cerrada && (
+                        <button
+                          type="button"
+                          onClick={() => onBorrar(m.id)}
+                          className="rounded p-1 text-tinta-400 hover:bg-red-50 hover:text-red-600"
+                          aria-label="Quitar renglón"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -342,10 +385,12 @@ function TablaMateriales({
 
 // ---------------------------------------------------------------------------
 function FormularioMaterial({
-  obraId, origen, conceptos, sugerencias, insumos, onCerrar,
+  obraId, origen, renglon, conceptos, sugerencias, insumos, onCerrar,
 }: {
   obraId: string
   origen: OrigenMaterial
+  /** Presente al corregir un renglón que ya existe; ausente al agregarlo. */
+  renglon?: DatosObra['materiales'][number]
   conceptos: DatosObra['conceptos']
   sugerencias: DatosObra['sugerenciasMateriales']
   insumos: DatosObra['insumos']
@@ -354,16 +399,18 @@ function FormularioMaterial({
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [material, setMaterial] = useState('')
-  const [piezas, setPiezas] = useState('1')
-  const [costo, setCosto] = useState('')
-  const [folio, setFolio] = useState('')
-  const [conceptoId, setConceptoId] = useState('')
+  const [material, setMaterial] = useState(renglon?.material ?? '')
+  const [piezas, setPiezas] = useState(renglon ? String(Number(renglon.piezas)) : '1')
+  const [costo, setCosto] = useState(renglon ? String(Number(renglon.costo)) : '')
+  const [folio, setFolio] = useState(renglon?.folio_factura ?? '')
+  const [conceptoId, setConceptoId] = useState(renglon?.concepto_id ?? '')
   const [descontar, setDescontar] = useState(true)
 
   // Si el nombre coincide con un insumo del taller, se ofrece descontar stock.
+  // Al corregir no: el renglón ya existe y sacar de nuevo del taller crearía
+  // uno aparte, además de volver a descontar el kardex.
   const insumo =
-    origen === 'real'
+    origen === 'real' && !renglon
       ? insumos.find((i) => i.nombre.trim().toLowerCase() === material.trim().toLowerCase())
       : undefined
 
@@ -393,6 +440,7 @@ function FormularioMaterial({
               folio.trim() ? `Folio ${folio.trim()}` : null,
             )
           : await guardarMaterial(obraId, {
+              id: renglon?.id,
               origen,
               concepto_id: conceptoId || null,
               material,
@@ -410,11 +458,17 @@ function FormularioMaterial({
     <Dialogo
       abierto
       onCerrar={onCerrar}
-      titulo={origen === 'cotizado' ? 'Material presupuestado' : 'Material consumido'}
+      titulo={
+        renglon
+          ? 'Corregir renglón'
+          : origen === 'cotizado' ? 'Material presupuestado' : 'Material consumido'
+      }
       descripcion={
-        origen === 'cotizado'
-          ? 'Lo que se calculó al cotizar.'
-          : 'Lo que se compró con factura. Si salió del taller usa «Salida de taller».'
+        renglon
+          ? 'Se corrige el renglón tal cual: no se borra ni se recaptura.'
+          : origen === 'cotizado'
+            ? 'Lo que se calculó al cotizar.'
+            : 'Lo que se compró con factura. Si salió del taller usa «Salida de taller».'
       }
     >
       <CuerpoDialogo>
@@ -501,7 +555,7 @@ function FormularioMaterial({
           disabled={pendiente || !material.trim()}
           className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
         >
-          {pendiente ? 'Guardando…' : 'Agregar'}
+          {pendiente ? 'Guardando…' : renglon ? 'Guardar' : 'Agregar'}
         </button>
       </PieDialogo>
     </Dialogo>

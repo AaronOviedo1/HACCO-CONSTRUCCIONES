@@ -5,7 +5,9 @@ import { rangoDeUrl } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
-import { BarraCajaChica, BotonEliminarMovimiento } from '@/components/finanzas/caja-chica'
+import {
+  BarraCajaChica, BotonEditarMovimiento, BotonEliminarMovimiento,
+} from '@/components/finanzas/caja-chica'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,7 +101,10 @@ export default async function PaginaCajaChica({
                     {m.tipo === 'entrada' ? '+' : '-'} {pesos(m.monto)}
                   </Td>
                   <Td>
-                    <BotonEliminarMovimiento id={m.id} concepto={m.concepto} />
+                    <span className="flex items-center gap-0.5">
+                      <BotonEditarMovimiento movimiento={m} obras={obras ?? []} />
+                      <BotonEliminarMovimiento id={m.id} concepto={m.concepto} />
+                    </span>
                   </Td>
                 </tr>
               ))}

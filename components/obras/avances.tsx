@@ -2,6 +2,7 @@ import { Camera, FileText, Video } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { CapturarAvanceAdmin } from '@/components/obras/capturar-avance-admin'
+import { AccionesAvance } from '@/components/obras/editar-avance'
 import { fechaHora } from '@/lib/format'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -85,6 +86,14 @@ export async function PanelAvances({ datos }: { datos: DatosObra }) {
                   <span className="text-xs text-tinta-400">{fechaHora(avance.created_at)}</span>
                   {avance.porcentaje_avance != null && (
                     <Etiqueta tono="verde">{Number(avance.porcentaje_avance)}% de avance</Etiqueta>
+                  )}
+                  {!cerrada && (
+                    <span className="ml-auto">
+                      <AccionesAvance
+                        avance={avance}
+                        tieneCronograma={datos.tareas.length > 0}
+                      />
+                    </span>
                   )}
                 </div>
 

@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react'
 import { ChevronLeft, Pause, Play, Truck } from 'lucide-react'
 import { Etiqueta } from '@/components/ui'
 import { BotonReabrir } from '@/components/obras/reabrir'
+import { BotonEditarObra } from '@/components/obras/editar-obra'
 import { fecha, fechaHora, pesos } from '@/lib/format'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import { actualizarObra, entregarObra } from '@/app/admin/obras/acciones'
@@ -104,6 +105,7 @@ export function EncabezadoObra({
           )
         ) : (
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+            <BotonEditarObra obra={obra} />
             {concentrado.estatus === 'pausada' ? (
               <button
                 type="button"
