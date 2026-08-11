@@ -16,6 +16,7 @@
     "bd:demo": "node --env-file=.env.local scripts/datos-demo.mjs",
     "bd:reales": "node --env-file=.env.local scripts/datos-reales.mjs",
     "bd:revisar-contratos": "node --env-file=.env.local scripts/revisar-contratos-importados.mjs",
+    "precios:sembrar": "node --env-file=.env.local scripts/sembrar-precios.mjs",
     "usuarios:demo": "node --env-file=.env.local scripts/crear-usuarios-demo.mjs",
     "usuarios:reales": "node --env-file=.env.local scripts/crear-trabajadores.mjs",
     "tipos": "npx supabase gen types typescript --linked > types/supabase.ts",

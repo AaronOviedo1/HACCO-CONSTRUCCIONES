@@ -18,6 +18,12 @@ const RUTAS_PUBLICAS = ['/login', '/auth']
  * que alguien aterrice en una pantalla que no le toca.
  */
 export default async function proxy(request: NextRequest) {
+  // Las tareas programadas entran sin cookie y por fuera del navegador. Si
+  // pasaran por aquí acabarían redirigidas al login: el cron respondería 307,
+  // Vercel lo pintaría verde y nadie se enteraría en semanas. Se protegen solas
+  // con CRON_SECRET; el proxy nunca fue su seguridad.
+  if (request.nextUrl.pathname.startsWith('/api/cron')) return NextResponse.next()
+
   // Sin llaves de Supabase todo el tráfico va a la pantalla de instalación.
   if (!SUPABASE_CONFIGURADO) {
     if (request.nextUrl.pathname === '/instalacion') return NextResponse.next()

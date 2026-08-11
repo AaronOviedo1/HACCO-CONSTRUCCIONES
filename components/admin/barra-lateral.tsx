@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Banknote, Boxes, ClipboardList, FileSpreadsheet, FileText, HardHat, LayoutDashboard,
-  LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
+  LogOut, PhoneCall, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
 } from 'lucide-react'
 import { Membrete } from '@/components/marca'
 import { GRUPOS, type Seccion } from '@/lib/nav'
@@ -23,6 +23,7 @@ const ICONOS: Record<string, LucideIcon> = {
   pagosfijos: ClipboardList,
   caja: Wallet,
   catalogo: Boxes,
+  precio: PhoneCall,
   herramienta: Wrench,
   reporte: FileSpreadsheet,
   usuario: Users,

@@ -47,6 +47,12 @@ export type MaterialBorrador = {
   material: string
   piezas: string
   costo: string
+  /**
+   * El producto del catálogo, cuando el material se eligió de una sugerencia.
+   * Es lo que permite recordar a qué precio se compró después: sin esto el
+   * material es sólo texto y no se puede cruzar con nada.
+   */
+  producto_id?: string | null
 }
 
 export type ConceptoBorrador = {
@@ -203,6 +209,7 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
   const material = (m: MaterialBorrador, orden: number): MaterialSql => ({
     rubro: m.rubro,
     material: m.material.trim(),
+    producto_id: m.producto_id || null,
     piezas: num(m.piezas) || 1,
     costo: num(m.costo),
     orden,

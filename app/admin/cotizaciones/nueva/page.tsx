@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function NuevaCotizacion() {
   await requerirRol(['admin', 'administracion'])
-  const { clientes, textos, productos } = await cargarCatalogos()
+  const { clientes, textos, productos, precios } = await cargarCatalogos()
 
   // Sin `await`: la promesa cruza al editor y se resuelve allá. El `catch` va
   // aquí para que un fallo no viaje como rechazo suelto.
@@ -34,6 +34,7 @@ export default async function NuevaCotizacion() {
       clientes={clientes}
       textos={textos}
       productos={productos}
+      precios={precios}
       obras={[]}
       sugerencias={sugerencias}
     />

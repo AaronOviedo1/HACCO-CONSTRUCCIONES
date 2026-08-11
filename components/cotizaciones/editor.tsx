@@ -17,8 +17,10 @@ import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
+import { PrecioVivo } from '@/components/precios/precio-vivo'
 import { pesos } from '@/lib/format'
 import { compartirPdf } from '@/lib/compartir'
+import { normalizarMaterial, type PrecioVigente } from '@/lib/precios'
 import { precioPagado } from '@/lib/sugerencias'
 import { REGLAS } from '@/lib/empresa'
 import {
@@ -31,9 +33,13 @@ import {
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
 } from '@/app/admin/cotizaciones/acciones'
+import { preguntarPrecio } from '@/app/admin/precios/acciones'
 import type { Cliente, EstatusCotizacion, Obra, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
 
 type ObraLigada = Pick<Obra, 'id' | 'ot_numero' | 'nombre' | 'estatus'>
+
+/** Busca el último precio pagado de un material del borrador. */
+type BuscarPrecio = (m: MaterialBorrador) => PrecioVigente | undefined
 
 const ESCRITORIO = '(min-width: 1024px)'
 
@@ -64,12 +70,14 @@ type Props = {
   clientes: Cliente[]
   textos: TextoProceso[]
   productos: Producto[]
+  /** Último precio pagado de cada material, para el semáforo de los costos. */
+  precios: PrecioVigente[]
   obras: ObraLigada[]
   sugerencias: Promise<SugerenciasCotizacion>
 }
 
 export function EditorCotizacion({
-  cotizacionId, folio, estatus, inicial, clientes, textos, productos, obras,
+  cotizacionId, folio, estatus, inicial, clientes, textos, productos, precios, obras,
   sugerencias: promesaSugerencias,
 }: Props) {
   const router = useRouter()
@@ -92,11 +100,39 @@ export function EditorCotizacion({
       const clave = p.nombre.toLowerCase()
       const previa = mapa.get(clave)
       // El neto, no el costo: el material del presupuesto se paga con IVA.
-      if (!previa) mapa.set(clave, { texto: p.nombre, veces: 0, monto: precioPagado(p) })
-      else if (!previa.monto) previa.monto = precioPagado(p)
+      if (!previa) {
+        mapa.set(clave, {
+          texto: p.nombre,
+          veces: 0,
+          monto: precioPagado(p),
+          producto_id: p.id,
+          proveedor_id: p.proveedor_id,
+        })
+      } else {
+        // Lo cotizado antes ya trae el texto; del catálogo se toma con qué
+        // producto queda ligado, que es lo que permite recordar su precio.
+        previa.producto_id = p.id
+        previa.proveedor_id = p.proveedor_id
+        if (!previa.monto) previa.monto = precioPagado(p)
+      }
     }
     return [...mapa.values()]
   }, [sugerencias.materiales, productos])
+
+  // Un solo mapa para todas las filas de material: por producto y por nombre
+  // normalizado, para que también encuentre lo que se tecleó sin elegir del
+  // catálogo. Cada renglón hace un get, sin consultas por tecla.
+  const preciosPorMaterial = useMemo(() => {
+    const mapa = new Map<string, PrecioVigente>()
+    for (const p of precios) {
+      mapa.set(p.producto_id, p)
+      mapa.set(normalizarMaterial(p.producto), p)
+    }
+    return mapa
+  }, [precios])
+  const precioDe = (m: MaterialBorrador) =>
+    (m.producto_id ? preciosPorMaterial.get(m.producto_id) : undefined) ??
+    preciosPorMaterial.get(normalizarMaterial(m.material))
   const bloqueado = estatus === 'aprobada' || estatus === 'terminada'
   // En el teléfono todo nace plegado: la cotización completa mide varias
   // pantallas y así se ve de un vistazo qué trae y se abre nada más lo que se
@@ -476,6 +512,7 @@ export function EditorCotizacion({
               setSucio={setSucio}
               bloqueado={bloqueado}
               sugerencias={materialesSugeridos}
+              precioDe={precioDe}
               abierta={escritorio}
             />
           )}
@@ -488,6 +525,7 @@ export function EditorCotizacion({
             bloqueado={bloqueado}
             abierta={abiertaEnAlta}
             sugerencias={materialesSugeridos}
+            precioDe={precioDe}
           />
 
           {/* Notas -------------------------------------------------------- */}
@@ -528,6 +566,7 @@ export function EditorCotizacion({
               </div>
             </div>
           </TarjetaPlegable>
+
         </div>
 
         {/* Resumen ---------------------------------------------------------- */}
@@ -1166,8 +1205,8 @@ function SelectorUnidad({
 }
 
 function BloqueHerreria({
-  doc, setDoc, setSucio, bloqueado, sugerencias, abierta,
-}: BloqueProps & { sugerencias: Sugerencia[]; abierta: boolean }) {
+  doc, setDoc, setSucio, bloqueado, sugerencias, precioDe, abierta,
+}: BloqueProps & { sugerencias: Sugerencia[]; precioDe: BuscarPrecio; abierta: boolean }) {
   const actualizar = (i: number, parche: Partial<ConceptoBorrador>) => {
     setDoc((d) => ({
       ...d,
@@ -1205,6 +1244,7 @@ function BloqueHerreria({
             indice={i}
             bloqueado={bloqueado}
             sugerencias={sugerencias}
+            precioDe={precioDe}
             onCambio={(parche) => actualizar(i, parche)}
             onQuitar={() => {
               setDoc((d) => ({ ...d, desglose: d.desglose.filter((_, j) => j !== i) }))
@@ -1232,7 +1272,7 @@ function BloqueHerreria({
 }
 
 function ConceptoHerreria({
-  concepto, indice, bloqueado, onCambio, onQuitar, sugerencias,
+  concepto, indice, bloqueado, onCambio, onQuitar, sugerencias, precioDe,
 }: {
   concepto: ConceptoBorrador
   indice: number
@@ -1240,6 +1280,7 @@ function ConceptoHerreria({
   onCambio: (parche: Partial<ConceptoBorrador>) => void
   onQuitar: () => void
   sugerencias: Sugerencia[]
+  precioDe: BuscarPrecio
 }) {
   const costo = costoConcepto(concepto)
   const precio = precioConcepto(concepto)
@@ -1249,9 +1290,15 @@ function ConceptoHerreria({
       materiales: concepto.materiales.map((m, j) => (j === i ? { ...m, ...parche } : m)),
     })
 
-  // Al elegir un material conocido se pone también su último costo.
+  // Al elegir un material conocido se pone también su último costo y, si viene
+  // del catálogo, con qué producto quedó ligado: eso es lo que permite después
+  // saber a cómo se compró.
   const elegirMaterial = (i: number, s: Sugerencia) =>
-    cambiarMaterial(i, { material: s.texto, ...(s.monto ? { costo: String(s.monto) } : {}) })
+    cambiarMaterial(i, {
+      material: s.texto,
+      producto_id: s.producto_id ?? null,
+      ...(s.monto ? { costo: String(s.monto) } : {}),
+    })
 
   return (
     <div className="rounded-xl border border-tinta-200">
@@ -1289,12 +1336,21 @@ function ConceptoHerreria({
               <div className="lg:col-span-5">
                 <EntradaSugerencias
                   valor={m.material}
-                  onCambio={(v) => cambiarMaterial(i, { material: v })}
+                  // Al teclear encima se suelta el producto: un material ligado
+                  // con el nombre cambiado miente peor que uno sin ligar.
+                  onCambio={(v) => cambiarMaterial(i, { material: v, producto_id: null })}
                   onElegir={(s) => elegirMaterial(i, s)}
                   sugerencias={sugerencias}
                   placeholder="PTR 1x1"
                   disabled={bloqueado}
                 />
+                {precioDe(m) && (
+                  <PrecioVivo
+                    precio={precioDe(m)!}
+                    onUsar={(monto) => cambiarMaterial(i, { costo: String(monto) })}
+                    onPreguntar={() => preguntarPrecio(precioDe(m)!.producto_id)}
+                  />
+                )}
               </div>
               <div className="flex items-center justify-end lg:order-last lg:col-span-1">
                 {bloqueado ? (
@@ -1414,8 +1470,8 @@ function Mini({ etiqueta, valor, destacado }: { etiqueta: string; valor: string;
 }
 
 function BloqueMateriales({
-  doc, setDoc, setSucio, bloqueado, abierta, sugerencias,
-}: BloqueProps & { abierta: boolean; sugerencias: Sugerencia[] }) {
+  doc, setDoc, setSucio, bloqueado, abierta, sugerencias, precioDe,
+}: BloqueProps & { abierta: boolean; sugerencias: Sugerencia[]; precioDe: BuscarPrecio }) {
   const sueltos = doc.materiales
   // Los materiales capturados en el cotizador de herrería también son parte
   // del presupuesto: aquí se ven (y suman), pero se editan en su concepto.
@@ -1435,9 +1491,14 @@ function BloqueMateriales({
     setSucio(true)
   }
 
-  // Al elegir un material conocido se pone también su último costo.
+  // Al elegir un material conocido se pone también su último costo y el
+  // producto del catálogo, si la sugerencia venía de ahí.
   const elegir = (i: number, s: Sugerencia) =>
-    actualizar(i, { material: s.texto, ...(s.monto ? { costo: String(s.monto) } : {}) })
+    actualizar(i, {
+      material: s.texto,
+      producto_id: s.producto_id ?? null,
+      ...(s.monto ? { costo: String(s.monto) } : {}),
+    })
 
   return (
     <TarjetaPlegable
@@ -1491,12 +1552,19 @@ function BloqueMateriales({
               <div className="lg:col-span-6">
                 <EntradaSugerencias
                   valor={m.material}
-                  onCambio={(v) => actualizar(i, { material: v })}
+                  onCambio={(v) => actualizar(i, { material: v, producto_id: null })}
                   onElegir={(s) => elegir(i, s)}
                   sugerencias={sugerencias}
                   placeholder="Rivinol 7 blanco"
                   disabled={bloqueado}
                 />
+                {precioDe(m) && (
+                  <PrecioVivo
+                    precio={precioDe(m)!}
+                    onUsar={(monto) => actualizar(i, { costo: String(monto) })}
+                    onPreguntar={() => preguntarPrecio(precioDe(m)!.producto_id)}
+                  />
+                )}
               </div>
               <div className="flex items-center justify-end lg:order-last lg:col-span-1">
                 {!bloqueado && (

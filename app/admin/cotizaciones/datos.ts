@@ -2,6 +2,7 @@ import 'server-only'
 import { notFound } from 'next/navigation'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { masComunes } from '@/lib/sugerencias'
+import type { PrecioVigente } from '@/lib/precios'
 import {
   borradorVacio,
   type BorradorCotizacion,
@@ -14,13 +15,23 @@ import {
  */
 export async function cargarCatalogos() {
   const supabase = await crearClienteServidor()
-  const [{ data: clientes }, { data: textos }, { data: productos }] = await Promise.all([
-    supabase.from('clientes').select('*').eq('activo', true).order('nombre'),
-    supabase.from('textos_proceso').select('*').eq('activo', true).order('orden'),
-    supabase.from('productos').select('*').eq('activo', true).neq('tipo', 'insumo_taller').order('nombre'),
-  ])
+  const [{ data: clientes }, { data: textos }, { data: productos }, { data: precios }] =
+    await Promise.all([
+      supabase.from('clientes').select('*').eq('activo', true).order('nombre'),
+      supabase.from('textos_proceso').select('*').eq('activo', true).order('orden'),
+      supabase.from('productos').select('*').eq('activo', true).neq('tipo', 'insumo_taller').order('nombre'),
+      // Último precio pagado de cada material: una fila por producto, con
+      // índice. Viaja aquí y no con las sugerencias —que ya barren miles de
+      // renglones— para no tocar lo que tarda en abrir el cotizador.
+      supabase.from('v_precios_vigentes').select('*'),
+    ])
 
-  return { clientes: clientes ?? [], textos: textos ?? [], productos: productos ?? [] }
+  return {
+    clientes: clientes ?? [],
+    textos: textos ?? [],
+    productos: productos ?? [],
+    precios: (precios ?? []) as PrecioVigente[],
+  }
 }
 
 /**
@@ -66,16 +77,16 @@ export async function cargarCotizacion(id: string) {
 
   const [{ data: procesos }, { data: items }, { data: desglose }, { data: materiales }, { data: obras }] =
     await Promise.all([
-      supabase.from('cotizacion_procesos').select('*').eq('cotizacion_id', id).order('orden'),
-      supabase.from('cotizacion_items').select('*').eq('cotizacion_id', id).order('orden'),
-      supabase.from('cotizacion_herreria_desglose').select('*').eq('cotizacion_id', id).order('orden'),
-      supabase.from('cotizacion_materiales').select('*').eq('cotizacion_id', id).order('orden'),
-      supabase
-        .from('obras')
-        .select('id, ot_numero, nombre, estatus')
-        .eq('cotizacion_id', id)
-        .order('ot_numero'),
-    ])
+    supabase.from('cotizacion_procesos').select('*').eq('cotizacion_id', id).order('orden'),
+    supabase.from('cotizacion_items').select('*').eq('cotizacion_id', id).order('orden'),
+    supabase.from('cotizacion_herreria_desglose').select('*').eq('cotizacion_id', id).order('orden'),
+    supabase.from('cotizacion_materiales').select('*').eq('cotizacion_id', id).order('orden'),
+    supabase
+      .from('obras')
+      .select('id, ot_numero, nombre, estatus')
+      .eq('cotizacion_id', id)
+      .order('ot_numero'),
+  ])
 
   const base = borradorVacio(cotizacion.tipo)
 
@@ -122,6 +133,7 @@ export async function cargarCotizacion(id: string) {
         .map((m) => ({
           rubro: m.rubro,
           material: m.material,
+          producto_id: m.producto_id,
           piezas: String(m.piezas),
           costo: String(m.costo),
         })),
@@ -131,6 +143,7 @@ export async function cargarCotizacion(id: string) {
       .map((m) => ({
         rubro: m.rubro,
         material: m.material,
+        producto_id: m.producto_id,
         piezas: String(m.piezas),
         costo: String(m.costo),
       })),
