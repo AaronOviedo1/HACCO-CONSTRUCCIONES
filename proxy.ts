@@ -131,7 +131,12 @@ export const config = {
      * Todo excepto archivos estáticos, imágenes y la ficha de instalación de
      * la PWA: el teléfono pide el manifest y los iconos sin cookies, así que
      * si pasaran por aquí acabarían redirigidos al login.
+     *
+     * El service worker va en la lista por lo mismo y por algo peor: el
+     * navegador lo pide sin cookies y con `Service-Worker: script`, y si
+     * recibe un 307 al login no falla ruidosamente —simplemente no registra
+     * nada y las notificaciones dejan de llegar sin que nadie lo note.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 }

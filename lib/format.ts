@@ -10,6 +10,24 @@ const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
 /**
+ * El día de hoy en Hermosillo, pase lo que pase con el reloj del servidor.
+ *
+ * `hoyISO()` de lib/cotizaciones saca el día de la hora local, y eso vale en
+ * el navegador —la máquina está en Hermosillo— pero no en el servidor: Vercel
+ * corre en UTC, y de las cinco de la tarde en adelante allá ya es mañana. Una
+ * consulta de «lo que toca hoy» hecha en el servidor a las seis de la tarde
+ * traería lo de mañana.
+ *
+ * Sonora no cambia de horario nunca, así que son siete horas fijas: la misma
+ * cuenta que hace `hoy_hermosillo()` en la base.
+ */
+export function hoyHermosillo(): string {
+  const d = new Date()
+  d.setUTCHours(d.getUTCHours() - 7)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
  * Convierte a Date respetando el día calendario.
  * Postgres entrega los `date` como "2026-07-26"; si eso se pasa directo a
  * `new Date()` se interpreta como UTC y en Hermosillo se corre un día.

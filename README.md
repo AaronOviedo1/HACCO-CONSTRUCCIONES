@@ -53,6 +53,8 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Settings → API → anon / public |
 | `SUPABASE_SERVICE_ROLE_KEY` | Settings → API → service_role — **nunca** se expone al navegador |
 | `SUPABASE_DB_URL` | Settings → Database → Connection string → URI |
+| `CRON_SECRET` | La inventas tú. Sin ella las tareas de la mañana no corren |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` · `VAPID_PRIVATE_KEY` | `node -e "console.log(require('web-push').generateVAPIDKeys())"`. Sin ellas no hay avisos en el teléfono; los recordatorios se siguen viendo en el tablero |
 
 Los datos del membrete (`NEXT_PUBLIC_EMPRESA_*`) se usan en cotizaciones, recibos, contratos,
 pagarés y pólizas. Llena al menos teléfono y correo antes de mandar documentos a un cliente.
@@ -157,7 +159,9 @@ lo que le toca. Las operaciones que mutan datos empiezan con una guarda `exigir_
 | Módulo | Qué resuelve |
 |---|---|
 | **Catálogo** | Clientes, proveedores con días de crédito, pinturas, insumos de taller con kardex, textos de proceso, herramientas |
+| **Precios** | Cada factura deja el precio de lo que se compró; el cotizador enseña el último pagado con su folio y antigüedad, y cada mañana se arma la lista corta de lo que sí conviene preguntar por teléfono |
 | **Cotizaciones** | Folio `F-###`, editor con totales en vivo, bullets de proceso, duplicar variantes, PDF con el formato real y compartir por WhatsApp |
+| **Recordatorios** | Una fecha pegada a la cotización: sale en el tablero, se pasa al Google Calendar y llega como aviso al teléfono a las 7 de la mañana |
 | **Cotizador de herrería** | Materiales + mano de obra + 5% indirectos → precio de venta con el % de utilidad |
 | **Cotización rápida** | Cuatro pasos con botones grandes para levantar en sitio desde el iPad |
 | **Obras (OTs)** | Concentrado cotizado/real/%, contratos, avances, materiales, conceptos, cronograma, documentos y cierre |
