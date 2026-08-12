@@ -29,11 +29,14 @@ export function masComunes(
  * Lo que de verdad se pagó por una pieza del catálogo.
  *
  * Todo lo que compra el taller se compra con IVA, así que el precio que hay que
- * proponer al capturar material o un gasto es el neto, no el costo pelón. El
- * `??` cubre a los productos viejos que se dieron de alta sin desglose.
+ * proponer al capturar material o un gasto es el neto, no el costo pelón.
+ *
+ * El `||` —y no `??`— es a propósito: `precio_neto` no admite nulos, trae cero,
+ * así que un producto sin desglose —los que da de alta sola una factura de
+ * insumos— proponía $0.00 en vez de caer a su costo.
  */
 export const precioPagado = (p: { costo: number; precio_neto?: number | null }) =>
-  p.precio_neto ?? p.costo
+  p.precio_neto || p.costo
 
 /** Mezcla sugerencias con el catálogo de productos, sin duplicar nombres. */
 export function conCatalogo(
