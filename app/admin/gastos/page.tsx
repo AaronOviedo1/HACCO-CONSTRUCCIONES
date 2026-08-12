@@ -49,7 +49,6 @@ export default async function PaginaGastos({
     { data, error },
     { data: obras },
     { data: proveedores },
-    { data: conceptos },
     { data: insumos },
     { data: historial },
     { data: productos },
@@ -61,7 +60,6 @@ export default async function PaginaGastos({
       .neq('estatus', 'cerrada')
       .order('fecha_apertura', { ascending: false }),
     supabase.from('proveedores').select('id, nombre, dias_credito_default').order('nombre'),
-    supabase.from('obra_conceptos').select('*').order('nombre'),
     supabase.from('v_insumos_existencia').select('*').order('nombre'),
     supabase
       .from('gastos')
@@ -74,6 +72,23 @@ export default async function PaginaGastos({
       .eq('activo', true)
       .order('nombre'),
   ])
+
+  // Los conceptos que el formulario puede ofrecer: los de las OT abiertas —que
+  // son a las que se les cargan gastos— más los de las obras que ya aparecen en
+  // la lista, para que corregir un gasto de una OT cerrada no le borre el suyo.
+  //
+  // Traerlos todos, como se hacía antes, además de revolverlos, se topaba en las
+  // mil filas que devuelve la base por omisión: con unas cuantas OT más, los
+  // conceptos de las últimas obras se habrían dejado de ver sin avisar.
+  const obrasEnPantalla = [
+    ...new Set([
+      ...(obras ?? []).map((o) => o.id),
+      ...(data ?? []).map((g) => g.obra_id).filter((id): id is string => Boolean(id)),
+    ]),
+  ]
+  const { data: conceptos } = obrasEnPantalla.length
+    ? await supabase.from('obra_conceptos').select('*').in('obra_id', obrasEnPantalla).order('orden')
+    : { data: [] }
 
   // Autocompletado del gasto: lo ya capturado + el catálogo (que además
   // trae proveedor y costo para pre-llenar).

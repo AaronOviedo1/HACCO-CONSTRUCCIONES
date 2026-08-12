@@ -178,7 +178,10 @@ function FormularioGasto({
   const [desgloseTicket, setDesgloseTicket] = useState<DesgloseComprobante | null>(null)
 
   const proveedor = proveedores.find((p) => p.id === proveedorId)
-  const conceptosDeObra = conceptos.filter(() => Boolean(obraId))
+  // Los de esta obra y nada más: dos OT pueden tener conceptos con el mismo
+  // nombre —«Interior 2da parte» está en media docena— y verlos todos juntos no
+  // sólo estorba, deja cargar el gasto al concepto de una obra ajena.
+  const conceptosDeObra = conceptos.filter((c) => c.obra_id === obraId)
   const esMaterialDeObra = categoria === 'material' && Boolean(obraId)
   // Compras para el stock del taller: material o herramienta sin obra asignada.
   // Al corregir un gasto no se ofrece: la entrada al inventario ya se dio (o no)
