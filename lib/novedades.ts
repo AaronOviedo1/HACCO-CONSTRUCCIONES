@@ -1,20 +1,20 @@
 import type { RolUsuario } from '@/types/database'
 
 /**
- * Lo nuevo de esta versión, contado como se lo contarías a quien lo va a usar.
+ * Lo nuevo de cada entrega, contado como se lo contarías a quien lo va a usar.
  *
  * La regla al escribir aquí: nada de nombres de pantallas, tablas ni botones
  * que no existan a la vista. Cada renglón responde una sola pregunta —«¿qué
  * puedo hacer hoy que ayer no?»— y se lee en voz alta sin tropezar.
  *
- * Al cambiar `VERSION`, el aviso vuelve a salir una vez a cada quien. Es una
- * fecha y no un número: si alguien pregunta «¿de cuándo es esto?», ya está
- * contestado.
+ * Las entregas van de la más nueva a la más vieja. La de arriba es la que se
+ * abre; las anteriores quedan plegadas, porque quien ya las leyó no tiene por
+ * qué volver a pasarles por encima y quien no, sigue teniendo dónde.
+ *
+ * Al cambiar la versión de la primera entrega, el aviso vuelve a salir una vez
+ * a cada quien. Es una fecha y no un número: si alguien pregunta «¿de cuándo es
+ * esto?», ya está contestado.
  */
-export const VERSION_NOVEDADES = '2026-08-11'
-
-export const FECHA_NOVEDADES = '11 de agosto de 2026'
-
 export type Novedad = {
   /** Dónde vive, dicho como se llama en el menú. */
   donde: string
@@ -24,9 +24,33 @@ export type Novedad = {
   roles: RolUsuario[]
 }
 
+export type Entrega = {
+  /** La marca que decide si el aviso vuelve a salir. */
+  version: string
+  fecha: string
+  novedades: Novedad[]
+}
+
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 
-export const NOVEDADES: Novedad[] = [
+const DEL_12_DE_AGOSTO: Novedad[] = [
+  {
+    donde: 'Gastos',
+    titulo: 'El concepto que se te ofrece ya es el de la obra que elegiste',
+    texto:
+      'Antes la lista traía los conceptos de todas las órdenes juntos, y como se repiten los nombres era fácil cargarle el gasto a la obra que no era. Ahora sólo salen los de la obra que pusiste arriba. Y aunque se intente por otro lado, el sistema ya no deja guardar un gasto en el concepto de otra obra.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Obras',
+    titulo: 'El material que sacas del taller entra con IVA',
+    texto:
+      'Al sacar un insumo del taller a una obra, el renglón queda por lo que de verdad se pagó —impuesto incluido—, que es la cifra que el propio recuadro te enseña antes de darle. Antes entraba sin el impuesto y la obra se veía más barata de lo que salió. Lo que ya estaba capturado también se corrigió: 48 renglones en siete órdenes.',
+    roles: OFICINA,
+  },
+]
+
+const DEL_11_DE_AGOSTO: Novedad[] = [
   {
     donde: 'Nómina',
     titulo: 'Págale por porcentaje, no nada más por cantidad',
@@ -106,4 +130,20 @@ export const NOVEDADES: Novedad[] = [
   },
 ]
 
-export const novedadesDe = (rol: RolUsuario) => NOVEDADES.filter((n) => n.roles.includes(rol))
+/** De la más nueva a la más vieja: la primera es la que se abre. */
+export const ENTREGAS: Entrega[] = [
+  { version: '2026-08-12', fecha: '12 de agosto de 2026', novedades: DEL_12_DE_AGOSTO },
+  { version: '2026-08-11', fecha: '11 de agosto de 2026', novedades: DEL_11_DE_AGOSTO },
+]
+
+export const VERSION_NOVEDADES = ENTREGAS[0].version
+
+export const FECHA_NOVEDADES = ENTREGAS[0].fecha
+
+/**
+ * Las entregas que le tocan a un rol, sin las que se le quedarían en blanco:
+ * un apartado plegado que al abrirlo no dice nada es peor que no estar.
+ */
+export const entregasDe = (rol: RolUsuario): Entrega[] =>
+  ENTREGAS.map((e) => ({ ...e, novedades: e.novedades.filter((n) => n.roles.includes(rol)) }))
+    .filter((e) => e.novedades.length > 0)

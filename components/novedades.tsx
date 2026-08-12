@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
-import { FECHA_NOVEDADES, VERSION_NOVEDADES, novedadesDe } from '@/lib/novedades'
+import { ChevronDown, Sparkles, X } from 'lucide-react'
+import { FECHA_NOVEDADES, VERSION_NOVEDADES, entregasDe } from '@/lib/novedades'
+import type { Novedad } from '@/lib/novedades'
 import type { RolUsuario } from '@/types/database'
 
 const CLAVE = 'haaco:novedades-vistas'
@@ -27,7 +28,7 @@ const marcarVistas = () => {
  */
 export function Novedades({ rol }: { rol: RolUsuario }) {
   const [abierto, setAbierto] = useState(false)
-  const cuantas = novedadesDe(rol).length
+  const cuantas = entregasDe(rol).length
 
   useEffect(() => {
     if (cuantas === 0) return
@@ -111,7 +112,7 @@ export function BotonNovedades({
 }
 
 function HojaNovedades({ rol, onCerrar }: { rol: RolUsuario; onCerrar: () => void }) {
-  const lista = novedadesDe(rol)
+  const [reciente, ...anteriores] = entregasDe(rol)
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar()
@@ -148,7 +149,7 @@ function HojaNovedades({ rol, onCerrar }: { rol: RolUsuario; onCerrar: () => voi
               Esto ya lo puedes hacer
             </h2>
             <p className="mt-0.5 text-sm text-tinta-500">
-              Cambios del {FECHA_NOVEDADES}
+              Cambios del {reciente?.fecha ?? FECHA_NOVEDADES}
             </p>
           </div>
           <button
@@ -161,19 +162,12 @@ function HojaNovedades({ rol, onCerrar }: { rol: RolUsuario; onCerrar: () => voi
           </button>
         </div>
 
-        <ul className="flex-1 divide-y divide-tinta-100 overflow-y-auto border-t-[0.5px] border-tinta-150">
-          {lista.map((n) => (
-            <li key={n.titulo} className="px-5 py-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-tinta-400">
-                {n.donde}
-              </p>
-              <p className="mt-1 text-[15px] font-semibold leading-snug text-tinta-900">
-                {n.titulo}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-tinta-600">{n.texto}</p>
-            </li>
+        <div className="flex-1 overflow-y-auto border-t-[0.5px] border-tinta-150">
+          <ListaNovedades novedades={reciente?.novedades ?? []} />
+          {anteriores.map((e) => (
+            <EntregaPlegada key={e.version} fecha={e.fecha} novedades={e.novedades} />
           ))}
-        </ul>
+        </div>
 
         <div className="border-t-[0.5px] border-tinta-150 bg-tinta-50 px-5 py-3 pb-seguro sm:pb-3">
           <button
@@ -185,6 +179,57 @@ function HojaNovedades({ rol, onCerrar }: { rol: RolUsuario; onCerrar: () => voi
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ListaNovedades({ novedades }: { novedades: Novedad[] }) {
+  return (
+    <ul className="divide-y divide-tinta-100">
+      {novedades.map((n) => (
+        <li key={n.titulo} className="px-5 py-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-tinta-400">
+            {n.donde}
+          </p>
+          <p className="mt-1 text-[15px] font-semibold leading-snug text-tinta-900">{n.titulo}</p>
+          <p className="mt-1 text-sm leading-relaxed text-tinta-600">{n.texto}</p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Una entrega de antes: doblada, con su fecha y cuántas cosas trajo.
+ *
+ * Lo de hoy es lo que hay que leer; lo de la vez pasada ya se leyó y no tiene
+ * por qué estorbar arriba. Pero tampoco se borra: el que entró de vacaciones o
+ * quiere volver a ver cómo era algo, lo abre y ahí está.
+ */
+function EntregaPlegada({ fecha, novedades }: { fecha: string; novedades: Novedad[] }) {
+  const [abierta, setAbierta] = useState(false)
+
+  return (
+    <div className="border-t-[0.5px] border-tinta-150">
+      <button
+        type="button"
+        onClick={() => setAbierta((a) => !a)}
+        aria-expanded={abierta}
+        className="flex min-h-[52px] w-full items-center gap-2 bg-tinta-50 px-5 py-3 text-left transition hover:bg-tinta-100"
+      >
+        <span className="flex-1 text-sm text-tinta-600">
+          Cambios del {fecha}
+          <span className="ml-1.5 text-tinta-400">
+            · {novedades.length} {novedades.length === 1 ? 'novedad' : 'novedades'}
+          </span>
+        </span>
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-tinta-400 transition-transform ${abierta ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      </button>
+      {abierta && <ListaNovedades novedades={novedades} />}
     </div>
   )
 }
