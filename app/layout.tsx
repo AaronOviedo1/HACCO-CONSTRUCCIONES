@@ -51,10 +51,14 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Las extensiones del navegador (LanguageTool y compañía) le cuelgan
+  // atributos al <html> antes de que React hidrate; el suppress silencia sólo
+  // ese falso positivo del elemento raíz, no los errores de la app.
   return (
     <html
       lang="es-MX"
       className={`${figtree.variable} ${archivo.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full overflow-x-hidden font-sans">{children}</body>
     </html>
