@@ -139,9 +139,11 @@ export function costoConcepto(concepto: ConceptoBorrador): number {
   return redondear(directo * (1 + num(concepto.gastos_indirectos_pct) / 100))
 }
 
-/** Precio de venta del concepto, ya con el margen de utilidad. */
+/** Precio de venta del concepto: la utilidad es un % del precio, no del costo. */
 export function precioConcepto(concepto: ConceptoBorrador): number {
-  return redondear(costoConcepto(concepto) * (1 + num(concepto.utilidad_pct) / 100))
+  const factor = 1 - num(concepto.utilidad_pct) / 100
+  if (factor <= 0) return 0 // con utilidad ≥ 100% no existe precio que la deje
+  return redondear(costoConcepto(concepto) / factor)
 }
 
 export function totalesCotizacion(borrador: BorradorCotizacion) {

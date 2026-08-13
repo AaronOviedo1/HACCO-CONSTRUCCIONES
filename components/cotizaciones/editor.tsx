@@ -1311,6 +1311,7 @@ function ConceptoHerreria({
 }) {
   const costo = costoConcepto(concepto)
   const precio = precioConcepto(concepto)
+  const otros = sumaMateriales(concepto.materiales, 'otro')
 
   const cambiarMaterial = (i: number, parche: Partial<MaterialBorrador>) =>
     onCambio({
@@ -1474,9 +1475,12 @@ function ConceptoHerreria({
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 border-t border-tinta-100 bg-tinta-50/60 px-4 py-2.5 text-xs sm:grid-cols-4">
+      <dl
+        className={`grid grid-cols-2 gap-x-4 border-t border-tinta-100 bg-tinta-50/60 px-4 py-2.5 text-xs ${otros > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}
+      >
         <Mini etiqueta="Herrería" valor={pesos(sumaMateriales(concepto.materiales, 'herreria'))} />
         <Mini etiqueta="Pintura" valor={pesos(sumaMateriales(concepto.materiales, 'pintura'))} />
+        {otros > 0 && <Mini etiqueta="Otros" valor={pesos(otros)} />}
         <Mini etiqueta="Costo total" valor={pesos(costo)} />
         <Mini etiqueta="Precio de venta" valor={pesos(precio)} destacado />
       </dl>

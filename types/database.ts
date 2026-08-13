@@ -230,6 +230,7 @@ export type CotizacionHerreriaDesglose = {
   concepto: string
   materiales_herreria: number
   materiales_pintura: number
+  materiales_otro: number
   mano_obra: number
   gastos_indirectos_pct: number
   utilidad_pct: number
