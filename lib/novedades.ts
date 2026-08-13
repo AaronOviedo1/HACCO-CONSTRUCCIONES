@@ -69,6 +69,21 @@ const DEL_13_DE_AGOSTO: Novedad[] = [
     texto:
       'Si le pones 35 de utilidad a un concepto de herrería, ahora el 35% del precio de venta es lo que queda de ganancia, como se saca a mano en obra. Antes el sistema nada más le sumaba el 35 al costo, y en el precio real la utilidad quedaba más chica. Con los mismos números, el precio sale más arriba. Y los materiales del rubro «Otro» ya entran al precio: antes se veían en la pantalla pero se caían al guardar.',
     roles: OFICINA,
+    figura: {
+      pie: 'El concepto de herrería: con 35 de utilidad, el precio de venta ya es el que deja ese porcentaje.',
+      movil: {
+        ruta: '/novedades/2026-08-13/herreria-utilidad-movil.webp',
+        ancho: 1080,
+        alto: 2340,
+        marca: { x: 77.8, y: 50.0 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-13/herreria-utilidad-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 63.7, y: 50.0 },
+      },
+    },
   },
   {
     donde: 'Gastos',
@@ -76,6 +91,21 @@ const DEL_13_DE_AGOSTO: Novedad[] = [
     texto:
       'En Método ya aparece «Caja chica». El gasto se captura como siempre y su salida queda anotada sola en la caja, con el saldo descontado al momento: se acabó capturarlo dos veces. Si el gasto se corrige o se borra, la caja se ajusta con él. En la pantalla de caja chica esos movimientos salen marcados «Desde gastos».',
     roles: OFICINA,
+    figura: {
+      pie: 'El gasto nuevo con método «Caja chica»: siempre de contado, y el saldo de la caja baja solo.',
+      movil: {
+        ruta: '/novedades/2026-08-13/gasto-caja-movil.webp',
+        ancho: 1080,
+        alto: 2340,
+        marca: { x: 50.0, y: 65.1 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-13/gasto-caja-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 39.9, y: 75.3 },
+      },
+    },
   },
   {
     donde: 'Cotizaciones',
@@ -83,6 +113,21 @@ const DEL_13_DE_AGOSTO: Novedad[] = [
     texto:
       'Los renglones del proceso que traen {PRODUCTO} ya no se llenan a mano: al elegir la pintura de la partida, el renglón de pintura toma su nombre solito, y si cambias de pintura se corrige. Para el sellador, el esmalte o el impermeabilizante, cada renglón trae una lista para escoger su producto del catálogo de un toque. Ya no se va ninguna cotización con el hueco sin llenar.',
     roles: OFICINA,
+    figura: {
+      pie: 'El renglón de sellador con su lista «Poner producto…» para escoger la cubeta del catálogo.',
+      movil: {
+        ruta: '/novedades/2026-08-13/producto-bullets-movil.webp',
+        ancho: 1080,
+        alto: 2340,
+        marca: { x: 48.6, y: 48.9 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-13/producto-bullets-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 45.4, y: 35.5 },
+      },
+    },
   },
 ]
 
