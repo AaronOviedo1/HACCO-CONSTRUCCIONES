@@ -53,3 +53,6 @@ next-env.d.ts
 
 # Capturas de verificación visual: son artefactos de trabajo, no del producto.
 capturas-landing/
+
+# Respaldos de datos de producción para clonar a la Supabase local (datos de negocio)
+/respaldos/

@@ -15,6 +15,33 @@ import type { RolUsuario } from '@/types/database'
  * a cada quien. Es una fecha y no un número: si alguien pregunta «¿de cuándo es
  * esto?», ya está contestado.
  */
+/** Dónde está el cambio, en porcentaje del ancho y alto de la imagen. */
+export type Marca = { x: number; y: number }
+
+/** Una captura ya optimizada bajo public/novedades/<version>/. */
+export type Captura = {
+  /** Ruta pública: '/novedades/2026-08-12/gastos-concepto-escritorio.webp'. */
+  ruta: string
+  /** Medidas intrínsecas del WebP: reservan el hueco y la lámina no salta. */
+  ancho: number
+  alto: number
+  /** Sin marca, la captura habla por sí sola. */
+  marca?: Marca
+}
+
+/**
+ * La imagen que acompaña a una novedad. La app no se ve igual en el teléfono
+ * que en la computadora, así que cada tamaño trae su propia captura —con su
+ * propia marca, porque el mismo botón vive en otro lugar—. Si sólo hay una,
+ * se enseña en los dos tamaños. Al menos una de las dos debe venir.
+ */
+export type Figura = {
+  /** Pie de foto y texto alternativo: qué se está viendo. */
+  pie: string
+  movil?: Captura
+  escritorio?: Captura
+}
+
 export type Novedad = {
   /** Dónde vive, dicho como se llama en el menú. */
   donde: string
@@ -22,6 +49,8 @@ export type Novedad = {
   texto: string
   /** A quién le sirve: a los demás ni se les enseña. */
   roles: RolUsuario[]
+  /** Opcional: las entregas viejas no traen imagen y no pasa nada. */
+  figura?: Figura
 }
 
 export type Entrega = {
@@ -33,6 +62,30 @@ export type Entrega = {
 
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 
+const DEL_13_DE_AGOSTO: Novedad[] = [
+  {
+    donde: 'Cotizaciones',
+    titulo: 'La utilidad de herrería ya se calcula sobre el precio',
+    texto:
+      'Si le pones 35 de utilidad a un concepto de herrería, ahora el 35% del precio de venta es lo que queda de ganancia, como se saca a mano en obra. Antes el sistema nada más le sumaba el 35 al costo, y en el precio real la utilidad quedaba más chica. Con los mismos números, el precio sale más arriba. Y los materiales del rubro «Otro» ya entran al precio: antes se veían en la pantalla pero se caían al guardar.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Gastos',
+    titulo: 'Págalo de caja chica y el saldo baja solo',
+    texto:
+      'En Método ya aparece «Caja chica». El gasto se captura como siempre y su salida queda anotada sola en la caja, con el saldo descontado al momento: se acabó capturarlo dos veces. Si el gasto se corrige o se borra, la caja se ajusta con él. En la pantalla de caja chica esos movimientos salen marcados «Desde gastos».',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Cotizaciones',
+    titulo: 'El nombre de la pintura se pone solo en la descripción',
+    texto:
+      'Los renglones del proceso que traen {PRODUCTO} ya no se llenan a mano: al elegir la pintura de la partida, el renglón de pintura toma su nombre solito, y si cambias de pintura se corrige. Para el sellador, el esmalte o el impermeabilizante, cada renglón trae una lista para escoger su producto del catálogo de un toque. Ya no se va ninguna cotización con el hueco sin llenar.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_12_DE_AGOSTO: Novedad[] = [
   {
     donde: 'Gastos',
@@ -40,6 +93,21 @@ const DEL_12_DE_AGOSTO: Novedad[] = [
     texto:
       'Antes la lista traía los conceptos de todas las órdenes juntos, y como se repiten los nombres era fácil cargarle el gasto a la obra que no era. Ahora sólo salen los de la obra que pusiste arriba. Y aunque se intente por otro lado, el sistema ya no deja guardar un gasto en el concepto de otra obra.',
     roles: OFICINA,
+    figura: {
+      pie: 'El formulario de gasto: con la obra ya puesta, en Concepto sólo salen los de esa obra.',
+      movil: {
+        ruta: '/novedades/2026-08-12/gastos-concepto-movil.webp',
+        ancho: 1080,
+        alto: 2341,
+        marca: { x: 50.0, y: 56.6 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-12/gastos-concepto-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 38.8, y: 51.1 },
+      },
+    },
   },
   {
     donde: 'Obras',
@@ -47,6 +115,21 @@ const DEL_12_DE_AGOSTO: Novedad[] = [
     texto:
       'Al sacar un insumo del taller a una obra, el renglón queda por lo que de verdad se pagó —impuesto incluido—, que es la cifra que el propio recuadro te enseña antes de darle. Antes entraba sin el impuesto y la obra se veía más barata de lo que salió. Lo que ya estaba capturado también se corrigió: 48 renglones en siete órdenes.',
     roles: OFICINA,
+    figura: {
+      pie: 'La salida del taller avisa cuánto se cargará a la obra: el costo con IVA, el de verdad.',
+      movil: {
+        ruta: '/novedades/2026-08-12/taller-iva-movil.webp',
+        ancho: 1080,
+        alto: 2341,
+        marca: { x: 45.8, y: 84.6 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-12/taller-iva-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 44.7, y: 69.1 },
+      },
+    },
   },
 ]
 
@@ -92,6 +175,21 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
     texto:
       'El concentrado ya no parte todo por mes. Es una sola lista, con lo que sigue vivo, en el mismo orden en que se fue capturando.',
     roles: ['admin', 'administracion', 'contador'],
+    figura: {
+      pie: 'La vista «Concentrado»: una sola lista corrida, sin cortes por mes.',
+      movil: {
+        ruta: '/novedades/2026-08-11/cotizaciones-corrida-movil.webp',
+        ancho: 1080,
+        alto: 2341,
+        marca: { x: 39.7, y: 43.5 },
+      },
+      escritorio: {
+        ruta: '/novedades/2026-08-11/cotizaciones-corrida-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+        marca: { x: 31.9, y: 27.6 },
+      },
+    },
   },
   {
     donde: 'Obras',
@@ -127,11 +225,27 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
     texto:
       'El inicio se lee de un vistazo, sin sacar cuentas. Y abajo hay un «+» para cotizar, abrir una obra o capturar un gasto sin ir a buscarlo al menú.',
     roles: ['admin', 'administracion', 'contador'],
+    figura: {
+      pie: 'El inicio nuevo. En el teléfono, el «+» de abajo crea cotización, obra o gasto.',
+      movil: {
+        ruta: '/novedades/2026-08-11/inicio-boton-movil.webp',
+        ancho: 1080,
+        alto: 2341,
+        marca: { x: 88.6, y: 87.3 },
+      },
+      // El «+» sólo vive en el teléfono: en la computadora la captura habla sola.
+      escritorio: {
+        ruta: '/novedades/2026-08-11/inicio-boton-escritorio.webp',
+        ancho: 1600,
+        alto: 1000,
+      },
+    },
   },
 ]
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-08-13', fecha: '13 de agosto de 2026', novedades: DEL_13_DE_AGOSTO },
   { version: '2026-08-12', fecha: '12 de agosto de 2026', novedades: DEL_12_DE_AGOSTO },
   { version: '2026-08-11', fecha: '11 de agosto de 2026', novedades: DEL_11_DE_AGOSTO },
 ]

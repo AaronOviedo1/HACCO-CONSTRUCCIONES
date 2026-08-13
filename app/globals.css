@@ -67,6 +67,7 @@
   --animate-surge: surge 420ms var(--ease-suave) var(--retraso, 0ms) both;
   --animate-pulso: pulso 1.6s ease-in-out infinite;
   --animate-girar: girar 0.7s linear infinite;
+  --animate-destello: destello 2.2s ease-out infinite;
 
   /*
    * Curvas de resorte.
@@ -113,6 +114,16 @@
 @keyframes pulso {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
+}
+
+/*
+ * El halo del marcador de novedades: crece hacia afuera y se desvanece, como
+ * el anillo de los puntos del recorrido que se le manda al cliente. La pausa
+ * entre el 65% y el 100% es el respiro: un halo que no para de latir cansa.
+ */
+@keyframes destello {
+  0%        { transform: scale(1);   opacity: 0.8; }
+  65%, 100% { transform: scale(2.4); opacity: 0; }
 }
 
 /*
@@ -434,6 +445,10 @@ body:has([data-lienzo="claro"]) {
   .animate-surge  { animation: surge 1ms linear both; }
   /* Al botón se le quita el resorte, no el aviso de que está desactivado. */
   .boton-entrar   { transition: filter 200ms ease; }
+  /* El marcador se queda quieto: el anillo estático del punto ya lo señala. */
+  .animate-destello { animation: none; opacity: 0; }
+  /* La lámina del recorrido llega puesta, como el login. */
+  .animate-entra  { animation: entra 1ms linear both; }
 }
 
 /* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */
