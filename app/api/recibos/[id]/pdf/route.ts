@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 
 const METODO: Record<MetodoPago, string> = {
   efectivo: 'Efectivo',
+  caja_chica: 'Caja chica', // en cobros no se ofrece; el tipo pide el mapa completo
   tarjeta_empresa: 'Tarjeta',
   transferencia: 'Transferencia electrónica',
   cheque: 'Cheque',

@@ -970,7 +970,9 @@ function FormularioGasto({
               value={metodo}
               onChange={(e) => {
                 mio('método')
-                setMetodo(e.target.value as MetodoPago)
+                const valor = e.target.value as MetodoPago
+                setMetodo(valor)
+                if (valor === 'caja_chica') setCondicion('contado')
               }}
             >
               {Object.entries(METODO_PAGO).map(([valor, texto]) => (
@@ -990,14 +992,17 @@ function FormularioGasto({
               columnas={2}
               opciones={Object.entries(CONDICION) as [CondicionCompra, string][]}
               onCambio={setCondicion}
+              deshabilitado={metodo === 'caja_chica'}
             />
           }
           ayuda={
-            condicion === 'credito'
-              ? proveedor
-                ? `Abre cuenta por pagar a ${proveedor.dias_credito_default} días`
-                : 'A crédito hace falta elegir proveedor'
-              : undefined
+            metodo === 'caja_chica'
+              ? 'Se descuenta del saldo de caja chica; de la caja siempre es de contado'
+              : condicion === 'credito'
+                ? proveedor
+                  ? `Abre cuenta por pagar a ${proveedor.dias_credito_default} días`
+                  : 'A crédito hace falta elegir proveedor'
+                : undefined
           }
         />
 

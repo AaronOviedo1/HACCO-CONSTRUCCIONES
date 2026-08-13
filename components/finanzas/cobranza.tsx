@@ -12,7 +12,7 @@ import { SelectorFecha } from '@/components/filtro-fechas'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { fecha, montoEnLetra, pesos, tamanoMonto } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
-import { METODO_PAGO, TIPO_PAGO_COBRANZA } from '@/lib/finanzas'
+import { METODO_PAGO, METODO_PAGO_SIN_CAJA, TIPO_PAGO_COBRANZA } from '@/lib/finanzas'
 import { actualizarCobro, eliminarCobro, registrarCobro } from '@/app/admin/finanzas-acciones'
 import type { MetodoPago, PagoCobranza, TipoPagoCobranza, VCobranza } from '@/types/database'
 
@@ -402,7 +402,7 @@ function DialogoCobranza({
             <Opciones
               valor={metodo}
               columnas={2}
-              opciones={Object.entries(METODO_PAGO) as [MetodoPago, string][]}
+              opciones={Object.entries(METODO_PAGO_SIN_CAJA) as [MetodoPago, string][]}
               onCambio={setMetodo}
             />
           }

@@ -491,9 +491,10 @@ export default async function PaginaReportes({
               <BotonHoja mes={mes} hoja="movimientos" titulo="Movimientos" />
             </div>
 
-            <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
               <Indicador etiqueta="Tarjeta de empresa" valor={pesos(r.totales.tarjeta)} />
               <Indicador etiqueta="Efectivo" valor={pesos(r.totales.efectivo)} />
+              <Indicador etiqueta="Caja chica" valor={pesos(r.totales.cajaChica)} />
               <Indicador etiqueta="Transferencias" valor={pesos(r.totales.transferencia)} />
               <Indicador etiqueta="Salidas del mes" valor={pesos(r.totales.salidas)} tono="ambar" />
             </div>

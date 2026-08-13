@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { obtenerPerfil } from '@/lib/auth'
-import { CATEGORIA_GASTO, METODO_PAGO } from '@/lib/finanzas'
+import { CATEGORIA_GASTO, METODO_PAGO, METODO_PAGO_SIN_CAJA } from '@/lib/finanzas'
 import {
   cuadrarRenglones,
   type DesgloseComprobante,
@@ -170,7 +170,8 @@ export async function POST(peticion: Request) {
         },
         required: ['subtotal', 'descuento', 'impuesto', 'total', 'impuesto_incluido'],
       },
-      metodo: { type: ['string', 'null'], enum: [...Object.keys(METODO_PAGO), null] },
+      // El ticket no puede saber si salió de la caja chica; eso se marca a mano.
+      metodo: { type: ['string', 'null'], enum: [...Object.keys(METODO_PAGO_SIN_CAJA), null] },
       categoria: { type: ['string', 'null'], enum: [...Object.keys(CATEGORIA_GASTO), null] },
       folio: { type: ['string', 'null'] },
       fecha: { type: ['string', 'null'], description: 'AAAA-MM-DD' },

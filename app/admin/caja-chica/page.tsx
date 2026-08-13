@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
@@ -101,10 +102,21 @@ export default async function PaginaCajaChica({
                     {m.tipo === 'entrada' ? '+' : '-'} {pesos(m.monto)}
                   </Td>
                   <Td>
-                    <span className="flex items-center gap-0.5">
-                      <BotonEditarMovimiento movimiento={m} obras={obras ?? []} />
-                      <BotonEliminarMovimiento id={m.id} concepto={m.concepto} />
-                    </span>
+                    {m.gasto_id ? (
+                      // La salida nació de un gasto: se corrige o elimina desde Gastos
+                      // y el reflejo en caja se actualiza solo.
+                      <Link
+                        href="/admin/gastos"
+                        className="whitespace-nowrap text-xs text-tinta-400 hover:text-haaco-700 hover:underline"
+                      >
+                        Desde gastos
+                      </Link>
+                    ) : (
+                      <span className="flex items-center gap-0.5">
+                        <BotonEditarMovimiento movimiento={m} obras={obras ?? []} />
+                        <BotonEliminarMovimiento id={m.id} concepto={m.concepto} />
+                      </span>
+                    )}
                   </Td>
                 </tr>
               ))}

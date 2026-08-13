@@ -11,7 +11,7 @@ import { FiltroMes, SelectorFecha } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import {
-  CATEGORIAS_PAGO_FIJO, ESTADO_PAGO_FIJO, METODO_PAGO, etiquetaQuincena, quincenaDe,
+  CATEGORIAS_PAGO_FIJO, ESTADO_PAGO_FIJO, METODO_PAGO_SIN_CAJA, etiquetaQuincena, quincenaDe,
 } from '@/lib/finanzas'
 import {
   eliminarPagoFijo, generarQuincena, guardarPagoFijo, marcarPagoFijo,
@@ -220,7 +220,7 @@ function FormularioPagoFijo({
           ancho="medio"
           hijo={
             <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO).map(([valor, texto]) => (
+              {Object.entries(METODO_PAGO_SIN_CAJA).map(([valor, texto]) => (
                 <option key={valor} value={valor}>
                   {texto}
                 </option>

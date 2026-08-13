@@ -29,7 +29,7 @@ export type EstatusSolicitud = 'pendiente' | 'cotizada' | 'comprada'
 export type CategoriaGasto =
   | 'material' | 'herramienta' | 'gasolina' | 'servicio_auto'
   | 'garrafones' | 'marketing' | 'oficina' | 'viaticos' | 'otro'
-export type MetodoPago = 'efectivo' | 'tarjeta_empresa' | 'transferencia' | 'cheque' | 'deposito'
+export type MetodoPago = 'efectivo' | 'caja_chica' | 'tarjeta_empresa' | 'transferencia' | 'cheque' | 'deposito'
 export type CondicionCompra = 'contado' | 'credito'
 export type TipoPagoCobranza = 'anticipo' | 'abono' | 'liquidacion'
 export type TipoDeduccion = 'prestamo' | 'adelanto' | 'reembolso'

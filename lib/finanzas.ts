@@ -19,11 +19,18 @@ export const CATEGORIA_GASTO: Record<CategoriaGasto, string> = {
 
 export const METODO_PAGO: Record<MetodoPago, string> = {
   efectivo: 'Efectivo',
+  caja_chica: 'Caja chica',
   tarjeta_empresa: 'Tarjeta empresa',
   transferencia: 'Transferencia',
   cheque: 'Cheque',
   deposito: 'Depósito',
 }
+
+// Pagar "de caja chica" sólo existe en gastos: es lo único que descuenta el
+// saldo de la caja. Nómina, pagos fijos, cobranza y el OCR usan esta lista.
+export const METODO_PAGO_SIN_CAJA = Object.fromEntries(
+  Object.entries(METODO_PAGO).filter(([valor]) => valor !== 'caja_chica'),
+) as Record<Exclude<MetodoPago, 'caja_chica'>, string>
 
 export const CONDICION: Record<CondicionCompra, string> = {
   contado: 'Contado',

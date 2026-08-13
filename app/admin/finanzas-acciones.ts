@@ -27,6 +27,9 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
   if (gasto.condicion === 'credito' && !gasto.proveedor_id) {
     return { ok: false, error: 'Un gasto a crédito necesita proveedor para abrir la cuenta por pagar.' }
   }
+  if (gasto.metodo === 'caja_chica' && gasto.condicion === 'credito') {
+    return { ok: false, error: 'Un gasto de caja chica se paga de contado.' }
+  }
 
   const supabase = await staff()
   const { data, error } = await supabase.rpc('registrar_gasto', {
@@ -38,6 +41,8 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
   revalidatePath('/admin/gastos')
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin')
+  // El gasto de caja chica trae su salida de caja colgando (trigger).
+  if (gasto.metodo === 'caja_chica') revalidatePath('/admin/caja-chica')
   // El inventario del taller se ve en el catálogo, y la compra pudo darle entrada.
   if (gasto.al_inventario) revalidatePath('/admin/catalogo')
   if (gasto.obra_id) revalidatePath(`/admin/obras/${gasto.obra_id}`)
@@ -61,6 +66,9 @@ export async function actualizarGasto(
   if (gasto.condicion === 'credito' && !gasto.proveedor_id) {
     return { ok: false, error: 'Un gasto a crédito necesita proveedor para abrir la cuenta por pagar.' }
   }
+  if (gasto.metodo === 'caja_chica' && gasto.condicion === 'credito') {
+    return { ok: false, error: 'Un gasto de caja chica se paga de contado.' }
+  }
 
   const supabase = await staff()
   const { error } = await supabase.rpc('editar_gasto', {
@@ -70,6 +78,8 @@ export async function actualizarGasto(
 
   if (error) return fallo(error)
 
+  // Pudo entrar, salir o cambiar la salida de caja ligada; barato revalidar siempre.
+  revalidatePath('/admin/caja-chica')
   revalidatePath('/admin/gastos')
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin')
@@ -123,6 +133,8 @@ export async function eliminarGasto(id: string): Promise<Resultado> {
   revalidatePath('/admin/cuentas-por-pagar')
   revalidatePath('/admin/catalogo')
   revalidatePath('/admin')
+  // Si era de caja chica, su salida se fue con él (cascade).
+  revalidatePath('/admin/caja-chica')
   return { ok: true }
 }
 
@@ -555,6 +567,12 @@ export async function guardarMovimientoCaja(movimiento: {
   const { id, ...datos } = movimiento
   const campos = { ...datos, concepto: datos.concepto.trim() }
 
+  // Los movimientos que nacieron de un gasto se corrigen desde Gastos: tocar
+  // aquí la copia desincronizaría el gasto de su salida.
+  if (id && (await esMovimientoDeGasto(supabase, id))) {
+    return { ok: false, error: 'Este movimiento nació de un gasto; corrígelo desde Gastos.' }
+  }
+
   // Al corregir no se toca `registrado_por`: quien capturó el movimiento
   // siguió siendo quien lo capturó.
   const { error } = id
@@ -571,8 +589,19 @@ export async function guardarMovimientoCaja(movimiento: {
 
 export async function eliminarMovimientoCaja(id: string): Promise<Resultado> {
   const supabase = await staff()
+  if (await esMovimientoDeGasto(supabase, id)) {
+    return { ok: false, error: 'Este movimiento nació de un gasto; elimínalo desde Gastos.' }
+  }
   const { error } = await supabase.from('caja_chica').delete().eq('id', id)
   if (error) return fallo(error)
   revalidatePath('/admin/caja-chica')
   return { ok: true }
+}
+
+async function esMovimientoDeGasto(
+  supabase: Awaited<ReturnType<typeof staff>>,
+  id: string,
+): Promise<boolean> {
+  const { data } = await supabase.from('caja_chica').select('gasto_id').eq('id', id).single()
+  return Boolean(data?.gasto_id)
 }

@@ -385,12 +385,13 @@ function hojaMovimientos(libro: ExcelJS.Workbook, r: ReporteMensual) {
     [
       ['Tarjeta de empresa', r.totales.tarjeta],
       ['Efectivo', r.totales.efectivo],
+      ['Caja chica', r.totales.cajaChica],
       ['Transferencias', r.totales.transferencia],
       ['Otros (cheque y depósito)', r.totales.otros],
     ],
     fila,
   )
-  totalizar(hoja, fila + 4, ['TOTAL', r.totales.salidas])
+  totalizar(hoja, fila + 5, ['TOTAL', r.totales.salidas])
 }
 
 // ===========================================================================

@@ -9,7 +9,7 @@ import {
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
-import { METODO_PAGO, TIPO_DEDUCCION } from '@/lib/finanzas'
+import { METODO_PAGO_SIN_CAJA, TIPO_DEDUCCION } from '@/lib/finanzas'
 import { eliminarDeduccion, guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
 import type {
   Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina,
@@ -232,7 +232,7 @@ function DialogoPago({
           ancho="medio"
           hijo={
             <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO).map(([valor, texto]) => (
+              {Object.entries(METODO_PAGO_SIN_CAJA).map(([valor, texto]) => (
                 <option key={valor} value={valor}>
                   {texto}
                 </option>

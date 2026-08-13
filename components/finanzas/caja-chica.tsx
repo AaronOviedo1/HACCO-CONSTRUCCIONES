@@ -152,7 +152,7 @@ function FormularioMovimiento({
           ? 'Se corrige el movimiento tal cual: no se borra ni se recaptura.'
           : tipo === 'entrada'
             ? 'Reposición del fondo o devolución de efectivo.'
-            : 'Gasto pagado en efectivo desde la caja.'
+            : 'Salida suelta de la caja. Un gasto conviene capturarlo en Gastos con método «Caja chica»: su salida se registra sola.'
       }
     >
       <CuerpoDialogo>
@@ -190,7 +190,7 @@ function FormularioMovimiento({
                 ))}
               </Seleccion>
             }
-            ayuda="Sólo es referencia; para que afecte el concentrado captúralo en Gastos."
+            ayuda="Sólo es referencia; para que afecte el concentrado captúralo en Gastos con método «Caja chica»."
           />
         )}
         <MensajeError mensaje={error} />

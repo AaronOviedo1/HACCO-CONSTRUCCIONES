@@ -241,6 +241,7 @@ export async function cargarReporte(mes: string) {
     totales: {
       tarjeta: sumaPorMetodo('tarjeta_empresa'),
       efectivo: sumaPorMetodo('efectivo'),
+      cajaChica: sumaPorMetodo('caja_chica'),
       transferencia: sumaPorMetodo('transferencia'),
       otros: redondear(
         sumaPorMetodo('cheque') + sumaPorMetodo('deposito'),
