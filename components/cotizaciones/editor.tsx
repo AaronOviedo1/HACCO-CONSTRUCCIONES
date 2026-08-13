@@ -25,11 +25,12 @@ import { normalizarMaterial, type PrecioVigente } from '@/lib/precios'
 import { precioPagado } from '@/lib/sugerencias'
 import { REGLAS } from '@/lib/empresa'
 import {
-  ESTATUS_COTIZACION, TIPOS_COTIZACION, TIPO_COTIZACION, UNIDADES_PARTIDA, abreviaUnidad,
-  anticipoPorTipo, conceptoVacio, costoConcepto, importePartida, muestraBloque, notasCotizacion,
-  num, precioConcepto, redondear, sumaMateriales, totalMaterial, totalesCotizacion, tituloPartidas,
-  unidadPorTipo, type BorradorCotizacion, type ConceptoBorrador, type MaterialBorrador,
-  type PartidaBorrador, type Sugerencia, type SugerenciasCotizacion,
+  ESTATUS_COTIZACION, TIPOS_COTIZACION, TIPO_COTIZACION, TOKEN_PRODUCTO, UNIDADES_PARTIDA,
+  abreviaUnidad, anticipoPorTipo, conceptoVacio, costoConcepto, importePartida, muestraBloque,
+  notasCotizacion, num, pinturasPorMarca, ponerPinturaEnProcesos, precioConcepto, redondear,
+  sumaMateriales, sustituirProducto, tieneTokenProducto, totalMaterial, totalesCotizacion,
+  tituloPartidas, unidadPorTipo, type BorradorCotizacion, type ConceptoBorrador,
+  type MaterialBorrador, type PartidaBorrador, type Sugerencia, type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
@@ -505,6 +506,7 @@ export function EditorCotizacion({
               bloqueado={bloqueado}
               sugerencias={sugerencias.partidas}
               productos={productos}
+              textos={textos}
               abierta={escritorio}
             />
           )}
@@ -848,6 +850,19 @@ function BloqueProcesos({
 }) {
   const usados = new Set(doc.procesos.map((p) => p.texto_proceso_id).filter(Boolean))
   const contenidos = new Set(doc.procesos.map((p) => p.contenido.trim()))
+  // Para llenar el {PRODUCTO} de un bullet sirve cualquier pintura activa,
+  // tenga o no tarifa por metro: el sellador no se cobra por m² y aun así va.
+  const marcas = pinturasPorMarca(productos, { soloConTarifa: false })
+
+  const ponerProducto = (i: number, nombre: string) => {
+    setDoc((d) => ({
+      ...d,
+      procesos: d.procesos.map((x, j) =>
+        j === i ? { ...x, contenido: sustituirProducto(x.contenido, nombre) } : x,
+      ),
+    }))
+    setSucio(true)
+  }
 
   const agregar = (texto: TextoProceso) => {
     setDoc((d) => ({
@@ -879,19 +894,43 @@ function BloqueProcesos({
           {doc.procesos.map((p, i) => (
             <li key={i} className="flex items-start gap-2">
               <GripVertical size={16} className="mt-2.5 shrink-0 text-tinta-300" />
-              <AreaTexto
-                rows={2}
-                value={p.contenido}
-                disabled={bloqueado}
-                onChange={(e) => {
-                  const contenido = e.target.value
-                  setDoc((d) => ({
-                    ...d,
-                    procesos: d.procesos.map((x, j) => (j === i ? { ...x, contenido } : x)),
-                  }))
-                  setSucio(true)
-                }}
-              />
+              <div className="min-w-0 flex-1">
+                <AreaTexto
+                  rows={2}
+                  value={p.contenido}
+                  disabled={bloqueado}
+                  onChange={(e) => {
+                    const contenido = e.target.value
+                    setDoc((d) => ({
+                      ...d,
+                      procesos: d.procesos.map((x, j) => (j === i ? { ...x, contenido } : x)),
+                    }))
+                    setSucio(true)
+                  }}
+                />
+                {!bloqueado && tieneTokenProducto(p.contenido) && marcas.length > 0 && (
+                  <Seleccion
+                    value=""
+                    onChange={(e) => {
+                      const elegido = productos.find((x) => x.id === e.target.value)
+                      if (elegido) ponerProducto(i, elegido.nombre)
+                    }}
+                    className="mt-1.5 !min-h-9 !py-1 text-[13px]"
+                    aria-label={`Producto para el bullet ${i + 1}`}
+                  >
+                    <option value="">Poner producto en {TOKEN_PRODUCTO}…</option>
+                    {marcas.map(({ marca, pinturas }) => (
+                      <optgroup key={marca} label={marca}>
+                        {pinturas.map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.nombre}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </Seleccion>
+                )}
+              </div>
               {!bloqueado && (
                 <button
                   type="button"
@@ -962,10 +1001,13 @@ function BloqueProcesos({
               </button>
             </div>
 
-            {productos.length > 0 && doc.procesos.some((p) => p.contenido.includes('{PRODUCTO}')) && (
+            {doc.procesos.some((p) => tieneTokenProducto(p.contenido)) && (
               <p className="mt-3 text-xs text-amber-700">
-                Hay bullets con <code className="font-mono">{'{PRODUCTO}'}</code> sin sustituir.
-                Cámbialo por el nombre de la pintura: {productos.slice(0, 3).map((p) => p.nombre).join(', ')}…
+                Hay bullets con <code className="font-mono">{TOKEN_PRODUCTO}</code> sin sustituir; así
+                saldrían en el PDF.{' '}
+                {marcas.length > 0
+                  ? 'Elige el producto en el selector debajo del bullet o escribe el nombre a mano.'
+                  : 'Escribe el nombre del producto a mano.'}
               </p>
             )}
           </>
@@ -976,13 +1018,27 @@ function BloqueProcesos({
 }
 
 function BloquePartidas({
-  doc, setDoc, setSucio, bloqueado, sugerencias, productos, abierta,
-}: BloqueProps & { sugerencias: Sugerencia[]; productos: Producto[]; abierta: boolean }) {
+  doc, setDoc, setSucio, bloqueado, sugerencias, productos, textos, abierta,
+}: BloqueProps & {
+  sugerencias: Sugerencia[]
+  productos: Producto[]
+  textos: TextoProceso[]
+  abierta: boolean
+}) {
   const parchear = (i: number, parche: Partial<PartidaBorrador>) => {
-    setDoc((d) => ({
-      ...d,
-      items: d.items.map((x, j) => (j === i ? { ...x, ...parche } : x)),
-    }))
+    setDoc((d) => {
+      const anterior = d.items[i]
+      const items = d.items.map((x, j) => (j === i ? { ...x, ...parche } : x))
+      // Al elegir la pintura de la partida, el bullet de pintura se llena solo
+      // (y si se cambia de cubeta, el nombre viejo se corrige en el bullet).
+      let procesos = d.procesos
+      if (parche.producto_id && parche.producto_id !== anterior?.producto_id) {
+        const nuevo = productos.find((x) => x.id === parche.producto_id)?.nombre
+        const viejo = productos.find((x) => x.id === anterior?.producto_id)?.nombre
+        if (nuevo) procesos = ponerPinturaEnProcesos(d.procesos, textos, nuevo, viejo)
+      }
+      return { ...d, items, procesos }
+    })
     setSucio(true)
   }
 

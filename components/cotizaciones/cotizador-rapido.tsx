@@ -9,9 +9,9 @@ import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
 import { pesos } from '@/lib/format'
 import { REGLAS } from '@/lib/empresa'
 import {
-  TIPOS_COTIZACION, anticipoPorTipo, borradorVacio, importePartida, num, totalesCotizacion,
-  unidadPorTipo, type BorradorCotizacion, type PartidaBorrador, type Sugerencia,
-  type SugerenciasCotizacion,
+  TIPOS_COTIZACION, TOKEN_PRODUCTO, anticipoPorTipo, borradorVacio, importePartida, num,
+  ponerPinturaEnProcesos, tieneTokenProducto, totalesCotizacion, unidadPorTipo,
+  type BorradorCotizacion, type PartidaBorrador, type Sugerencia, type SugerenciasCotizacion,
 } from '@/lib/cotizaciones'
 import { cambiarEstatus, guardarCotizacion } from '@/app/admin/cotizaciones/acciones'
 import type { Cliente, Producto, TextoProceso, TipoCotizacion } from '@/types/database'
@@ -83,10 +83,18 @@ export function CotizadorRapido({
     }))
 
   const parchearPartida = (i: number, parche: Partial<PartidaBorrador>) =>
-    setDoc((d) => ({
-      ...d,
-      items: d.items.map((x, j) => (j === i ? { ...x, ...parche } : x)),
-    }))
+    setDoc((d) => {
+      const anterior = d.items[i]
+      const items = d.items.map((x, j) => (j === i ? { ...x, ...parche } : x))
+      // Igual que en el editor: elegir la pintura llena el bullet de pintura.
+      let procesos = d.procesos
+      if (parche.producto_id && parche.producto_id !== anterior?.producto_id) {
+        const nuevo = productos.find((x) => x.id === parche.producto_id)?.nombre
+        const viejo = productos.find((x) => x.id === anterior?.producto_id)?.nombre
+        if (nuevo) procesos = ponerPinturaEnProcesos(d.procesos, textos, nuevo, viejo)
+      }
+      return { ...d, items, procesos }
+    })
 
   const actualizarPartida = (i: number, campo: keyof PartidaBorrador, valor: string) =>
     // Teclear el precio a mano desmarca la tarifa: manda el número escrito.
@@ -358,6 +366,14 @@ export function CotizadorRapido({
             <Plus size={20} />
             Otra partida
           </button>
+
+          {doc.procesos.some((p) => tieneTokenProducto(p.contenido)) && (
+            <p className="rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+              Hay bullets del proceso con <code className="font-mono">{TOKEN_PRODUCTO}</code> sin
+              sustituir. El de pintura se llena al elegirla arriba; los demás (sellador,
+              impermeabilizante…) se afinan al abrir la cotización.
+            </p>
+          )}
         </section>
       )}
 

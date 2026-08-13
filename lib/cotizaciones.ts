@@ -348,6 +348,48 @@ export const LINEA_CALIDAD =
   'Se utilizarán productos de la más alta calidad en el mercado, garantizando la durabilidad y el acabado del trabajo.'
 
 // ---------------------------------------------------------------------------
+// El {PRODUCTO} de los bullets del proceso
+// ---------------------------------------------------------------------------
+
+/** Marcador en los textos de proceso donde va el nombre del producto aplicado. */
+export const TOKEN_PRODUCTO = '{PRODUCTO}'
+
+export const tieneTokenProducto = (texto: string) => texto.includes(TOKEN_PRODUCTO)
+
+export const sustituirProducto = (texto: string, nombre: string) =>
+  texto.replaceAll(TOKEN_PRODUCTO, nombre.trim())
+
+/**
+ * Pone la pintura elegida en los bullets que hablan de pintura.
+ *
+ * Sólo toca los bullets ligados al texto de biblioteca titulado «Pintura»: el
+ * sellador, el esmalte y el impermeabilizante son otras cubetas y su producto
+ * se elige en su propio selector. Si el bullet ya no trae el token pero quedó
+ * con la pintura anterior (se cambió de cubeta a media cotización), el nombre
+ * viejo se reemplaza por el nuevo para que el PDF no mienta.
+ */
+export function ponerPinturaEnProcesos(
+  procesos: ProcesoBorrador[],
+  textos: { id: string; titulo: string }[],
+  nombreNuevo: string,
+  nombreViejo?: string | null,
+): ProcesoBorrador[] {
+  const dePintura = new Set(
+    textos.filter((t) => t.titulo.trim().toLowerCase() === 'pintura').map((t) => t.id),
+  )
+  return procesos.map((p) => {
+    if (!p.texto_proceso_id || !dePintura.has(p.texto_proceso_id)) return p
+    if (tieneTokenProducto(p.contenido)) {
+      return { ...p, contenido: sustituirProducto(p.contenido, nombreNuevo) }
+    }
+    if (nombreViejo && nombreViejo !== nombreNuevo && p.contenido.includes(nombreViejo)) {
+      return { ...p, contenido: p.contenido.replaceAll(nombreViejo, nombreNuevo) }
+    }
+    return p
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Las tres tarifas de la pintura
 // ---------------------------------------------------------------------------
 
@@ -386,11 +428,14 @@ export const tieneTarifas = (p: ProductoTarifado) =>
  * El catálogo entero no cabe en botones: sólo las que ya tienen tarifa. Si
  * todavía no se ha capturado ninguna, esto sale vacío y el selector no se
  * pinta, así que la cotización sigue funcionando como siempre.
+ *
+ * Con `soloConTarifa: false` entran todas las pinturas activas: el sellador o
+ * el impermeabilizante de un bullet no siempre tienen tarifa por metro.
  */
-export function pinturasPorMarca(productos: Producto[]) {
+export function pinturasPorMarca(productos: Producto[], { soloConTarifa = true } = {}) {
   const grupos = new Map<string, Producto[]>()
   for (const p of productos) {
-    if (p.tipo !== 'pintura' || !p.activo || !tieneTarifas(p)) continue
+    if (p.tipo !== 'pintura' || !p.activo || (soloConTarifa && !tieneTarifas(p))) continue
     const marca = p.marca?.trim() || 'Sin marca'
     grupos.set(marca, [...(grupos.get(marca) ?? []), p])
   }
