@@ -6,7 +6,14 @@ import type { CategoriaGasto, MetodoPago } from '@/types/database'
 export type RenglonTicket = {
   descripcion: string
   piezas: number
-  /** El neto de ese renglón: su importe, menos su descuento y más su IVA. */
+  /**
+   * Lo que se pagó por ese artículo antes del IVA: su importe con el descuento
+   * ya rebajado. Es la cifra que quien captura reconoce del papel.
+   */
+  importe: number
+  /** El IVA que le toca. Cero cuando el comprobante no lo lista aparte. */
+  iva: number
+  /** El neto de ese renglón: su importe más su IVA. Es lo que se paga. */
   monto: number
   /**
    * Qué producto del catálogo es, si se reconoció. Es lo que convierte el
@@ -123,21 +130,21 @@ export function cuadrarRenglones(
   // se calcula sobre lo que queda después del descuento. Repartirlo sobre el
   // bruto desviaría los renglones cuando los descuentos son de porcentajes
   // distintos, aunque el total siguiera cuadrando.
-  const netosCon = (restarDescuento: boolean, sumarImpuesto: boolean) => {
+  const cuentaCon = (restarDescuento: boolean, sumarImpuesto: boolean) => {
     const bases = leidos.map((r, i) => (restarDescuento ? r.importe - descuentos[i] : r.importe))
     const baseTotal = bases.reduce((s, b) => s + b, 0)
-    return leidos.map((r, i) => {
-      const impuesto = !sumarImpuesto
+    const impuestos = leidos.map((r, i) =>
+      !sumarImpuesto
         ? 0
         : conImpuesto
           ? (r.impuesto ?? 0)
           : baseTotal > 0
             ? impuestoPie * (bases[i] / baseTotal)
-            : 0
-      // Un solo redondeo sobre la cuenta completa: descuento, base e impuesto son
-      // cifras intermedias y encadenar sus redondeos podría desviar un peso.
-      return redondear(bases[i] + impuesto)
-    })
+            : 0,
+    )
+    // Un solo redondeo sobre la cuenta completa: descuento, base e impuesto son
+    // cifras intermedias y encadenar sus redondeos podría desviar un peso.
+    return { bases, impuestos, netos: leidos.map((r, i) => redondear(bases[i] + impuestos[i])) }
   }
 
   const hayDescuento = conDescuento ? leidos.some((r) => (r.descuento ?? 0) > 0) : descuentoPie > 0
@@ -182,7 +189,7 @@ export function cuadrarRenglones(
 
   if (desglose.total !== null) {
     const lejosDelTotal = (d: boolean, i: boolean) =>
-      Math.abs(desglose.total! - netosCon(d, i).reduce((s, n) => s + n, 0))
+      Math.abs(desglose.total! - cuentaCon(d, i).netos.reduce((s, n) => s + n, 0))
 
     // La lectura literal se mide primero y la comparación es estricta: así los
     // empates los gana lo que dice el papel y ningún comprobante de los que hoy
@@ -221,16 +228,24 @@ export function cuadrarRenglones(
     }
   }
 
-  const netos = netosCon(restarDescuento, sumarImpuesto)
+  const { bases, impuestos, netos } = cuentaCon(restarDescuento, sumarImpuesto)
   const descuento_incluido = hayDescuento ? !restarDescuento : null
 
   const armar = (montos: number[]): CuadreRenglones => ({
-    renglones: leidos.map((r, i) => ({
-      descripcion: r.descripcion,
-      piezas: r.piezas,
-      monto: montos[i],
-      producto_id: r.producto_id,
-    })),
+    renglones: leidos.map((r, i) => {
+      // El neto es el que manda —es lo que se paga y lo que se guarda—, así que
+      // el IVA se saca restándole el importe ya redondeado. De la otra forma,
+      // redondear las dos cifras por su lado podía dejarlas sin sumar el neto.
+      const iva = impuestos[i] > 0 ? redondear(montos[i] - redondear(bases[i])) : 0
+      return {
+        descripcion: r.descripcion,
+        piezas: r.piezas,
+        importe: redondear(montos[i] - iva),
+        iva,
+        monto: montos[i],
+        producto_id: r.producto_id,
+      }
+    }),
     cuadra: true,
     diferencia: 0,
     descuento_incluido,

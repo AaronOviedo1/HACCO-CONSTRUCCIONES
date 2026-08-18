@@ -27,7 +27,16 @@ type ObraSimple = { id: string; nombre: string; ot_numero: string | null }
 type Renglon = {
   descripcion: string
   piezas: string
-  monto: string
+  /** Lo que dice el papel en la columna de importe, antes del IVA. */
+  importe: string
+  /** El IVA que le toca. Vacío cuando el comprobante no lo lista aparte. */
+  iva: string
+  /**
+   * La tasa con la que se rehace el IVA si se corrige el importe. Vacía cuando
+   * el renglón no lleva IVA aparte —un ticket de tiendita, o uno cuyos precios
+   * ya lo traen dentro—, y así sigue sin llevarlo por más que se le teclee.
+   */
+  tasaIva: string
   producto_id: string | null
   /** null = no entra al taller · '' = insumo nuevo con esta descripción · uuid = insumo del catálogo */
   insumo: string | null
@@ -36,8 +45,12 @@ type Renglon = {
 }
 
 const renglonVacio = (): Renglon => ({
-  descripcion: '', piezas: '1', monto: '', producto_id: null, insumo: null, cantidad: '',
+  descripcion: '', piezas: '1', importe: '', iva: '', tasaIva: '',
+  producto_id: null, insumo: null, cantidad: '',
 })
+
+/** Lo que se paga por el renglón, que es lo que se guarda como gasto. */
+const netoDe = (r: Renglon) => redondear(num(r.importe) + num(r.iva))
 
 /** Lo que hace falta del gasto para volver a abrirlo y corregirlo. */
 export type GastoEditable = Pick<
@@ -282,7 +295,9 @@ function FormularioGasto({
           ...renglonVacio(),
           descripcion: r.descripcion,
           piezas: String(r.piezas),
-          monto: String(r.monto),
+          importe: String(r.importe),
+          iva: r.iva > 0 ? String(r.iva) : '',
+          tasaIva: r.iva > 0 && r.importe > 0 ? String(r.iva / r.importe) : '',
           // Lo que la lectura reconoció; si no, el nombre exacto del catálogo.
           producto_id: r.producto_id ?? productoDe(r.descripcion),
           // Si ya se dijo que la factura es de taller, los conceptos que llegan
@@ -328,6 +343,12 @@ function FormularioGasto({
           ? {
               ...r,
               ...parche,
+              // El IVA no se teclea: se rehace con la tasa del renglón para que
+              // el neto siga cuadrando con el papel. Sin tasa —el ticket no lo
+              // separaba— el importe ya es el neto y no hay nada que rehacer.
+              ...(parche.importe === undefined || !num(r.tasaIva)
+                ? {}
+                : { iva: String(redondear(num(parche.importe) * num(r.tasaIva))) }),
               // Si se reescribe el texto, el material se vuelve a resolver por
               // nombre: dejar pegado el producto anterior guardaría el precio
               // de un fierro en otro. Y por lo mismo el insumo elegido a mano
@@ -344,10 +365,10 @@ function FormularioGasto({
     )
   }
 
-  const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && num(r.monto) > 0)
+  const filasValidas = (renglones ?? []).filter((r) => r.descripcion.trim() && netoDe(r) > 0)
   // Se redondea la suma porque 13,908 + 9,150.06 en coma flotante da
   // 23,058.059999999998 y encendería el aviso de descuadre por nada.
-  const totalRenglones = redondear(filasValidas.reduce((s, r) => s + num(r.monto), 0))
+  const totalRenglones = redondear(filasValidas.reduce((s, r) => s + netoDe(r), 0))
   // Contra el total del comprobante, en vivo: si se corrige una casilla, el
   // aviso aparece o se va solo.
   const totalTicket = desgloseTicket?.total ?? null
@@ -368,7 +389,7 @@ function FormularioGasto({
     setRenglones([
       {
         ...renglonVacio(),
-        descripcion, piezas, monto, producto_id: productoId,
+        descripcion, piezas, importe: monto, producto_id: productoId,
         insumo: alInventario ? insumoId : null,
         cantidad: alInventario ? insumoCantidad : '',
       },
@@ -382,7 +403,7 @@ function FormularioGasto({
       setProductoId(primero.producto_id)
       setPiezas(primero.piezas)
       // Un solo gasto por lo que costó todo, no por lo del primer renglón.
-      setMonto(String(totalRenglones || num(primero.monto)))
+      setMonto(String(totalRenglones || netoDe(primero)))
       // Lo del taller también se junta: el insumo del primer renglón y la suma
       // de lo que iba a entrar, porque ahora es una sola entrada.
       setInsumoId(primero.insumo ?? '')
@@ -470,8 +491,8 @@ function FormularioGasto({
             descripcion: r.descripcion,
             producto_id: r.producto_id,
             piezas: num(r.piezas) || 1,
-            costo_unitario: num(r.piezas) > 0 ? num(r.monto) / num(r.piezas) : null,
-            monto: num(r.monto),
+            costo_unitario: num(r.piezas) > 0 ? netoDe(r) / num(r.piezas) : null,
+            monto: netoDe(r),
             al_inventario: alTaller,
             inventario_producto_id: alTaller ? r.insumo || null : null,
             inventario_cantidad: alTaller ? cantidadDeRenglon(r) : null,
@@ -632,45 +653,63 @@ function FormularioGasto({
             </div>
             <div className="space-y-1.5">
               {renglones.map((r, i) => (
-                <div key={i} className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12">
-                  <div className="lg:col-span-7">
-                    <Entrada
-                      value={r.descripcion}
-                      onChange={(e) => cambiarRenglon(i, { descripcion: e.target.value })}
-                      placeholder="Cubeta Rivinol 7 blanco"
-                    />
-                  </div>
-                  <div className="flex items-center justify-end lg:order-last lg:col-span-1">
-                    {renglones.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          mio('conceptos')
-                          setRenglones((lista) => (lista ?? []).filter((_, j) => j !== i))
-                        }}
-                        className="flex h-11 w-11 items-center justify-center rounded text-tinta-400 hover:bg-red-50 hover:text-red-600 lg:h-auto lg:w-auto lg:p-1"
-                        aria-label="Quitar concepto"
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="col-span-2 grid grid-cols-2 gap-1.5 lg:contents">
-                    <div className="lg:col-span-2">
-                      <Numero
-                        value={r.piezas}
-                        onChange={(e) => cambiarRenglon(i, { piezas: e.target.value })}
-                        placeholder="pzas"
+                <div key={i}>
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-1.5 lg:grid-cols-12">
+                    <div className="lg:col-span-6">
+                      <Entrada
+                        value={r.descripcion}
+                        onChange={(e) => cambiarRenglon(i, { descripcion: e.target.value })}
+                        placeholder="Cubeta Rivinol 7 blanco"
                       />
                     </div>
-                    <div className="lg:col-span-2">
-                      <Numero
-                        value={r.monto}
-                        onChange={(e) => cambiarRenglon(i, { monto: e.target.value })}
-                        placeholder="importe"
-                      />
+                    <div className="flex items-center justify-end lg:order-last lg:col-span-1">
+                      {renglones.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            mio('conceptos')
+                            setRenglones((lista) => (lista ?? []).filter((_, j) => j !== i))
+                          }}
+                          className="flex h-11 w-11 items-center justify-center rounded text-tinta-400 hover:bg-red-50 hover:text-red-600 lg:h-auto lg:w-auto lg:p-1"
+                          aria-label="Quitar concepto"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                    {/* Las piezas casi siempre son un dígito: una casilla angosta con
+                        su unidad al lado deja el ancho para el importe, que es el que
+                        se compara contra el papel. */}
+                    <div className="col-span-2 flex items-center gap-2 lg:contents">
+                      <div className="flex shrink-0 items-center gap-1.5 lg:col-span-2">
+                        <Numero
+                          value={r.piezas}
+                          onChange={(e) => cambiarRenglon(i, { piezas: e.target.value })}
+                          placeholder="1"
+                          className="w-16"
+                        />
+                        <span className="text-xs text-tinta-400">pzas</span>
+                      </div>
+                      <div className="relative flex-1 lg:col-span-3">
+                        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-tinta-400 lg:left-3 lg:text-sm">
+                          $
+                        </span>
+                        <Numero
+                          value={r.importe}
+                          onChange={(e) => cambiarRenglon(i, { importe: e.target.value })}
+                          placeholder="importe"
+                          className="pl-7"
+                        />
+                      </div>
                     </div>
                   </div>
+                  {/* El importe se teclea como viene impreso; el IVA que le toca se
+                      dice aquí abajo, para que se vea de dónde sale lo que se guarda. */}
+                  {num(r.iva) > 0 && (
+                    <p className="mt-1 text-right text-xs tabular-nums text-tinta-400">
+                      + IVA {pesos(num(r.iva))} = {pesos(netoDe(r))}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

@@ -183,6 +183,14 @@ for (const caso of CASOS) {
       `descuento_incluido: se esperaba ${incluido} y salió ${salio.descuento_incluido}`,
     )
   }
+  // El importe y el IVA que se enseñan por separado tienen que dar el neto que
+  // se guarda: si no, el papel y el total dirían cosas distintas.
+  for (const [i, r] of salio.renglones.entries()) {
+    const suma = Math.round((r.importe + r.iva) * 100) / 100
+    if (suma !== r.monto) {
+      problemas.push(`renglón ${i + 1}: ${r.importe} + ${r.iva} de IVA da ${suma} y no ${r.monto}`)
+    }
+  }
   // Cuando la cuenta cierra, la suma tiene que dar el total exacto: es la razón
   // de ser de todo esto.
   const suma = Math.round(montos.reduce((s, m) => s + m, 0) * 100) / 100

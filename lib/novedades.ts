@@ -70,6 +70,13 @@ const DEL_18_DE_AGOSTO: Novedad[] = [
       'Hay tickets donde los precios ya vienen rebajados y de todos modos anuncian el ahorro al pie —el «Ahorro por promoción» de las tiendas de pintura—. La foto lo restaba otra vez y los conceptos salían cortos por ese monto. Ahora manda el total: si la cuenta del papel no cierra restando el descuento, es que ya venía incluido y se respeta. En el renglón del comprobante lo dice, «ya incluido», para que se vea de dónde salió la suma.',
     roles: OFICINA,
   },
+  {
+    donde: 'Gastos',
+    titulo: 'Los conceptos del ticket se capturan como vienen impresos',
+    texto:
+      'En cada concepto va el importe tal como lo dice el papel, sin el IVA encima: así se compara de un vistazo contra el renglón de la factura. El IVA que le toca se anota abajo del importe, chiquito, junto con lo que suma —y eso último es lo que se guarda como gasto—. Si corriges un importe, su IVA se rehace solo. Las piezas ya no ocupan media pantalla: quedan en una casilla angosta con su «pzas» al lado, y el ancho se va al importe.',
+    roles: OFICINA,
+  },
 ]
 
 const DEL_13_DE_AGOSTO: Novedad[] = [
