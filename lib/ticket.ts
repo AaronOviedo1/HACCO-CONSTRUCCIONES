@@ -1,4 +1,5 @@
 import { redondear } from '@/lib/cotizaciones'
+import { REGLAS } from '@/lib/empresa'
 import type { CategoriaGasto, MetodoPago } from '@/types/database'
 
 /** Un artículo del ticket, ya cuadrado. */
@@ -40,6 +41,12 @@ export type DesgloseComprobante = {
    * Incl.»). Null cuando no lo dice de ninguna forma.
    */
   impuesto_incluido?: boolean | null
+  /**
+   * Si el descuento impreso ya venía rebajado de los importes, en vez de estar
+   * por restarse. No lo dice el papel: lo concluye el cuadre y se guarda aquí
+   * para poder enseñarlo. Null cuando el comprobante no traía descuento.
+   */
+  descuento_incluido?: boolean | null
 }
 
 /** Lo que devuelve el cuadre: los netos y si la cuenta cerró. */
@@ -49,6 +56,8 @@ export type CuadreRenglones = {
   cuadra: boolean
   /** Lo que sobró o faltó contra el total. Cero cuando cuadra o cuando no hay total. */
   diferencia: number
+  /** Si el descuento impreso se tomó como ya rebajado. Null sin descuento que decidir. */
+  descuento_incluido: boolean | null
 }
 
 /** Lo que la foto de un comprobante puede llenar del formulario de gasto. */
@@ -75,10 +84,10 @@ export type LecturaTicket = {
 /**
  * Saca el neto de cada renglón: lo que de verdad se pagó por ese artículo.
  *
- * El importe que trae impreso una factura es el bruto —sin descuento y sin
- * IVA—, así que sumar importes da el subtotal, no el total. Aquí cada renglón
- * se lleva su descuento y su impuesto para que la suma de las casillas del
- * formulario sea, al centavo, lo que se pagó.
+ * El importe que trae impreso una factura es, casi siempre, el bruto —sin
+ * descuento y sin IVA—, así que sumar importes da el subtotal, no el total.
+ * Aquí cada renglón se lleva su descuento y su impuesto para que la suma de las
+ * casillas del formulario sea, al centavo, lo que se pagó.
  *
  * En orden: lo que el comprobante desglosa renglón por renglón manda; lo que
  * sólo viene al pie se reparte; y si aun así sobran o faltan unos centavos de
@@ -90,7 +99,8 @@ export function cuadrarRenglones(
   leidos: RenglonLeido[],
   desglose: DesgloseComprobante,
 ): CuadreRenglones {
-  if (leidos.length === 0) return { renglones: [], cuadra: true, diferencia: 0 }
+  if (leidos.length === 0)
+    return { renglones: [], cuadra: true, diferencia: 0, descuento_incluido: null }
 
   const bruto = leidos.reduce((s, r) => s + r.importe, 0)
 
@@ -107,15 +117,16 @@ export function cuadrarRenglones(
   const descuentos = leidos.map((r) =>
     conDescuento ? (r.descuento ?? 0) : bruto > 0 ? descuentoPie * (r.importe / bruto) : 0,
   )
-  const bases = leidos.map((r, i) => r.importe - descuentos[i])
-  const baseTotal = bases.reduce((s, b) => s + b, 0)
+  const descuentoTotal = descuentos.reduce((s, d) => s + d, 0)
 
   // El IVA del pie se reparte en proporción a la BASE, no al bruto: el impuesto
   // se calcula sobre lo que queda después del descuento. Repartirlo sobre el
   // bruto desviaría los renglones cuando los descuentos son de porcentajes
   // distintos, aunque el total siguiera cuadrando.
-  const netosCon = (sumarImpuesto: boolean) =>
-    leidos.map((r, i) => {
+  const netosCon = (restarDescuento: boolean, sumarImpuesto: boolean) => {
+    const bases = leidos.map((r, i) => (restarDescuento ? r.importe - descuentos[i] : r.importe))
+    const baseTotal = bases.reduce((s, b) => s + b, 0)
+    return leidos.map((r, i) => {
       const impuesto = !sumarImpuesto
         ? 0
         : conImpuesto
@@ -127,56 +138,118 @@ export function cuadrarRenglones(
       // cifras intermedias y encadenar sus redondeos podría desviar un peso.
       return redondear(bases[i] + impuesto)
     })
-
-  /*
-   * ¿El IVA ya venía dentro de los precios?
-   *
-   * La tienda de mostrador imprime «Impuesto Incl.» y sus precios ya lo traen;
-   * la factura lo lista aparte y hay que sumarlo. Tratar el primero como el
-   * segundo infla el gasto un dieciséis por ciento, y encima reparte de más en
-   * cada renglón.
-   *
-   * No se decide por el texto —que a veces ni se alcanza a leer en la foto—
-   * sino por la cuenta: se prueban las dos y gana la que se acerque al total
-   * impreso, que es la cifra que se firma. Sólo cuando no hay total legible se
-   * hace caso de lo que el papel haya dicho.
-   */
-  const hayImpuesto = conImpuesto ? leidos.some((r) => (r.impuesto ?? 0) > 0) : impuestoPie > 0
-
-  let netos = netosCon(!(hayImpuesto && desglose.impuesto_incluido === true))
-
-  if (hayImpuesto && desglose.total !== null) {
-    const lejosDelTotal = (ns: number[]) =>
-      Math.abs(desglose.total! - ns.reduce((s, n) => s + n, 0))
-    const sumado = netosCon(true)
-    const incluido = netosCon(false)
-    netos = lejosDelTotal(incluido) < lejosDelTotal(sumado) ? incluido : sumado
   }
 
-  const armar = (montos: number[]): RenglonTicket[] =>
-    leidos.map((r, i) => ({
+  const hayDescuento = conDescuento ? leidos.some((r) => (r.descuento ?? 0) > 0) : descuentoPie > 0
+  const hayImpuesto = conImpuesto ? leidos.some((r) => (r.impuesto ?? 0) > 0) : impuestoPie > 0
+  const impuestoImpreso = conImpuesto
+    ? leidos.reduce((s, r) => s + (r.impuesto ?? 0), 0)
+    : impuestoPie
+
+  // Un centavo por renglón —más el del propio total— es lo más que puede
+  // desviar el redondeo del papel.
+  const tolerancia = Math.max(0.05, redondear(0.01 * (leidos.length + 1)))
+
+  /*
+   * Dos preguntas que el papel no contesta y hay que sacar de la cuenta:
+   *
+   * ¿El IVA ya venía dentro de los precios? La tienda de mostrador imprime
+   * «Impuesto Incl.» y sus precios ya lo traen; la factura lo lista aparte y
+   * hay que sumarlo. Tratar el primero como el segundo infla el gasto un
+   * dieciséis por ciento, y encima reparte de más en cada renglón.
+   *
+   * ¿Y el descuento, está por restarse o ya viene rebajado? Hay comprobantes
+   * —el «Ahorro por promoción» de las tiendas de pintura— donde los importes de
+   * los renglones YA traen la rebaja y la cifra del pie nada más la presume.
+   * Restarla otra vez deja el gasto corto por el monto entero del descuento, y
+   * de ahí sale bajo el costo del material con el que después se cotiza.
+   *
+   * Ninguna de las dos se decide por el texto —que a veces ni se alcanza a leer
+   * en la foto— sino por la cuenta, y en este orden:
+   *
+   *   1. El total impreso, que es la cifra que se firma y por lo tanto la que
+   *      manda: se prueban las cuatro combinaciones y gana la que llega a él.
+   *   2. Sin total legible, el IVA contra la tasa: el impuesto se calcula sobre
+   *      la base final, así que revela si esa base es el bruto —descuento ya
+   *      dentro— o el bruto menos el descuento.
+   *   3. Y si tampoco hay IVA, el subtotal impreso, cuando difiere de la suma
+   *      de los importes por exactamente el descuento.
+   *   4. Lo que quede sin resolver se lee al pie de la letra: el descuento se
+   *      resta y del IVA se cree lo que el papel haya dicho.
+   */
+  let restarDescuento = true
+  let sumarImpuesto = !(hayImpuesto && desglose.impuesto_incluido === true)
+
+  if (desglose.total !== null) {
+    const lejosDelTotal = (d: boolean, i: boolean) =>
+      Math.abs(desglose.total! - netosCon(d, i).reduce((s, n) => s + n, 0))
+
+    // La lectura literal se mide primero y la comparación es estricta: así los
+    // empates los gana lo que dice el papel y ningún comprobante de los que hoy
+    // cuadran cambia de cuenta. Cada dimensión sólo entra si está en juego.
+    let mejor = lejosDelTotal(restarDescuento, sumarImpuesto)
+    for (const d of hayDescuento ? [true, false] : [restarDescuento]) {
+      for (const i of hayImpuesto ? [true, false] : [sumarImpuesto]) {
+        const distancia = lejosDelTotal(d, i)
+        if (distancia < mejor) {
+          mejor = distancia
+          restarDescuento = d
+          sumarImpuesto = i
+        }
+      }
+    }
+  } else if (hayDescuento) {
+    const tasa = REGLAS.ivaPct / 100
+    const sinRestar = Math.abs(impuestoImpreso - bruto * tasa)
+    const restando = Math.abs(impuestoImpreso - (bruto - descuentoTotal) * tasa)
+
+    if (hayImpuesto && Math.min(sinRestar, restando) <= tolerancia) {
+      // El IVA impreso sólo puede salir de una de las dos bases; la que no
+      // acierta se va por el monto del descuento, que nunca son centavos.
+      restarDescuento = restando < sinRestar
+    } else if (desglose.subtotal !== null) {
+      // Un subtotal que iguala la suma de los importes no distingue nada: pasa
+      // igual si el descuento está por restarse que si ya venía rebajado. Sólo
+      // dice algo cuando se separa de esa suma por el descuento entero.
+      if (Math.abs(desglose.subtotal - (bruto + descuentoTotal)) <= tolerancia) {
+        // El subtotal es el de lista y los importes ya vienen rebajados.
+        restarDescuento = false
+      } else if (Math.abs(desglose.subtotal - (bruto - descuentoTotal)) <= tolerancia) {
+        // El subtotal ya trae el descuento aplicado y los importes son brutos.
+        restarDescuento = true
+      }
+    }
+  }
+
+  const netos = netosCon(restarDescuento, sumarImpuesto)
+  const descuento_incluido = hayDescuento ? !restarDescuento : null
+
+  const armar = (montos: number[]): CuadreRenglones => ({
+    renglones: leidos.map((r, i) => ({
       descripcion: r.descripcion,
       piezas: r.piezas,
       monto: montos[i],
       producto_id: r.producto_id,
-    }))
+    })),
+    cuadra: true,
+    diferencia: 0,
+    descuento_incluido,
+  })
 
   // Sin un total legible no hay contra qué cuadrar: los netos van como salieron.
-  if (desglose.total === null) return { renglones: armar(netos), cuadra: true, diferencia: 0 }
+  if (desglose.total === null) return armar(netos)
 
   const diferencia = redondear(desglose.total - netos.reduce((s, n) => s + n, 0))
 
-  // Un centavo por renglón —más el del propio total— es lo más que puede
-  // desviar el redondeo. Ese sobrante se carga al renglón de mayor neto, que es
-  // donde menos se nota y donde no puede voltear en negativo a un renglón chico.
-  const tolerancia = Math.max(0.05, redondear(0.01 * (leidos.length + 1)))
+  // El sobrante del redondeo se carga al renglón de mayor neto, que es donde
+  // menos se nota y donde no puede voltear en negativo a un renglón chico.
   if (diferencia !== 0 && Math.abs(diferencia) <= tolerancia) {
     const mayor = netos.reduce((mejor, n, i) => (n > netos[mejor] ? i : mejor), 0)
     netos[mayor] = redondear(netos[mayor] + diferencia)
-    return { renglones: armar(netos), cuadra: true, diferencia: 0 }
+    return armar(netos)
   }
 
-  return { renglones: armar(netos), cuadra: diferencia === 0, diferencia }
+  return { ...armar(netos), cuadra: diferencia === 0, diferencia }
 }
 
 /** Lado largo al que se reduce la foto: más allá de esto el modelo no lee mejor. */

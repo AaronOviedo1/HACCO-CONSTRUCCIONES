@@ -1209,7 +1209,15 @@ function lista(palabras: string[]) {
 function resumenComprobante(d: DesgloseComprobante) {
   const partes: string[] = []
   if (d.subtotal !== null) partes.push(`subtotal ${pesos(d.subtotal)}`)
-  if (d.descuento !== null) partes.push(`descuento −${pesos(d.descuento)}`)
+  // Un descuento que ya venía rebajado de los precios se enseña sin el signo de
+  // resta: puesto, contradice al total que va a su lado y hace dudar de la suma.
+  if (d.descuento !== null) {
+    partes.push(
+      d.descuento_incluido
+        ? `descuento ${pesos(d.descuento)} ya incluido`
+        : `descuento −${pesos(d.descuento)}`,
+    )
+  }
   if (d.impuesto !== null) partes.push(`IVA ${pesos(d.impuesto)}`)
   if (d.total !== null) partes.push(`total ${pesos(d.total)}`)
   return partes.join(' · ')

@@ -45,7 +45,9 @@ Reglas:
   en positivo, cada uno con el suyo. Si el comprobante no los separa así, van en null y ya: el
   sistema los reparte. Ojo con el «Ud. ahorra», «Ahorro» o «Dscto.» que las tiendas imprimen en el
   renglón de abajo del artículo: ése es el descuento DE ESE artículo, no una línea aparte ni un
-  descuento del ticket completo.
+  descuento del ticket completo. El «Ahorro por promoción» que algunas tiendas anuncian en un
+  recuadro se copia igual, en positivo y donde le toque; si ya venía rebajado de los precios o
+  todavía se va a restar, eso lo saca el sistema de la cuenta. Tú nada más cópialo.
 - «desglose» son las cifras del pie, tal como están impresas: «subtotal», «descuento» (la suma de
   los descuentos, en positivo), «impuesto» (el IVA) y «total». Lo que no venga impreso va en null.
   Un ticket de tiendita casi siempre trae nada más el total: los demás en null y ya.
@@ -259,7 +261,11 @@ export async function POST(peticion: Request) {
       total: numero(pie.total) ?? numero(leido.monto),
       impuesto_incluido: typeof pie.impuesto_incluido === 'boolean' ? pie.impuesto_incluido : null,
     }
-    const { renglones } = cuadrarRenglones(leidos, desglose)
+    // Si el descuento del pie ya venía rebajado de los importes no lo dice el
+    // papel: lo concluye el cuadre contra el total. Se apunta en el desglose
+    // para poder decirlo en la pantalla en vez de enseñar una resta que no fue.
+    const { renglones, descuento_incluido } = cuadrarRenglones(leidos, desglose)
+    desglose.descuento_incluido = descuento_incluido
 
     const lectura: LecturaTicket = {
       descripcion: texto(leido.descripcion),

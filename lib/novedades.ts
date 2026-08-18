@@ -62,6 +62,16 @@ export type Entrega = {
 
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 
+const DEL_18_DE_AGOSTO: Novedad[] = [
+  {
+    donde: 'Gastos',
+    titulo: 'El ahorro del ticket ya no se descuenta dos veces',
+    texto:
+      'Hay tickets donde los precios ya vienen rebajados y de todos modos anuncian el ahorro al pie —el «Ahorro por promoción» de las tiendas de pintura—. La foto lo restaba otra vez y los conceptos salían cortos por ese monto. Ahora manda el total: si la cuenta del papel no cierra restando el descuento, es que ya venía incluido y se respeta. En el renglón del comprobante lo dice, «ya incluido», para que se vea de dónde salió la suma.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_13_DE_AGOSTO: Novedad[] = [
   {
     donde: 'Cotizaciones',
@@ -290,6 +300,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-08-18', fecha: '18 de agosto de 2026', novedades: DEL_18_DE_AGOSTO },
   { version: '2026-08-13', fecha: '13 de agosto de 2026', novedades: DEL_13_DE_AGOSTO },
   { version: '2026-08-12', fecha: '12 de agosto de 2026', novedades: DEL_12_DE_AGOSTO },
   { version: '2026-08-11', fecha: '11 de agosto de 2026', novedades: DEL_11_DE_AGOSTO },
