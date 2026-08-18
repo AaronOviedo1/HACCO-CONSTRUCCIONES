@@ -77,6 +77,20 @@ const DEL_18_DE_AGOSTO: Novedad[] = [
       'En cada concepto va el importe tal como lo dice el papel, sin el IVA encima: así se compara de un vistazo contra el renglón de la factura. El IVA que le toca se anota abajo del importe, chiquito, junto con lo que suma —y eso último es lo que se guarda como gasto—. Si corriges un importe, su IVA se rehace solo. Las piezas ya no ocupan media pantalla: quedan en una casilla angosta con su «pzas» al lado, y el ancho se va al importe.',
     roles: OFICINA,
   },
+  {
+    donde: 'Inicio',
+    titulo: 'Lo vendido se cuenta en el mes en que el cliente dijo que sí',
+    texto:
+      'Antes la venta se anotaba en el mes en que se escribió la cotización, no en el que se aprobó: una cotización de julio que el cliente aceptó en agosto sumaba a julio, y agosto se veía flojo sin serlo. Ahora manda la fecha de aprobación. Con eso, agosto pasa de $124,701 a $346,749 y del 24% al 65% de la meta: son tres obras que ya estaban vendidas y no se veían. De pasada, el mes deja de cambiar solo a las cinco de la tarde del último día.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Cobranza',
+    titulo: 'El por cobrar ya cuadra con sumar la lista a mano',
+    texto:
+      'Cuando un cliente paga de más, ese saldo a favor se estaba restando de lo que deben los demás, así que el total nunca daba lo mismo que sumar los renglones de la lista. Ya no: por cobrar es la suma de lo que deben y nada más, y lo pagado de más se dice aparte. Son $301,784 en lugar de $290,350. El panel y la pantalla de cobranza ahora enseñan el mismo número, que antes tampoco pasaba.',
+    roles: OFICINA,
+  },
 ]
 
 const DEL_13_DE_AGOSTO: Novedad[] = [

@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
+import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
   CATEGORIA_GASTO, antiguedadCobranza, etiquetaMes, mesActual, rangoMes, semanasDePago,
@@ -69,12 +70,17 @@ export default async function Dashboard() {
   ] = await Promise.all([
       supabase
         .from('v_cotizaciones')
-        .select('id, folio, cliente, nombre_obra, fecha, vence, estatus, total')
-        .gte('fecha', desdeSeis),
-      supabase.from('obras').select('id, ot_numero, nombre, estatus, avance_pct'),
+        .select('id, folio, cliente, nombre_obra, fecha, fecha_venta, vence, estatus, total')
+        // Por cualquiera de las dos fechas: una cotización de hace ocho meses
+        // que el cliente aprobó esta semana es venta de este mes y tiene que
+        // caber en la ventana aunque su fecha de elaboración quede muy atrás.
+        .or(`fecha.gte.${desdeSeis},fecha_venta.gte.${desdeSeis}`),
+      supabase.from('obras').select('id, cotizacion_id, ot_numero, nombre, estatus, avance_pct'),
       supabase
         .from('v_cobranza')
-        .select('saldo, cobrado, estatus, anticipo_esperado, anticipo, fecha, ultimo_pago'),
+        .select(
+          'cotizacion_id, cotizado, saldo, cobrado, estatus, anticipo_esperado, anticipo, fecha, ultimo_pago',
+        ),
       supabase
         .from('v_cuentas_por_pagar')
         .select('saldo, estado, proveedor, vencimiento, folio_factura, dias_restantes')
@@ -119,14 +125,27 @@ export default async function Dashboard() {
   const enfriada = (c: { estatus: EstatusCotizacion; vence: string | null }) =>
     c.estatus === 'rechazada' || (!!c.vence && c.vence < hoyIso && !cerrada(c.estatus))
 
+  const suma = (filas: typeof todas) => filas.reduce((s, c) => s + Number(c.total), 0)
+  /**
+   * Una venta pertenece al mes en que el cliente dijo que sí, no al mes en que
+   * se escribió la cotización. Cotizar es trabajo; vender es el sí. Con la
+   * fecha de elaboración, una cotización de julio aprobada en agosto sumaba a
+   * julio, y un mes ya cerrado seguía creciendo hacia atrás cada vez que se
+   * aprobaba algo viejo. `fecha_venta` es la de aprobación, con la de
+   * elaboración de respaldo para las cotizaciones viejas que no la traen.
+   */
+  const enMes = (c: (typeof todas)[number], m: string) =>
+    String(c.fecha_venta ?? c.fecha ?? '').startsWith(m)
+
   const meses = ventana.map((v) => {
-    const delMes = todas.filter((c) => String(c.fecha ?? '').startsWith(v.clave))
-    const suma = (filas: typeof delMes) => filas.reduce((s, c) => s + Number(c.total), 0)
+    // Lo que se cotizó en el mes se cuenta por su fecha de elaboración; lo que
+    // se vendió, por la de aprobación. No son la misma pregunta.
+    const cotizadasDelMes = todas.filter((c) => String(c.fecha ?? '').startsWith(v.clave))
     return {
       m: v.m,
-      vendido: suma(delMes.filter((c) => cerrada(c.estatus))),
-      enfriado: suma(delMes.filter((c) => enfriada(c))),
-      enJuego: suma(delMes.filter((c) => !cerrada(c.estatus) && !enfriada(c))),
+      vendido: suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, v.clave))),
+      enfriado: suma(cotizadasDelMes.filter((c) => enfriada(c))),
+      enJuego: suma(cotizadasDelMes.filter((c) => !cerrada(c.estatus) && !enfriada(c))),
     }
   })
 
@@ -139,9 +158,7 @@ export default async function Dashboard() {
 
   // Vendido = aprobado. Lo cotizado a secas ya tiene su recuadro y no dice si
   // el cliente dijo que sí.
-  const vendidoMes = delMes
-    .filter((c) => c.estatus === 'aprobada' || c.estatus === 'terminada')
-    .reduce((s, c) => s + Number(c.total), 0)
+  const vendidoMes = suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, mes)))
   const metaVenta = Number(meta.data?.valor ?? 0)
 
   const resumenEstatus = (
@@ -175,16 +192,13 @@ export default async function Dashboard() {
     .filter((x) => x.n > 0)
 
   // ---- dinero -------------------------------------------------------------
-  const abiertas = (cobranza.data ?? []).filter(
-    (c) => c.estatus === 'aprobada' || c.estatus === 'terminada',
-  )
-  const porCobrar = abiertas.reduce((s, c) => s + Number(c.saldo ?? 0), 0)
-  const cobrado = abiertas.reduce((s, c) => s + Number(c.cobrado ?? 0), 0)
-  const pctCobrado = cobrado + porCobrar > 0 ? Math.round((cobrado / (cobrado + porCobrar)) * 100) : 0
-
-  const anticiposPendientes = abiertas
-    .filter((c) => c.estatus === 'aprobada' && Number(c.anticipo) < Number(c.anticipo_esperado))
-    .reduce((s, c) => s + (Number(c.anticipo_esperado) - Number(c.anticipo)), 0)
+  // La misma cuenta que la pantalla de cobranza, sacada de `lib/cobranza`: dos
+  // pantallas que dicen números distintos de lo mismo mandan a la gente a sumar
+  // a mano, que fue justo lo que pasó.
+  const conObra = new Set(listaObras.map((o) => o.cotizacion_id).filter(Boolean) as string[])
+  const abiertas = cobranzaViva(cobranza.data ?? [], conObra)
+  const { porCobrar, sobrepagos, cuantosSobrepagos, pctCobrado, anticiposPendientes } =
+    resumenCobranza(abiertas)
 
   // Cuánto lleva callado cada cliente que debe: el total por cobrar ya está
   // arriba, esto dice cuánto de ese total es dinero que se está añejando.
@@ -301,6 +315,15 @@ export default async function Dashboard() {
                   ? `${pesosCortos(anticiposPendientes)} son anticipos sin cobrar`
                   : 'Obras aprobadas y terminadas'}
               </div>
+              {/* Lo que alguien pagó de más no se resta de lo que deben los
+                  demás; se dice aquí para que no parezca un descuadre. */}
+              {sobrepagos > 0 && (
+                <div className="mt-0.5 text-xs leading-snug opacity-70">
+                  {`Aparte, ${pesosCortos(sobrepagos)} pagados de más en ${
+                    cuantosSobrepagos === 1 ? 'una obra' : `${cuantosSobrepagos} obras`
+                  }`}
+                </div>
+              )}
             </div>
           </div>
           <Link

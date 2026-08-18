@@ -11,6 +11,7 @@
     "novedades:imagenes": "node scripts/generar-novedades.mjs",
     "imagotipo": "node scripts/extraer-imagotipo.mjs",
     "probar:cuadre": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cuadre.mjs",
+    "probar:cobranza": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cobranza.mjs",
     "bd:enlazar": "npx supabase link",
     "bd:push": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",
     "bd:seed": "node --env-file=.env.local scripts/cargar-seed.mjs",

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { pesosCortos } from '@/lib/format'
+import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
 import { vencimientosPorSemana } from '@/lib/finanzas'
 import { EncabezadoPagina, Tarjeta } from '@/components/ui'
 import { BarrasSemanas, Tile } from '@/components/movil/piezas'
@@ -12,19 +13,18 @@ export default async function PaginaDinero() {
   await requerirRol(['admin', 'administracion'])
   const supabase = await crearClienteServidor()
 
-  const [{ data: cobranza }, { data: cxp }, { data: prenomina }, { data: caja }] = await Promise.all([
-    supabase.from('v_cobranza').select('cobrado, saldo, estatus'),
-    supabase.from('v_cuentas_por_pagar').select('saldo, estado, vencimiento'),
-    supabase.from('v_prenomina').select('disponible, deducciones'),
-    supabase.from('caja_chica').select('tipo, monto'),
-  ])
+  const [{ data: cobranza }, { data: obras }, { data: cxp }, { data: prenomina }, { data: caja }] =
+    await Promise.all([
+      supabase.from('v_cobranza').select('cotizacion_id, cotizado, cobrado, saldo, estatus, anticipo, anticipo_esperado'),
+      supabase.from('obras').select('cotizacion_id'),
+      supabase.from('v_cuentas_por_pagar').select('saldo, estado, vencimiento'),
+      supabase.from('v_prenomina').select('disponible, deducciones'),
+      supabase.from('caja_chica').select('tipo, monto'),
+    ])
 
-  const abiertas = (cobranza ?? []).filter(
-    (c) => c.estatus === 'aprobada' || c.estatus === 'terminada',
-  )
-  const cobrado = abiertas.reduce((s, c) => s + Number(c.cobrado ?? 0), 0)
-  const porCobrar = abiertas.reduce((s, c) => s + Number(c.saldo ?? 0), 0)
-  const pctCobrado = cobrado + porCobrar > 0 ? Math.round((cobrado / (cobrado + porCobrar)) * 100) : 0
+  // La misma cuenta del panel y de la pantalla de cobranza, de `lib/cobranza`.
+  const conObra = new Set((obras ?? []).map((o) => o.cotizacion_id).filter(Boolean) as string[])
+  const { porCobrar, pctCobrado } = resumenCobranza(cobranzaViva(cobranza ?? [], conObra))
 
   const activas = (cxp ?? [])
     .filter((c) => c.estado !== 'pagada' && c.estado !== 'cancelada')

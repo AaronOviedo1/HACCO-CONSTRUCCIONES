@@ -651,6 +651,13 @@ export type VCotizacion = {
   id: string
   folio: string | null
   fecha: string
+  /** El día que el cliente resolvió. Nulo mientras no conteste. */
+  fecha_resolucion: string | null
+  /**
+   * El día que cuenta como la venta: el de la aprobación, o el de elaboración
+   * en las cotizaciones viejas que no traen resolución.
+   */
+  fecha_venta: string
   tipo: TipoCotizacion
   estatus: EstatusCotizacion
   requiere_factura: boolean

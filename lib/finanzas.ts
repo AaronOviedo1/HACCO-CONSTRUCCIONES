@@ -1,4 +1,4 @@
-import { parsearFecha } from '@/lib/format'
+import { hoyHermosillo, parsearFecha } from '@/lib/format'
 import type { TonoEtiqueta } from '@/components/ui'
 import type {
   CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago,
@@ -99,10 +99,15 @@ export function etiquetaQuincena(quincena: string): string {
   return d.getDate() === 15 ? '1ª quincena' : '2ª quincena'
 }
 
-/** Mes en curso en formato "aaaa-mm". */
+/**
+ * Mes en curso en formato "aaaa-mm", en el día de Hermosillo.
+ *
+ * Con la fecha del servidor a secas se colaba el huso: en Vercel corre en UTC,
+ * así que el 31 de agosto a las cinco de la tarde de acá el panel ya creía que
+ * era septiembre y ponía la venta del mes en cero siete horas antes de tiempo.
+ */
 export function mesActual(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  return hoyHermosillo().slice(0, 7)
 }
 
 /** Primer día del mes y primer día del siguiente, para filtrar rangos. */

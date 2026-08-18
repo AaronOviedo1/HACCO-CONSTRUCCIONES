@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { TIPO_PAGO_COBRANZA, agruparPorMes, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
+import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
@@ -57,11 +58,10 @@ export default async function PaginaCobranza({
 
   // Se cobra lo aprobado o terminado — y también lo que ya tiene OT abierta
   // aunque la cotización haya regresado a borrador o enviada para editarse:
-  // la obra arrancó y su dinero se sigue aquí.
+  // la obra arrancó y su dinero se sigue aquí. El criterio vive en
+  // `lib/cobranza` porque el panel enseña este mismo número.
   const conObra = new Set((obras ?? []).map((o) => o.cotizacion_id))
-  const todas = (cobranza ?? []).filter(
-    (c) => c.estatus === 'aprobada' || c.estatus === 'terminada' || conObra.has(c.cotizacion_id),
-  )
+  const todas = cobranzaViva(cobranza ?? [], conObra)
   const porCotizacion = new Map<string, PagoCobranza[]>()
   for (const p of pagos ?? []) {
     porCotizacion.set(p.cotizacion_id, [...(porCotizacion.get(p.cotizacion_id) ?? []), p])
@@ -86,19 +86,19 @@ export default async function PaginaCobranza({
       )
     : todas
 
-  const totalCotizado = filas.reduce((s, c) => s + Number(c.cotizado), 0)
-  const totalCobrado = filas.reduce((s, c) => s + Number(c.cobrado), 0)
-  const totalSaldo = filas.reduce((s, c) => s + Number(c.saldo), 0)
+  // `totalSaldo` es la suma de los saldos positivos y nada más: es lo que da
+  // sumar a mano los renglones que la tabla enseña, que es como se revisa. Los
+  // sobrepagos van aparte, en `sobrepagos`.
+  const {
+    porCobrar: totalSaldo, sobrepagos, cuantosSobrepagos,
+    cobrado: totalCobrado, contratado: totalCotizado, anticiposPendientes,
+  } = resumenCobranza(filas)
 
   // Lo que sigue vivo y lo que ya está saldado. La cobranza es para perseguir
   // adeudos: en cuanto una cotización queda en ceros pasa al historial y deja
   // de estorbar en la lista.
   const conSaldo = filas.filter((c) => Number(c.saldo) > 0)
   const liquidadas = filas.filter((c) => Number(c.saldo) <= 0)
-
-  const anticiposPendientes = filas
-    .filter((c) => Number(c.anticipo) < Number(c.anticipo_esperado))
-    .reduce((s, c) => s + (Number(c.anticipo_esperado) - Number(c.anticipo)), 0)
 
   /**
    * Lo que va en las columnas «Abono 1..N»: todo pago que no sea el anticipo,
@@ -195,6 +195,20 @@ export default async function PaginaCobranza({
             className="hidden lg:block"
           />
         </div>
+      )}
+
+      {/* Un cliente que pagó de más no baja lo que deben los otros, así que no
+          se resta del «Falta». Se dice aquí porque si no, ese dinero no
+          aparece por ningún lado y el que revisa lo busca. */}
+      {vista !== 'historial' && sobrepagos > 0 && (
+        <p className="mb-3.5 rounded-xl bg-tinta-50 px-3.5 py-2.5 text-xs text-tinta-600 lg:mb-4">
+          Aparte de lo anterior, hay{' '}
+          <strong className="font-semibold tabular-nums text-tinta-900">
+            {pesos(sobrepagos)}
+          </strong>{' '}
+          pagados de más en {cuantosSobrepagos === 1 ? 'una obra' : `${cuantosSobrepagos} obras`}
+          {' '}ya saldadas. No se descuenta de lo que falta por cobrar; búscalo en el historial.
+        </p>
       )}
 
       <div className="mb-3.5 flex items-center gap-2 lg:mb-4">
