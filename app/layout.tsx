@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Archivo, Figtree } from 'next/font/google'
+import { Splash } from '@/components/splash'
 import { MARCA } from '@/lib/marca'
+import { LAMINAS_IOS } from '@/lib/splash-ios'
 import './globals.css'
 
 /**
@@ -35,6 +37,13 @@ export const metadata: Metadata = {
     capable: true,
     title: 'HaacoPro',
     statusBarStyle: 'default',
+    /*
+     * iOS no lee el manifest, así que el fondo de arranque se lo damos en PNG:
+     * uno por modelo y orientación, con el mismo blanco y el mismo logo que la
+     * pantalla de entrada. Sin esto, la app abre con un rectángulo del sistema
+     * y el relevo se ve como un parpadeo. Los genera `npm run splash`.
+     */
+    startupImage: [...LAMINAS_IOS],
   },
   // Next emite el `mobile-web-app-capable` moderno; los iPhone con iOS viejo
   // siguen esperando el de Apple.
@@ -60,7 +69,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${figtree.variable} ${archivo.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full overflow-x-hidden font-sans">{children}</body>
+      <head>
+        {/*
+         * Respaldo de la pantalla de entrada para los iPhone anteriores a iOS
+         * 16.4, que no entienden `@media (display-mode: standalone)` pero sí
+         * traen `navigator.standalone` desde siempre.
+         *
+         * Va aquí, en el <head> y sin `defer`, porque tiene que dejar puesto el
+         * atributo ANTES de la primera pintura: un fotograma más tarde y la
+         * pantalla asomaría a medio empezar. Es lo único que corre, y si no
+         * corriera —o si fallara— no pasa nada: los teléfonos al día usan la
+         * media query y esto les sobra.
+         */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(navigator.standalone)document.documentElement.dataset.standalone=''}catch(e){}",
+          }}
+        />
+      </head>
+      <body className="min-h-full overflow-x-hidden font-sans">
+        <Splash />
+        {children}
+      </body>
     </html>
   )
 }

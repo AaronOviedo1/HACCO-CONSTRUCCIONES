@@ -433,6 +433,139 @@ body:has([data-lienzo="claro"]) {
   to   { opacity: 1; }
 }
 
+/* ==========================================================================
+   Pantalla de entrada de la PWA (ver components/splash.tsx)
+
+   Todos los tiempos viven aquí arriba: es el único sitio donde se tocan.
+
+   Regla que manda sobre las demás: NINGÚN ciclo se repite. Todo es de una sola
+   pasada y todo cabe dentro de --hp-total, así que no hay forma de que algo se
+   quede a medio camino cuando la pantalla se va. Si alguna vez se añade algo
+   que lata en bucle, su duración tiene que dividir exacto el tiempo que dura
+   visible (--hp-total menos --hp-sale), o se leerá como un arrastre.
+   ========================================================================== */
+.hp-splash {
+  /* ── tiempos ─────────────────────────────────────────────────────────── */
+  --hp-total:     3000ms;  /* de la primera pintura a desaparecer */
+  --hp-suelo:     1100ms;  /* el barrido del suelo, desde 0 */
+  --hp-asta-en:   1020ms;  /* cuándo arranca la primera asta */
+  --hp-asta-paso:  155ms;  /* lo que se retrasa cada asta respecto a la anterior */
+  --hp-asta-dur:   460ms;
+  --hp-viga-en:   1890ms;  /* después de las astas 3 y 4: son las que los sostienen */
+  --hp-viga-paso:   90ms;
+  --hp-viga-dur:   400ms;
+  --hp-nombre-en: 2020ms;
+  --hp-nombre-dur: 440ms;
+  --hp-sale:       380ms;  /* el fundido final, pegado al final de --hp-total */
+
+  /* ── color y tamaño ──────────────────────────────────────────────────── */
+  --hp-fondo:  #ffffff;                      /* = background_color del manifest */
+  --hp-tinta:  var(--color-haaco-900);       /* verde del manual · 13,69:1 */
+  --hp-alto:   clamp(72px, 21vmin, 108px);   /* alto del símbolo */
+
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  /* Oculta por defecto: en una pestaña normal esta pantalla no existe.
+     `display: none` además impide que las animaciones lleguen a correr. */
+  display: none;
+  place-items: center;
+  background: var(--hp-fondo);
+  color: var(--hp-tinta);
+  /* Dentro del recorte de pantalla del teléfono */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Sólo en la app instalada. El respaldo es para iOS anterior a 16.4, que no
+   entiende `display-mode` (lo pone el script inline de app/layout.tsx). */
+@media (display-mode: standalone) { .hp-splash { display: grid; } }
+@media (display-mode: fullscreen) { .hp-splash { display: grid; } }
+html[data-standalone] .hp-splash  { display: grid; }
+
+/*
+ * La salida va en el contenedor y las entradas en los hijos: si compartieran
+ * elemento, el `transform` de una pisaría el de la otra.
+ *
+ * Acaba en `visibility: hidden` con `forwards`, así que la pantalla se aparta
+ * sola aunque no llegue a ejecutarse ni una línea de JavaScript.
+ */
+.hp-splash {
+  animation: hp-sale var(--hp-sale) ease-in calc(var(--hp-total) - var(--hp-sale)) forwards;
+}
+
+@keyframes hp-sale {
+  from { opacity: 1; visibility: visible; }
+  99%  { opacity: 0; visibility: visible; }
+  to   { opacity: 0; visibility: hidden; }
+}
+
+.hp-marca {
+  display: grid;
+  justify-items: center;
+  gap: calc(var(--hp-alto) * 0.29);
+}
+
+.hp-simbolo {
+  height: var(--hp-alto);
+  width: auto;
+  overflow: visible;   /* el sobrepaso del resorte asoma fuera del viewBox */
+}
+
+.hp-nombre {
+  width: calc(var(--hp-alto) * 2.08);
+  height: auto;
+  animation: surge var(--hp-nombre-dur) var(--ease-suave) var(--hp-nombre-en) both;
+}
+
+/*
+ * `view-box` para que `transform-origin` se lea en coordenadas del viewBox y no
+ * en píxeles de pantalla: el símbolo se escala con la ventana y sin esto el
+ * origen se iría de sitio en cada tamaño.
+ *
+ * Nada lleva `vector-effect: non-scaling-stroke` porque nada va trazado: el
+ * imagotipo es relleno. Con el SVG escalado, un trazo fijado en píxeles de
+ * pantalla saldría varias veces más grueso de lo que debe.
+ */
+.hp-asta, .hp-barre { transform-box: view-box; }
+
+/* Las astas crecen desde donde se encuentran con el suelo. */
+.hp-asta {
+  transform-origin: 0 calc(var(--hp-base) * 1px);
+  animation: hp-crece var(--hp-asta-dur) var(--ease-suave)
+             calc(var(--hp-asta-en) + var(--hp-i) * var(--hp-asta-paso)) both;
+}
+
+@keyframes hp-crece {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/*
+ * Los barridos. Van con una curva sin sobrepaso a propósito: un recorte que se
+ * pasa de largo y vuelve deja ver un trozo de más y luego lo quita, y eso se
+ * lee como un parpadeo, no como un resorte.
+ */
+.hp-barre { animation-fill-mode: both; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+
+.hp-barre-suelo {
+  transform-origin: 0 0;
+  animation-name: hp-barre;
+  animation-duration: var(--hp-suelo);
+}
+
+.hp-barre-viga {
+  transform-origin: 36.94px 0;   /* el borde izquierdo de la ventana central */
+  animation-name: hp-barre;
+  animation-duration: var(--hp-viga-dur);
+  animation-delay: calc(var(--hp-viga-en) + var(--hp-j) * var(--hp-viga-paso));
+}
+
+@keyframes hp-barre {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pista-abriendo { animation: aparece 1ms linear both; }
   .animate-girar  { animation: none; }
@@ -449,6 +582,20 @@ body:has([data-lienzo="claro"]) {
   .animate-destello { animation: none; opacity: 0; }
   /* La lámina del recorrido llega puesta, como el login. */
   .animate-entra  { animation: entra 1ms linear both; }
+
+  /*
+   * La pantalla de entrada llega construida: ni una pieza se mueve. El fundido
+   * de salida sí se queda —es lo que la aparta, y quitarlo la dejaría fija para
+   * siempre—, pero se acorta el conjunto: sin nada que mirar, dos segundos de
+   * logo quieto son sólo espera.
+   *
+   * Van con `1ms both` y no con `animation: none` para que cada pieza se quede
+   * en su fotograma final, igual que hacen el login y las listas aquí arriba.
+   */
+  .hp-splash { --hp-total: 900ms; }
+  .hp-asta   { animation: hp-crece 1ms linear both; }
+  .hp-barre  { animation-duration: 1ms; animation-delay: 0ms; animation-timing-function: linear; }
+  .hp-nombre { animation: surge 1ms linear both; }
 }
 
 /* Áreas táctiles cómodas para iPad y para la cuadrilla en obra */

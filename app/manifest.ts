@@ -22,7 +22,15 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     // Sin fijar orientación: en el teléfono se usa vertical, pero el iPad
     // acostado muestra la barra lateral completa.
-    background_color: '#f6f7f6',
+    /*
+     * Blanco y no el papel de la app (#f6f7f6) porque es el fondo de la
+     * pantalla de entrada: Android pinta este color mientras arranca, y si no
+     * fuera el mismo se vería un destello justo antes de que aparezca el logo.
+     * Los tres fondos van empalmados —éste, los PNG de
+     * `apple-touch-startup-image` y el overlay de components/splash.tsx—; si se
+     * cambia uno hay que cambiar los tres y volver a correr `npm run splash`.
+     */
+    background_color: '#ffffff',
     theme_color: MARCA.verde,
     categories: ['business', 'productivity'],
     icons: [

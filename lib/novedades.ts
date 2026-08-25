@@ -61,6 +61,45 @@ export type Entrega = {
 }
 
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
+const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
+
+const DEL_25_DE_AGOSTO: Novedad[] = [
+  {
+    donde: 'Servicios',
+    titulo: 'Las reparaciones de portones ya se llevan en la app',
+    texto:
+      'Hay una pantalla nueva para los servicios a portones eléctricos, la que se llevaba en su propia hoja de Excel. Se agenda la visita con el día y la hora en que puede ir el técnico, se anota lo que encontró, se arma el presupuesto y, cuando el cliente dice que sí, se marca reparado y se cobra. Cada servicio enseña en qué paso va y qué toca hacer ahora, con un solo botón grande.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Servicios',
+    titulo: 'La cita del técnico te la recuerda el teléfono',
+    texto:
+      'Al agendar una visita queda apuntada sola: sale en «lo que toca hoy» del tablero con su hora y llega como aviso al teléfono a las siete de la mañana, igual que los recordatorios de las cotizaciones. Si cambias el día, el aviso se mueve con él —no se duplica—, y en cuanto capturas el diagnóstico deja de sonar. También se puede pasar al Google Calendar de un toque.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Servicios',
+    titulo: 'El presupuesto se manda por WhatsApp con su folio',
+    texto:
+      'Las reparaciones llevan su propia serie de folios —S-1, S-2— aparte de las cotizaciones. El presupuesto sale en PDF con el membrete de siempre, con el diagnóstico impreso arriba para que se vea de dónde sale el precio, y con la garantía y la vigencia al pie. Se abre, se descarga o se manda directo al cliente por WhatsApp.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Inicio',
+    titulo: 'Lo que se cobra de reparaciones ya cuenta en el dinero',
+    texto:
+      'Una reparación aprobada suma a lo vendido del mes y lo que falta de ella entra en el por cobrar, igual que una obra. En Cobranza tiene su propio bloque abajo —un portón no lleva anticipo ni abonos, se cobra al terminar—, pero los totales de arriba ya lo traen dentro. En el cierre del contador va en su renglón aparte, para que la utilidad de obra siga midiéndose contra las obras.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Al abrir la app',
+    titulo: 'La app instalada abre con el logo levantándose',
+    texto:
+      'A quien tiene HaacoPro agregada a la pantalla de inicio, ahora le abre con el logo dibujándose solo: primero el trazo de abajo, luego las columnas subiendo una tras otra y al final el nombre. Dura dos segundos y se quita solo; no hay que tocar nada ni esperar. Es sólo para la app instalada: si entras desde el navegador, todo sigue igual que siempre. Y a quien tenga puesto en su teléfono que las animaciones le molestan, le sale el logo ya puesto, sin movimiento.',
+    roles: TODOS,
+  },
+]
 
 const DEL_18_DE_AGOSTO: Novedad[] = [
   {
@@ -321,6 +360,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-08-25', fecha: '25 de agosto de 2026', novedades: DEL_25_DE_AGOSTO },
   { version: '2026-08-18', fecha: '18 de agosto de 2026', novedades: DEL_18_DE_AGOSTO },
   { version: '2026-08-13', fecha: '13 de agosto de 2026', novedades: DEL_13_DE_AGOSTO },
   { version: '2026-08-12', fecha: '12 de agosto de 2026', novedades: DEL_12_DE_AGOSTO },
