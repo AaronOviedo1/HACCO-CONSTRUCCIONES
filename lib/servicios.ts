@@ -85,6 +85,22 @@ export function serviciosCobrables<T extends { estatus: EstatusServicio }>(filas
 }
 
 /**
+ * El detalle del «por cobrar»: de lo que ya se puede cobrar, lo que todavía
+ * debe algo.
+ *
+ * Va aquí y no en la pantalla porque es el mismo conjunto de filas que suma
+ * `resumenCobranza` para el indicador. Filtrar la lista por estatus —«los
+ * reparados»— parecía lo mismo y no lo es: dejaba dentro los que ya pagaron y
+ * fuera los que deben la visita de un presupuesto rechazado, así que la lista
+ * decía una cosa y el número de arriba otra.
+ */
+export function serviciosPorCobrar<T extends { estatus: EstatusServicio; saldo: number }>(
+  filas: T[],
+): T[] {
+  return serviciosCobrables(filas).filter((s) => Number(s.saldo) > 0)
+}
+
+/**
  * Una fila de `v_servicios` leída como cobranza, para sumarla con el resto.
  *
  * El anticipo va en cero a propósito y no nulo: una reparación se cobra al

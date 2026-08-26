@@ -32,7 +32,8 @@ registerHooks({
 // nada de este archivo, y para entonces el alias todavía no existiría.
 const { resumenCobranza } = await import('../lib/cobranza.ts')
 const {
-  comoCobranza, etapaServicio, proximoPreventivo, serviciosCobrables, vendidoServicios,
+  comoCobranza, etapaServicio, proximoPreventivo, serviciosCobrables, serviciosPorCobrar,
+  vendidoServicios,
 } = await import('../lib/servicios.ts')
 
 /** Un servicio con su dinero, como lo entrega `v_servicios`. */
@@ -332,6 +333,55 @@ for (const caso of ETAPAS) {
     'Un trabajo grande con anticipo cobrado sigue debiendo el resto',
     problemas,
     'Se pide anticipo cuando es algo grande; el resto se cobra al terminar.',
+  )
+}
+
+// ---------------------------------------------------------------------------
+// El filtro «Por cobrar» y el número de arriba dicen lo mismo
+// ---------------------------------------------------------------------------
+{
+  const CASOS = [
+    // Los dos del Excel: reparados y saldados. No hay nada que perseguir.
+    { nombre: 'S-1 Gilberto Inda',       fila: srv('reparado', 3200, 3200), cobrar: false },
+    { nombre: 'S-2 Jose Arturo Barrera', fila: srv('reparado', 900, 900),   cobrar: false },
+    // El tercero sigue en diagnóstico, sin cuota capturada: no debe nada.
+    { nombre: 'S-3 Luis Campuzano',      fila: srv('diagnostico', 0, 0),    cobrar: false },
+    { nombre: 'Reparado sin cobrar',     fila: srv('reparado', 4100, 0),    cobrar: true },
+    { nombre: 'Reparado a medias',       fila: srv('reparado', 4100, 1500), cobrar: true },
+    // El «no» del cliente cierra el trabajo, no la cuenta: la visita se debe.
+    { nombre: 'Rechazado con visita',    fila: srv('rechazado', 400, 0),    cobrar: true },
+    { nombre: 'Rechazado ya pagado',     fila: srv('rechazado', 400, 400),  cobrar: false },
+    // Todavía no ha ido el técnico; y lo cancelado nunca cuenta.
+    { nombre: 'Agendado',                fila: srv('agendado', 0, 0),       cobrar: false },
+    { nombre: 'Cancelado',               fila: srv('cancelado', 0, 0),      cobrar: false },
+  ]
+
+  const problemas = []
+  const filas = CASOS.map((c) => ({ ...c.fila, nombre: c.nombre }))
+  const salieron = new Set(serviciosPorCobrar(filas).map((s) => s.nombre))
+
+  for (const c of CASOS) {
+    if (salieron.has(c.nombre) !== c.cobrar) {
+      problemas.push(
+        `${c.nombre}: ${c.cobrar ? 'debía salir y no salió' : 'no debía salir y salió'}`,
+      )
+    }
+  }
+
+  // Lo de fondo: la lista tiene que sumar exactamente el indicador de arriba.
+  // Mientras esto cuadre, no puede volver a pasar que el chip enseñe renglones
+  // que el número no está contando.
+  const { porCobrar } = resumenCobranza(serviciosCobrables(filas).map(comoCobranza))
+  const suma = Math.round(
+    serviciosPorCobrar(filas).reduce((total, s) => total + Number(s.saldo), 0) * 100,
+  ) / 100
+  if (suma !== porCobrar) problemas.push(`la lista suma ${suma} y el indicador dice ${porCobrar}`)
+  if (porCobrar !== 7100) problemas.push(`porCobrar: se esperaba 7100 y salió ${porCobrar}`)
+
+  comprobar(
+    'El filtro «Por cobrar» enseña justo lo que el indicador suma',
+    problemas,
+    'Un reparado ya pagado se sale de la lista; un rechazado que debe la visita entra.',
   )
 }
 

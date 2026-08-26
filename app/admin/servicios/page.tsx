@@ -5,7 +5,9 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, horaCorta, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
 import { agruparPorMes, mesActual, rangoDeUrl } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
-import { TIPO_SERVICIO, comoCobranza, etapaServicio, serviciosCobrables } from '@/lib/servicios'
+import {
+  TIPO_SERVICIO, comoCobranza, etapaServicio, serviciosCobrables, serviciosPorCobrar,
+} from '@/lib/servicios'
 import { resumenCobranza } from '@/lib/cobranza'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
@@ -45,6 +47,15 @@ const sigueAbierto = (s: VServicio) =>
   ABIERTOS.includes(s.estatus) ||
   ((s.estatus === 'reparado' || s.estatus === 'rechazado') && Number(s.saldo) > 0)
 
+/**
+ * «Por cobrar» no es un estatus, es una cuenta: un reparado que ya pagaron sale
+ * de la lista y un presupuesto rechazado con la visita a deber entra. Por eso
+ * el chip no manda un estatus a la consulta —se resuelve aquí, contra el saldo
+ * y con el mismo criterio del indicador de arriba, para que la lista y el
+ * número digan lo mismo—.
+ */
+const POR_COBRAR = 'por-cobrar'
+
 export default async function PaginaServicios({
   searchParams,
 }: {
@@ -63,7 +74,10 @@ export default async function PaginaServicios({
     .select('*')
     .order('fecha_visita', { ascending: !historico })
 
-  if (filtros.estatus) consulta = consulta.eq('estatus', filtros.estatus as EstatusServicio)
+  // El pseudo-filtro se queda aquí: no existe como estatus en la base.
+  if (filtros.estatus && filtros.estatus !== POR_COBRAR) {
+    consulta = consulta.eq('estatus', filtros.estatus as EstatusServicio)
+  }
   if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo as TipoServicio)
 
   // Sin fechas en la URL se ven todos: aquí el periodo es opcional.
@@ -79,8 +93,10 @@ export default async function PaginaServicios({
   const todos = data ?? []
 
   let filas = todos
-  // Un estatus elegido a mano manda sobre el recorte de la vista.
-  if (!filtros.estatus && !filtros.tipo && !historico) {
+  if (filtros.estatus === POR_COBRAR) {
+    filas = serviciosPorCobrar(filas)
+  } else if (!filtros.estatus && !filtros.tipo && !historico) {
+    // Un estatus elegido a mano manda sobre el recorte de la vista.
     filas = filas.filter(sigueAbierto)
   }
 
@@ -132,8 +148,8 @@ export default async function PaginaServicios({
     },
     {
       titulo: 'Por cobrar',
-      href: enlace({ estatus: 'reparado', tipo: '', v: '' }),
-      activo: filtros.estatus === 'reparado',
+      href: enlace({ estatus: POR_COBRAR, tipo: '', v: '' }),
+      activo: filtros.estatus === POR_COBRAR,
     },
     {
       titulo: 'Preventivos',
@@ -197,18 +213,22 @@ export default async function PaginaServicios({
         <Tarjeta>
           <EstadoVacio
             titulo={
-              filtros.q || filtros.estatus
-                ? 'Ningún servicio coincide'
-                : historico
-                  ? 'Todavía no hay servicios'
-                  : 'No hay nada abierto'
+              filtros.estatus === POR_COBRAR && !filtros.q
+                ? 'No hay nada por cobrar'
+                : filtros.q || filtros.estatus
+                  ? 'Ningún servicio coincide'
+                  : historico
+                    ? 'Todavía no hay servicios'
+                    : 'No hay nada abierto'
             }
             descripcion={
               filtros.q
                 ? 'Prueba con otra parte del nombre o del folio.'
-                : historico
-                  ? 'Agenda la primera visita y aquí va quedando el registro.'
-                  : 'Todo lo agendado ya se cerró. En «Todos» está el historial completo.'
+                : filtros.estatus === POR_COBRAR
+                  ? 'Todas las reparaciones están saldadas.'
+                  : historico
+                    ? 'Agenda la primera visita y aquí va quedando el registro.'
+                    : 'Todo lo agendado ya se cerró. En «Todos» está el historial completo.'
             }
             accion={
               <Link
@@ -298,7 +318,7 @@ export default async function PaginaServicios({
           <Tarjeta
             className="hidden lg:block"
             pie={
-              historico
+              historico || filtros.estatus || filtros.tipo
                 ? `${filas.length} ${filas.length === 1 ? 'servicio' : 'servicios'}`
                 : `${filas.length} ${
                     filas.length === 1 ? 'servicio abierto' : 'servicios abiertos'
