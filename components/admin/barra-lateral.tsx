@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Banknote, Boxes, ClipboardList, FileSpreadsheet, FileText, HardHat, LayoutDashboard,
+  Banknote, Boxes, ClipboardList, FileSpreadsheet, FileText, Hammer, HardHat, LayoutDashboard,
   LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
 } from 'lucide-react'
 import { Membrete } from '@/components/marca'
@@ -18,6 +18,8 @@ const ICONOS: Record<string, LucideIcon> = {
   rapido: Zap,
   obra: HardHat,
   cliente: Users,
+  // La llave es la reparación; el martillo, la herramienta del taller.
+  servicio: Wrench,
   cobranza: Banknote,
   gasto: ShoppingCart,
   cxp: Receipt,
@@ -25,7 +27,7 @@ const ICONOS: Record<string, LucideIcon> = {
   pagosfijos: ClipboardList,
   caja: Wallet,
   catalogo: Boxes,
-  herramienta: Wrench,
+  herramienta: Hammer,
   reporte: FileSpreadsheet,
   usuario: Users,
 }

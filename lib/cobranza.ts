@@ -1,5 +1,4 @@
 import { redondear } from '@/lib/cotizaciones'
-import type { VCobranza } from '@/types/database'
 
 /**
  * La cuenta de la cobranza, en un solo lugar.
@@ -13,11 +12,23 @@ import type { VCobranza } from '@/types/database'
  * enseña.
  */
 
-/** Lo que hace falta de una fila de `v_cobranza` para sacar los totales. */
-export type FilaCobranza = Pick<
-  VCobranza,
-  'cotizacion_id' | 'estatus' | 'cotizado' | 'cobrado' | 'saldo' | 'anticipo' | 'anticipo_esperado'
->
+/**
+ * Lo que hace falta para sacar los totales, dicho por forma y no por tabla.
+ *
+ * Lo cumple una fila de `v_cobranza` y también una de `v_servicios`: una
+ * reparación se cobra distinto que una obra, pero el dinero se cuenta igual, y
+ * dos funciones que suman lo mismo acaban dando números distintos. Lo único
+ * que no tienen los servicios es el anticipo —se cobran al terminar—, por eso
+ * esos dos campos son opcionales.
+ */
+export type FilaCobranza = {
+  estatus: string
+  cotizado: number
+  cobrado: number
+  saldo: number
+  anticipo?: number | null
+  anticipo_esperado?: number | null
+}
 
 /**
  * El dinero que se persigue: lo aprobado, lo terminado y lo que ya tiene obra

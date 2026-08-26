@@ -1,5 +1,6 @@
 import webpush from 'web-push'
 import { crearClienteAdmin } from '@/lib/supabase/admin'
+import { horaCorta } from '@/lib/format'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -67,15 +68,24 @@ export async function GET(peticion: Request) {
     // Un teléfono que ya falló no se vuelve a intentar en la misma corrida.
     if (caducadas.has(a.suscripcion_id)) continue
 
-    const url = a.cotizacion_id
-      ? `/admin/cotizaciones/${a.cotizacion_id}`
-      : a.obra_id
-        ? `/admin/obras/${a.obra_id}`
-        : '/admin'
+    // La visita del técnico va primero: es la única con hora, y llegar tarde
+    // a la puerta de un cliente cuesta más que devolver una llamada.
+    const url = a.servicio_id
+      ? `/admin/servicios/${a.servicio_id}`
+      : a.cotizacion_id
+        ? `/admin/cotizaciones/${a.cotizacion_id}`
+        : a.obra_id
+          ? `/admin/obras/${a.obra_id}`
+          : '/admin'
+
+    // La hora al frente: «9:00 a. m. · Reparación de portón» se lee de un
+    // vistazo en la pantalla bloqueada, que es donde se ve el aviso.
+    const nota = a.nota ?? 'Tienes un recordatorio para hoy.'
+    const cuerpo = a.hora && !a.vencido ? `${horaCorta(a.hora)} · ${nota}` : nota
 
     const carga = JSON.stringify({
       titulo: a.vencido ? `Se pasó: ${a.titulo}` : a.titulo,
-      cuerpo: a.nota ?? 'Tienes un recordatorio para hoy.',
+      cuerpo,
       url,
       // Con la misma etiqueta, el aviso de mañana reemplaza al de hoy en vez
       // de apilar siete copias del mismo pendiente.

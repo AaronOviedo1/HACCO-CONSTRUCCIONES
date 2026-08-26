@@ -14,10 +14,17 @@ async function staff() {
 
 const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
 
-function refrescar(cotizacionId?: string | null, obraId?: string | null) {
+type Ligas = {
+  cotizacion_id?: string | null
+  obra_id?: string | null
+  servicio_id?: string | null
+}
+
+function refrescar(ligas?: Ligas) {
   revalidatePath('/admin')
-  if (cotizacionId) revalidatePath(`/admin/cotizaciones/${cotizacionId}`)
-  if (obraId) revalidatePath(`/admin/obras/${obraId}`)
+  if (ligas?.cotizacion_id) revalidatePath(`/admin/cotizaciones/${ligas.cotizacion_id}`)
+  if (ligas?.obra_id) revalidatePath(`/admin/obras/${ligas.obra_id}`)
+  if (ligas?.servicio_id) revalidatePath(`/admin/servicios/${ligas.servicio_id}`)
 }
 
 /** Con `id` corrige el recordatorio; sin él lo crea. */
@@ -25,6 +32,7 @@ export async function guardarRecordatorio(datos: {
   id?: string
   cotizacion_id?: string | null
   obra_id?: string | null
+  servicio_id?: string | null
   titulo: string
   nota: string | null
   fecha: string
@@ -39,6 +47,7 @@ export async function guardarRecordatorio(datos: {
   const fila = {
     cotizacion_id: datos.cotizacion_id ?? null,
     obra_id: datos.obra_id ?? null,
+    servicio_id: datos.servicio_id ?? null,
     titulo: datos.titulo.trim(),
     nota: datos.nota?.trim() || null,
     fecha: datos.fecha,
@@ -56,7 +65,7 @@ export async function guardarRecordatorio(datos: {
         .single()
 
   if (error) return fallo(error)
-  refrescar(datos.cotizacion_id, datos.obra_id)
+  refrescar(datos)
   return { ok: true, datos: { id: (data as Pick<Recordatorio, 'id'>).id } }
 }
 
@@ -67,7 +76,7 @@ export async function guardarRecordatorio(datos: {
 export async function atenderRecordatorio(
   id: string,
   atendido: boolean,
-  ligas?: { cotizacion_id?: string | null; obra_id?: string | null },
+  ligas?: Ligas,
 ): Promise<Resultado> {
   const supabase = await staff()
   const { data: { user } } = await supabase.auth.getUser()
@@ -82,7 +91,7 @@ export async function atenderRecordatorio(
     .eq('id', id)
 
   if (error) return fallo(error)
-  refrescar(ligas?.cotizacion_id, ligas?.obra_id)
+  refrescar(ligas)
   return { ok: true }
 }
 
@@ -120,11 +129,11 @@ export async function borrarSuscripcionPush(endpoint: string): Promise<Resultado
 
 export async function eliminarRecordatorio(
   id: string,
-  ligas?: { cotizacion_id?: string | null; obra_id?: string | null },
+  ligas?: Ligas,
 ): Promise<Resultado> {
   const supabase = await staff()
   const { error } = await supabase.from('recordatorios').delete().eq('id', id)
   if (error) return fallo(error)
-  refrescar(ligas?.cotizacion_id, ligas?.obra_id)
+  refrescar(ligas)
   return { ok: true }
 }

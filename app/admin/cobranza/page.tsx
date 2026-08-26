@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
-import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
+import { fecha, horaCorta, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { TIPO_PAGO_COBRANZA, agruparPorMes, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
 import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
+import { comoCobranza, etapaServicio, serviciosCobrables } from '@/lib/servicios'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
@@ -35,14 +36,19 @@ export default async function PaginaCobranza({
 
   const supabase = await crearClienteServidor()
 
-  const [{ data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }, { data: recibos }] =
-    await Promise.all([
-      supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
-      supabase.from('pagos_cobranza').select('*').order('fecha'),
-      supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
-      supabase.from('cotizaciones').select('id, nombre_obra'),
-      supabase.from('recibos').select('folio, pago_id'),
-    ])
+  const [
+    { data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }, { data: recibos },
+    { data: servicios },
+  ] = await Promise.all([
+    supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
+    supabase.from('pagos_cobranza').select('*').order('fecha'),
+    supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
+    supabase.from('cotizaciones').select('id, nombre_obra'),
+    supabase.from('recibos').select('folio, pago_id'),
+    // Las reparaciones de portones se cobran aparte de las obras, pero es el
+    // mismo dinero: entran en los totales de arriba y en su propio bloque.
+    supabase.from('v_servicios').select('*').order('fecha_visita', { ascending: false }),
+  ])
 
   // Corregir el monto de un pago que ya tiene recibo entregado deja al papel
   // diciendo otra cosa. El aviso se arma aquí, con la tabla a la mano, para que
@@ -86,13 +92,30 @@ export default async function PaginaCobranza({
       )
     : todas
 
+  // Las reparaciones que ya se aprobaron: se filtran por lo mismo que la
+  // búsqueda, para que buscar un cliente recorte los dos bloques a la vez.
+  const serviciosVivos = serviciosCobrables(servicios ?? [])
+  const serviciosFiltrados = busqueda
+    ? serviciosVivos.filter((s) =>
+        [s.cliente, s.folio ?? '', s.descripcion, s.tecnico ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(busqueda),
+      )
+    : serviciosVivos
+  const serviciosConSaldo = serviciosFiltrados.filter((s) => Number(s.saldo) > 0)
+
   // `totalSaldo` es la suma de los saldos positivos y nada más: es lo que da
   // sumar a mano los renglones que la tabla enseña, que es como se revisa. Los
   // sobrepagos van aparte, en `sobrepagos`.
+  //
+  // Las reparaciones entran en la misma cuenta —es dinero que se persigue
+  // igual— aunque su lista viva en su propio bloque: la tabla de arriba tiene
+  // columnas de anticipo y abonos que a un portón no le aplican.
   const {
     porCobrar: totalSaldo, sobrepagos, cuantosSobrepagos,
     cobrado: totalCobrado, contratado: totalCotizado, anticiposPendientes,
-  } = resumenCobranza(filas)
+  } = resumenCobranza([...filas, ...serviciosFiltrados.map(comoCobranza)])
 
   // Lo que sigue vivo y lo que ya está saldado. La cobranza es para perseguir
   // adeudos: en cuanto una cotización queda en ceros pasa al historial y deja
@@ -178,13 +201,17 @@ export default async function PaginaCobranza({
           <Indicador
             etiqueta="Falta"
             valor={pesosCortos(totalSaldo)}
-            nota={`${conSaldo.length} con saldo`}
+            nota={`${conSaldo.length + serviciosConSaldo.length} con saldo`}
             tono={totalSaldo > 0 ? 'ambar' : 'verde'}
           />
           <Indicador
             etiqueta="Cotizado"
             valor={pesosCortos(totalCotizado)}
-            nota={`${filas.length} obras`}
+            nota={
+              serviciosFiltrados.length > 0
+                ? `${filas.length} obras · ${serviciosFiltrados.length} reparaciones`
+                : `${filas.length} obras`
+            }
             className="hidden lg:block"
           />
           <Indicador
@@ -611,6 +638,83 @@ export default async function PaginaCobranza({
           </Tabla>
         </Tarjeta>
         </>
+      )}
+
+      {/* Servicios y reparaciones ---------------------------------------
+          Bloque propio y no renglones de la tabla de arriba: aquella tiene
+          columnas de anticipo y de «Abono 1..N» que a un portón no le aplican
+          —se cobra de un tirón, al terminar—. El dinero sí está sumado en los
+          totales de la cabecera; lo que cambia es cómo se enseña. */}
+      {vista !== 'historial' && serviciosFiltrados.length > 0 && (
+        <Tarjeta
+          className="mt-4"
+          titulo="Servicios y reparaciones"
+          pie={
+            serviciosConSaldo.length > 0
+              ? `${serviciosConSaldo.length} con saldo · ${pesos(
+                  serviciosConSaldo.reduce((suma, s) => suma + Number(s.saldo), 0),
+                )} por cobrar`
+              : 'Todas las reparaciones están pagadas.'
+          }
+        >
+          <Tabla>
+            <thead>
+              <tr>
+                <Th>Folio</Th>
+                <Th>Cliente</Th>
+                <Th>Servicio</Th>
+                <Th>Visita</Th>
+                <Th>Estatus</Th>
+                <Th numerico>Total</Th>
+                <Th numerico>Cobrado</Th>
+                <Th numerico>Saldo</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {serviciosFiltrados.map((s) => {
+                const etapa = etapaServicio(s)
+                return (
+                  <FilaEnlace key={s.servicio_id}>
+                    <Td>
+                      <Link
+                        href={`/admin/servicios/${s.servicio_id}`}
+                        prefetch={false}
+                        data-enlace-fila
+                        className="font-mono text-xs text-haaco-700 hover:underline"
+                      >
+                        {s.folio}
+                        <PuntoAbriendo />
+                      </Link>
+                    </Td>
+                    <Td className="font-medium text-tinta-900">{s.cliente}</Td>
+                    <Td className="text-tinta-500">{s.descripcion}</Td>
+                    <Td className="whitespace-nowrap text-tinta-500">
+                      {fecha(s.fecha_visita)}
+                      {s.hora_visita && (
+                        <span className="ml-1 text-xs text-tinta-400">{horaCorta(s.hora_visita)}</span>
+                      )}
+                    </Td>
+                    <Td>
+                      <Etiqueta tono={etapa.tono}>{etapa.texto}</Etiqueta>
+                    </Td>
+                    <Td numerico>{pesos(s.cotizado)}</Td>
+                    <Td numerico className="text-tinta-500">
+                      {Number(s.cobrado) > 0 ? pesos(s.cobrado) : '—'}
+                    </Td>
+                    <Td
+                      numerico
+                      className={
+                        Number(s.saldo) > 0 ? 'font-semibold text-amber-700' : 'text-haaco-700'
+                      }
+                    >
+                      {pesos(s.saldo)}
+                    </Td>
+                  </FilaEnlace>
+                )
+              })}
+            </tbody>
+          </Tabla>
+        </Tarjeta>
       )}
 
       {vista === 'registro' && (pagos ?? []).length > 0 && (

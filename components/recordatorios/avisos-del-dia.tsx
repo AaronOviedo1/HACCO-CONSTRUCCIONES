@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
 import { Check } from 'lucide-react'
-import { fecha as formatoFecha } from '@/lib/format'
+import { fecha as formatoFecha, horaCorta } from '@/lib/format'
 import { hoyISO } from '@/lib/cotizaciones'
 import { atenderRecordatorio } from '@/app/admin/recordatorios-acciones'
 import type { Recordatorio } from '@/types/database'
@@ -31,6 +31,7 @@ export function AvisosDelDia({ recordatorios }: { recordatorios: Recordatorio[] 
       await atenderRecordatorio(r.id, true, {
         cotizacion_id: r.cotizacion_id,
         obra_id: r.obra_id,
+        servicio_id: r.servicio_id,
       })
       router.refresh()
     })
@@ -39,11 +40,20 @@ export function AvisosDelDia({ recordatorios }: { recordatorios: Recordatorio[] 
     <ul className="mt-3.5 space-y-2">
       {recordatorios.map((r) => {
         const vencido = r.fecha < hoyISO()
-        const destino = r.cotizacion_id
-          ? `/admin/cotizaciones/${r.cotizacion_id}`
-          : r.obra_id
-            ? `/admin/obras/${r.obra_id}`
-            : null
+        // La visita del técnico va primero: es la única que trae hora, y a
+        // esa hora alguien tiene que estar en la puerta de un cliente.
+        const destino = r.servicio_id
+          ? `/admin/servicios/${r.servicio_id}`
+          : r.cotizacion_id
+            ? `/admin/cotizaciones/${r.cotizacion_id}`
+            : r.obra_id
+              ? `/admin/obras/${r.obra_id}`
+              : null
+        const cuando = vencido
+          ? ` · era el ${formatoFecha(r.fecha)}`
+          : r.hora
+            ? ` · hoy a las ${horaCorta(r.hora)}`
+            : ' · hoy'
 
         const cuerpo = (
           <>
@@ -56,7 +66,7 @@ export function AvisosDelDia({ recordatorios }: { recordatorios: Recordatorio[] 
               </span>
               <span className="block truncate text-xs text-tinta-400">
                 {r.titulo}
-                {vencido ? ` · era el ${formatoFecha(r.fecha)}` : ' · hoy'}
+                {cuando}
               </span>
             </span>
           </>

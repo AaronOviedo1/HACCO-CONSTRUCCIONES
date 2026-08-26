@@ -4,6 +4,7 @@ import { EMPRESA } from '@/lib/empresa'
 import { CATEGORIA_GASTO, METODO_PAGO } from '@/lib/finanzas'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
 import { ESTATUS_OBRA } from '@/lib/obras'
+import { ESTATUS_SERVICIO } from '@/lib/servicios'
 import { parsearFecha } from '@/lib/format'
 import type { ReporteMensual } from '@/lib/reportes'
 import type { EstatusObra } from '@/types/database'
@@ -104,6 +105,8 @@ function hojaFinanciero(libro: ExcelJS.Workbook, r: ReporteMensual) {
     ['', null, null],
     ['UTILIDAD BRUTA', f.utilidadBruta, `${f.margenPct.toFixed(1)}%`],
     ['', null, null],
+    // Después del margen: las reparaciones son utilidad del mes, no de obra.
+    ['Servicios y reparaciones cobrados', r.servicios.facturado, null],
     ['Gastos generales', -f.totalGastosGenerales, null],
     ['Pagos fijos de quincena', -f.totalPagosFijos, null],
     ['Costos fijos', -f.costosFijos, null],
@@ -394,12 +397,59 @@ function hojaMovimientos(libro: ExcelJS.Workbook, r: ReporteMensual) {
   totalizar(hoja, fila + 5, ['TOTAL', r.totales.salidas])
 }
 
+function hojaServicios(libro: ExcelJS.Workbook, r: ReporteMensual) {
+  const hoja = libro.addWorksheet('Servicios')
+  titular(hoja, 'Servicios y reparaciones', `Visitas de ${r.etiqueta}`, 9)
+
+  encabezados(
+    hoja,
+    [
+      { titulo: 'Folio', ancho: 11 },
+      { titulo: 'Cliente', ancho: 28 },
+      { titulo: 'Servicio', ancho: 34 },
+      { titulo: 'Visita', ancho: 13, formato: FECHA },
+      { titulo: 'Técnico', ancho: 20 },
+      { titulo: 'Estatus', ancho: 16 },
+      { titulo: 'Total', ancho: 16, formato: MONEDA },
+      { titulo: 'Cobrado', ancho: 16, formato: MONEDA },
+      { titulo: 'Saldo', ancho: 16, formato: MONEDA },
+    ],
+    4,
+  )
+
+  const filas = r.servicios.delMes
+
+  agregarFilas(
+    hoja,
+    filas.map((s) => [
+      s.folio,
+      s.cliente,
+      s.descripcion,
+      aFecha(s.fecha_visita),
+      s.tecnico ?? '—',
+      ESTATUS_SERVICIO[s.estatus].texto,
+      Number(s.cotizado),
+      Number(s.cobrado),
+      Number(s.saldo),
+    ]),
+    5,
+  )
+
+  totalizar(hoja, 5 + filas.length, [
+    'TOTAL', null, null, null, null, null,
+    filas.reduce((suma, s) => suma + Number(s.cotizado), 0),
+    filas.reduce((suma, s) => suma + Number(s.cobrado), 0),
+    filas.reduce((suma, s) => suma + Number(s.saldo), 0),
+  ])
+}
+
 // ===========================================================================
 export const HOJAS = {
   financiero: hojaFinanciero,
   obras: hojaObras,
   cotizaciones: hojaCotizaciones,
   cobranza: hojaCobranza,
+  servicios: hojaServicios,
   movimientos: hojaMovimientos,
 } as const
 

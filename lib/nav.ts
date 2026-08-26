@@ -21,6 +21,7 @@ export const SECCIONES: Seccion[] = [
   { href: '/admin/cotizaciones',       titulo: 'Cotizaciones',      icono: 'cotizacion',  grupo: 'Operación', roles: ['admin', 'administracion'] },
   { href: '/admin/cotizar-rapido',     titulo: 'Cotización rápida', icono: 'rapido',      grupo: 'Operación', roles: ['admin', 'administracion'] },
   { href: '/admin/obras',              titulo: 'Obras (OTs)',       icono: 'obra',        grupo: 'Operación', roles: ['admin', 'administracion'] },
+  { href: '/admin/servicios',          titulo: 'Servicios',         icono: 'servicio',    grupo: 'Operación', roles: ['admin', 'administracion'] },
   { href: '/admin/clientes',           titulo: 'Clientes',          icono: 'cliente',     grupo: 'Operación', roles: ['admin', 'administracion'] },
 
   { href: '/admin/cobranza',           titulo: 'Cobranza',          icono: 'cobranza',    grupo: 'Dinero',    roles: ['admin', 'administracion'] },
@@ -79,6 +80,12 @@ const CATALOGOS = [
   '/admin/mas', '/admin/catalogo', '/admin/clientes', '/admin/herramientas',
   '/admin/reportes', '/admin/usuarios',
 ]
+/**
+ * Lo operativo que no cabe en las cinco pestañas y vive en «Más». Aparte de
+ * `CATALOGOS` porque no es un catálogo: si se metiera ahí, ese nombre —que se
+ * lee en dos lugares— empezaría a mentir.
+ */
+const OPERACION_EN_MAS = ['/admin/servicios']
 
 /**
  * Las cinco cosas que se hacen desde el teléfono, por rol.
@@ -91,14 +98,14 @@ const PESTANAS: Record<RolUsuario, Pestana[]> = {
     { href: '/admin/obras',        etiqueta: 'Obras',   icono: ICONO.obras,      prefijos: ['/admin/obras'] },
     { href: '/admin/cotizaciones', etiqueta: 'Cotizar', icono: ICONO.cotizacion, prefijos: ['/admin/cotizaciones', '/admin/cotizar-rapido'] },
     { href: '/admin/dinero',       etiqueta: 'Dinero',  icono: ICONO.dinero,     prefijos: DINERO },
-    { href: '/admin/mas',          etiqueta: 'Más',     icono: ICONO.mas,        prefijos: CATALOGOS },
+    { href: '/admin/mas',          etiqueta: 'Más',     icono: ICONO.mas,        prefijos: [...CATALOGOS, ...OPERACION_EN_MAS] },
   ],
   administracion: [
     { href: '/admin',                etiqueta: 'Inicio',   icono: ICONO.inicio },
     { href: '/admin/obras',          etiqueta: 'Obras',    icono: ICONO.obras,    prefijos: ['/admin/obras'] },
     { href: '/admin/cotizar-rapido', etiqueta: 'Cotizar',  icono: ICONO.rayo,     prefijos: ['/admin/cotizaciones', '/admin/cotizar-rapido'] },
     { href: '/admin/cobranza',       etiqueta: 'Cobranza', icono: ICONO.cobranza, prefijos: ['/admin/cobranza'] },
-    { href: '/admin/mas',            etiqueta: 'Más',      icono: ICONO.mas,      prefijos: [...CATALOGOS, ...DINERO] },
+    { href: '/admin/mas',            etiqueta: 'Más',      icono: ICONO.mas,      prefijos: [...CATALOGOS, ...DINERO, ...OPERACION_EN_MAS] },
   ],
   contador: [
     { href: '/admin/reportes', etiqueta: 'Reportes', icono: ICONO.reporte, prefijos: ['/admin/reportes'] },

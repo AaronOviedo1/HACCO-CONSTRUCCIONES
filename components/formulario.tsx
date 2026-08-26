@@ -74,6 +74,21 @@ export function NumeroCorto({
   )
 }
 
+/**
+ * La hora de una cita. El navegador pone el reloj; aquí sólo va el aspecto de
+ * los demás campos, y el ancho recortado porque «09:00» no ocupa un renglón.
+ */
+export function Hora(props: React.ComponentProps<'input'>) {
+  const { className = '', ...resto } = props
+  return (
+    <input
+      type="time"
+      {...resto}
+      className={`${CLASE_CAMPO} w-auto min-w-32 tabular-nums ${className}`}
+    />
+  )
+}
+
 export function Seleccion(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   const { className = '', children, ...resto } = props
   return (

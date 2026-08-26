@@ -133,6 +133,14 @@ export function DocumentoReporteContador({ reporte }: { reporte: ReporteMensual 
         <Dato etiqueta="Viáticos" valor={pesos(f.costoObra.viaticos)} />
         <Dato etiqueta="Gastos adicionales de obra" valor={pesos(f.costoObra.adicionales)} />
         <Dato etiqueta="Utilidad bruta" valor={`${pesos(f.utilidadBruta)} (${f.margenPct}%)`} fuerte />
+        {/* Después del margen de obra: las reparaciones son utilidad del mes,
+            pero no de obra, y arriba moverían el margen sin razón. */}
+        {reporte.servicios.facturado > 0 && (
+          <Dato
+            etiqueta="Servicios y reparaciones cobrados"
+            valor={pesos(reporte.servicios.facturado)}
+          />
+        )}
         <Dato etiqueta="Gastos generales" valor={pesos(f.totalGastosGenerales)} />
         <Dato etiqueta="Pagos fijos" valor={pesos(f.totalPagosFijos)} />
         <Dato etiqueta="Utilidad a fecha de corte" valor={pesos(f.utilidadCorte)} fuerte />

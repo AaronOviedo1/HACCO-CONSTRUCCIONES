@@ -3,7 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { etiquetaMes, rangoMes } from '@/lib/finanzas'
 import type {
   CategoriaGasto, EstatusCotizacion, MetodoPago, VCobranza, VCotizacion, VGasto,
-  VObraConcentrado,
+  VObraConcentrado, VServicio,
 } from '@/types/database'
 
 const redondear = (n: number) => Math.round(n * 100) / 100
@@ -36,7 +36,7 @@ export async function cargarReporte(mes: string) {
 
   const [
     cotizacionesTodas, pagosTodos, concentrados, gastosMes, nominaMes,
-    pagosFijosMes, cobranzaTodas, obrasTodas,
+    pagosFijosMes, cobranzaTodas, obrasTodas, serviciosTodos, pagosServicioTodos,
   ] = await Promise.all([
     supabase.from('v_cotizaciones').select('*'),
     supabase.from('pagos_cobranza').select('*').order('fecha'),
@@ -46,6 +46,8 @@ export async function cargarReporte(mes: string) {
     supabase.from('pagos_fijos').select('*').gte('quincena', desde).lt('quincena', hasta),
     supabase.from('v_cobranza').select('*'),
     supabase.from('obras').select('id, ot_numero, cotizacion_id, fecha_apertura, fecha_cierre'),
+    supabase.from('v_servicios').select('*'),
+    supabase.from('servicio_pagos').select('*').order('fecha'),
   ])
 
   const cotizaciones = cotizacionesTodas.data ?? []
@@ -55,6 +57,8 @@ export async function cargarReporte(mes: string) {
   const nomina = nominaMes.data ?? []
   const fijos = pagosFijosMes.data ?? []
   const cobranza = cobranzaTodas.data ?? []
+  const servicios = serviciosTodos.data ?? []
+  const pagosServicio = pagosServicioTodos.data ?? []
 
   const errorLectura =
     cotizacionesTodas.error ?? concentrados.error ?? gastosMes.error ?? cobranzaTodas.error
@@ -85,8 +89,63 @@ export async function cargarReporte(mes: string) {
   }
 
   const facturado = redondear(liquidadasDelMes.reduce((s, l) => s + Number(l.cotizacion.total), 0))
+
+  // -------------------------------------------------------------------------
+  // Servicios y reparaciones
+  //
+  // Van en su propio renglón y NO dentro de `facturado`. La utilidad bruta y
+  // el margen de este corte son los de la obra —facturado menos costo de obra—
+  // y una reparación no tiene material ni mano de obra rastreados en el
+  // concentrado: meterla ahí inflaría el margen y correría el punto de
+  // equilibrio sin que nada real hubiera cambiado. La refacción, si se captura,
+  // entra por Gastos y ya baja en los gastos generales.
+  //
+  // Lo cobrado sí se suma sin distinguir: es caja, y toda la caja del mes
+  // cuenta igual venga de un portón o de una fachada.
+  // -------------------------------------------------------------------------
+  const pagosPorServicio = new Map<string, typeof pagosServicio>()
+  for (const p of pagosServicio) {
+    pagosPorServicio.set(p.servicio_id, [...(pagosPorServicio.get(p.servicio_id) ?? []), p])
+  }
+
+  const serviciosLiquidados: { servicio: VServicio; fechaLiquidacion: string }[] = []
+
+  for (const srv of servicios) {
+    if (Number(srv.cotizado) <= 0) continue
+    const suyos = (pagosPorServicio.get(srv.servicio_id) ?? [])
+      .slice()
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    let acumulado = 0
+    for (const p of suyos) {
+      acumulado += Number(p.monto)
+      // El pago que cruza el total es el que marca la fecha de liquidación,
+      // igual que en las cotizaciones.
+      if (acumulado >= Number(srv.cotizado) - 0.01) {
+        if (p.fecha >= desde && p.fecha < hasta) {
+          serviciosLiquidados.push({ servicio: srv as VServicio, fechaLiquidacion: p.fecha })
+        }
+        break
+      }
+    }
+  }
+
+  const facturadoServicios = redondear(
+    serviciosLiquidados.reduce((s, l) => s + Number(l.servicio.cotizado), 0),
+  )
+  const cobradoServicios = redondear(
+    pagosServicio
+      .filter((p) => p.fecha >= desde && p.fecha < hasta)
+      .reduce((s, p) => s + Number(p.monto), 0),
+  )
+  const porCobrarServicios = redondear(
+    servicios
+      .filter((s2) => (s2.estatus === 'aprobado' || s2.estatus === 'reparado') && Number(s2.saldo) > 0)
+      .reduce((s2, srv) => s2 + Number(srv.saldo), 0),
+  )
+
   const cobrado = redondear(
-    pagos.filter((p) => p.fecha >= desde && p.fecha < hasta).reduce((s, p) => s + Number(p.monto), 0),
+    pagos.filter((p) => p.fecha >= desde && p.fecha < hasta).reduce((s, p) => s + Number(p.monto), 0) +
+      cobradoServicios,
   )
 
   // -------------------------------------------------------------------------
@@ -129,7 +188,9 @@ export async function cargarReporte(mes: string) {
     fijos.filter((p) => p.estado === 'pagado').reduce((s, p) => s + Number(p.monto), 0),
   )
   const costosFijos = redondear(totalGastosGenerales + totalPagosFijos)
-  const utilidadCorte = redondear(utilidadBruta - costosFijos)
+  // Lo que dejaron las reparaciones entra aquí, después del margen de obra:
+  // es utilidad del mes aunque no sea utilidad de obra.
+  const utilidadCorte = redondear(utilidadBruta + facturadoServicios - costosFijos)
 
   /*
    * Punto de equilibrio: cuánto habría que facturar para que la utilidad a
@@ -229,6 +290,17 @@ export async function cargarReporte(mes: string) {
       costosFijos,
       utilidadCorte,
       puntoEquilibrio,
+    },
+
+    servicios: {
+      facturado: facturadoServicios,
+      cobrado: cobradoServicios,
+      porCobrar: porCobrarServicios,
+      liquidados: serviciosLiquidados,
+      /** Los que se atendieron dentro del mes, hayan cerrado o no. */
+      delMes: servicios.filter(
+        (s2) => s2.fecha_visita >= desde && s2.fecha_visita < hasta,
+      ) as VServicio[],
     },
 
     obras: obrasDelMes as VObraConcentrado[],

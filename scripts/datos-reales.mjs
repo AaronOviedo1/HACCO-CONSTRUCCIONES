@@ -52,7 +52,11 @@ const TRANSACCIONALES = [
   'pagare_items', 'pagares', 'contratos_oficial', 'insumos_kardex',
   'obra_materiales', 'gastos', 'cronograma_tareas', 'obra_conceptos', 'obras',
   'cotizacion_materiales', 'cotizacion_items', 'cotizacion_herreria_desglose',
-  'cotizacion_procesos', 'cotizaciones', 'clientes',
+  'cotizacion_procesos', 'cotizaciones',
+  // Antes de clientes: `servicios.cliente_id` es `restrict`, y sin esto el
+  // borrado truena al llegar a clientes de una forma que no dice por qué.
+  'servicio_pagos', 'servicio_items', 'servicios',
+  'clientes',
 ]
 
 try {
@@ -93,7 +97,7 @@ try {
   if (reiniciar) {
     for (const t of TRANSACCIONALES) await c.query(`delete from public.${t}`)
     await c.query(
-      "delete from public.consecutivos where serie in ('cotizacion','ot','poliza','recibo','recibo_nomina')",
+      "delete from public.consecutivos where serie in ('cotizacion','ot','poliza','recibo','recibo_nomina','servicio')",
     )
     console.log('  · operación anterior borrada')
   }

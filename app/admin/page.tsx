@@ -4,6 +4,7 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
 import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
 import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
+import { comoCobranza, serviciosCobrables, vendidoServicios } from '@/lib/servicios'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
   CATEGORIA_GASTO, antiguedadCobranza, etiquetaMes, mesActual, rangoMes, semanasDePago,
@@ -66,7 +67,7 @@ export default async function Dashboard() {
 
   const [
     historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina,
-    concentrado, fijos, recientes, meta, recordatorios,
+    concentrado, fijos, recientes, meta, recordatorios, servicios, pagosServicio,
   ] = await Promise.all([
       supabase
         .from('v_cotizaciones')
@@ -108,7 +109,16 @@ export default async function Dashboard() {
         .select('*')
         .is('atendido_en', null)
         .lte('fecha', hoyHermosillo())
-        .order('fecha'),
+        // Y por hora dentro del día: las citas del técnico salen en el orden
+        // en que hay que atenderlas, y lo que no tiene hora va al final.
+        .order('fecha')
+        .order('hora', { ascending: true, nullsFirst: false }),
+      // Las reparaciones de portones: se venden y se cobran igual que una
+      // obra, así que cuentan en los mismos números.
+      supabase
+        .from('v_servicios')
+        .select('servicio_id, estatus, cotizado, cobrado, saldo, fecha_venta'),
+      supabase.from('servicio_pagos').select('monto, fecha').gte('fecha', desdeSeis),
     ])
 
   const bdLista = !historico.error && !obras.error
@@ -137,13 +147,19 @@ export default async function Dashboard() {
   const enMes = (c: (typeof todas)[number], m: string) =>
     String(c.fecha_venta ?? c.fecha ?? '').startsWith(m)
 
+  // Las reparaciones son venta como cualquier otra: se cuentan por el mes en
+  // que el cliente aprobó, con el mismo criterio que las cotizaciones.
+  const listaServicios = servicios.data ?? []
+
   const meses = ventana.map((v) => {
     // Lo que se cotizó en el mes se cuenta por su fecha de elaboración; lo que
     // se vendió, por la de aprobación. No son la misma pregunta.
     const cotizadasDelMes = todas.filter((c) => String(c.fecha ?? '').startsWith(v.clave))
     return {
       m: v.m,
-      vendido: suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, v.clave))),
+      vendido:
+        suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, v.clave))) +
+        vendidoServicios(listaServicios, v.clave),
       enfriado: suma(cotizadasDelMes.filter((c) => enfriada(c))),
       enJuego: suma(cotizadasDelMes.filter((c) => !cerrada(c.estatus) && !enfriada(c))),
     }
@@ -158,7 +174,9 @@ export default async function Dashboard() {
 
   // Vendido = aprobado. Lo cotizado a secas ya tiene su recuadro y no dice si
   // el cliente dijo que sí.
-  const vendidoMes = suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, mes)))
+  const vendidoMes =
+    suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, mes))) +
+    vendidoServicios(listaServicios, mes)
   const metaVenta = Number(meta.data?.valor ?? 0)
 
   const resumenEstatus = (
@@ -197,11 +215,18 @@ export default async function Dashboard() {
   // a mano, que fue justo lo que pasó.
   const conObra = new Set(listaObras.map((o) => o.cotizacion_id).filter(Boolean) as string[])
   const abiertas = cobranzaViva(cobranza.data ?? [], conObra)
+  // Las reparaciones entran por la misma puerta: `resumenCobranza` suma por
+  // forma y no por tabla, así que la aritmética es una sola.
   const { porCobrar, sobrepagos, cuantosSobrepagos, pctCobrado, anticiposPendientes } =
-    resumenCobranza(abiertas)
+    resumenCobranza([
+      ...abiertas,
+      ...serviciosCobrables(listaServicios).map(comoCobranza),
+    ])
 
   // Cuánto lleva callado cada cliente que debe: el total por cobrar ya está
   // arriba, esto dice cuánto de ese total es dinero que se está añejando.
+  // Sin servicios a propósito: la gráfica mide los días desde la cotización,
+  // y una reparación que se cobra el mismo día no tiene antigüedad que contar.
   const antiguedad = antiguedadCobranza(abiertas)
 
   const urgentes = (cxp.data ?? []).filter((c) => c.estado === 'vencida' || c.estado === 'urgente')
@@ -254,9 +279,11 @@ export default async function Dashboard() {
   const sumaDelMes = (filas: { fecha: string; monto: number }[], clave: string) =>
     filas.filter((f) => String(f.fecha).startsWith(clave)).reduce((s, f) => s + Number(f.monto), 0)
 
+  // Lo que entra es toda la caja: los abonos de obra y lo que se cobró de
+  // reparaciones. Dejar fuera lo segundo pintaba un mes más flaco de lo que fue.
   const flujo = ventana.map((v) => ({
     m: v.m,
-    entra: sumaDelMes(pagos, v.clave),
+    entra: sumaDelMes(pagos, v.clave) + sumaDelMes(pagosServicio.data ?? [], v.clave),
     sale: sumaDelMes(gastos, v.clave) + sumaDelMes(nominaPagada, v.clave),
   }))
 

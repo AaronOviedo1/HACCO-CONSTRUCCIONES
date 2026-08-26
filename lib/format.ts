@@ -59,6 +59,21 @@ export function fechaHora(valor: string | Date | null | undefined): string {
   return `${fecha(d)} ${hh}:${mm}`
 }
 
+/**
+ * '09:00:00' → '9:00 a. m.'
+ *
+ * Postgres entrega las horas con segundos y en 24 horas; nadie dice «una cita
+ * a las 14:00:00». Las citas del técnico son el primer lugar del sistema donde
+ * hace falta una hora suelta, sin fecha pegada.
+ */
+export function horaCorta(valor: string | null | undefined): string {
+  const partes = /^(\d{1,2}):(\d{2})/.exec(String(valor ?? ''))
+  if (!partes) return '—'
+  const h24 = Number(partes[1])
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${partes[2]} ${h24 < 12 ? 'a. m.' : 'p. m.'}`
+}
+
 /** 26 de julio de 2026 — para el encabezado de la cotización */
 export function fechaLarga(valor: string | Date | null | undefined): string {
   const d = parsearFecha(valor)

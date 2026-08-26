@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { pesosCortos } from '@/lib/format'
 import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
+import { comoCobranza, serviciosCobrables } from '@/lib/servicios'
 import { vencimientosPorSemana } from '@/lib/finanzas'
 import { EncabezadoPagina, Tarjeta } from '@/components/ui'
 import { BarrasSemanas, Tile } from '@/components/movil/piezas'
@@ -13,18 +14,25 @@ export default async function PaginaDinero() {
   await requerirRol(['admin', 'administracion'])
   const supabase = await crearClienteServidor()
 
-  const [{ data: cobranza }, { data: obras }, { data: cxp }, { data: prenomina }, { data: caja }] =
-    await Promise.all([
-      supabase.from('v_cobranza').select('cotizacion_id, cotizado, cobrado, saldo, estatus, anticipo, anticipo_esperado'),
-      supabase.from('obras').select('cotizacion_id'),
-      supabase.from('v_cuentas_por_pagar').select('saldo, estado, vencimiento'),
-      supabase.from('v_prenomina').select('disponible, deducciones'),
-      supabase.from('caja_chica').select('tipo, monto'),
-    ])
+  const [
+    { data: cobranza }, { data: obras }, { data: cxp }, { data: prenomina }, { data: caja },
+    { data: servicios },
+  ] = await Promise.all([
+    supabase.from('v_cobranza').select('cotizacion_id, cotizado, cobrado, saldo, estatus, anticipo, anticipo_esperado'),
+    supabase.from('obras').select('cotizacion_id'),
+    supabase.from('v_cuentas_por_pagar').select('saldo, estado, vencimiento'),
+    supabase.from('v_prenomina').select('disponible, deducciones'),
+    supabase.from('caja_chica').select('tipo, monto'),
+    supabase.from('v_servicios').select('estatus, cotizado, cobrado, saldo'),
+  ])
 
-  // La misma cuenta del panel y de la pantalla de cobranza, de `lib/cobranza`.
+  // La misma cuenta del panel y de la pantalla de cobranza, de `lib/cobranza`,
+  // con las reparaciones dentro: el dinero de un portón se persigue igual.
   const conObra = new Set((obras ?? []).map((o) => o.cotizacion_id).filter(Boolean) as string[])
-  const { porCobrar, pctCobrado } = resumenCobranza(cobranzaViva(cobranza ?? [], conObra))
+  const { porCobrar, pctCobrado } = resumenCobranza([
+    ...cobranzaViva(cobranza ?? [], conObra),
+    ...serviciosCobrables(servicios ?? []).map(comoCobranza),
+  ])
 
   const activas = (cxp ?? [])
     .filter((c) => c.estado !== 'pagada' && c.estado !== 'cancelada')

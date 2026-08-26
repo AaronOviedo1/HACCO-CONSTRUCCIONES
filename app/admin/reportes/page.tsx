@@ -95,6 +95,19 @@ export default async function PaginaReportes({
                     tono={f.utilidadBruta < 0 ? 'rojo' : 'verde'}
                     nota={porcentaje(f.margenPct, 1)}
                   />
+                  {/* Las reparaciones de portones entran aquí, después del
+                      margen de obra: son utilidad del mes, pero no de obra, y
+                      sumarlas arriba movería el margen sin razón. */}
+                  {r.servicios.facturado > 0 && (
+                    <Renglon
+                      etiqueta="Servicios y reparaciones terminados de cobrar"
+                      valor={`+ ${pesos(r.servicios.facturado)}`}
+                      sangria
+                      nota={`${r.servicios.liquidados.length} ${
+                        r.servicios.liquidados.length === 1 ? 'servicio' : 'servicios'
+                      }`}
+                    />
+                  )}
                   <Renglon etiqueta="Gastos generales" valor={`- ${pesos(f.totalGastosGenerales)}`} sangria />
                   <Renglon
                     etiqueta="Pagos fijos de la quincena"
@@ -113,7 +126,11 @@ export default async function PaginaReportes({
                   <p>
                     <strong>Facturado</strong> cuenta sólo las obras que terminaron de cobrarse
                     dentro del mes. En caja entraron <strong>{pesos(f.cobrado)}</strong> contando
-                    anticipos y abonos parciales.
+                    anticipos, abonos parciales
+                    {r.servicios.cobrado > 0 ? (
+                      <> y {pesos(r.servicios.cobrado)} de reparaciones</>
+                    ) : null}
+                    .
                   </p>
                   <p className="mt-1">
                     <strong>Punto de equilibrio:</strong>{' '}
