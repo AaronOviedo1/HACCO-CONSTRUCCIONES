@@ -38,6 +38,18 @@ export default async function PaginaServicio({
   const subtotalPapel = Number(servicio.subtotal) + visita
   const ivaPapel = Number(servicio.presupuesto) - subtotalPapel
 
+  /**
+   * El total que se enseña arriba: el del papel mientras el trabajo sigue en
+   * pie, y lo que de verdad se cobra cuando el cliente dijo que no.
+   *
+   * Leerlo de `cotizado` a secas engañaba: un presupuesto ya enviado todavía
+   * no se debe —se debe al aprobarlo—, así que un servicio con la visita en
+   * cero decía «Sin presupuesto» aunque el papel trajera $2,400. Lo que se
+   * debe hoy se lee en el renglón de al lado, que para eso está.
+   */
+  const cerrado = servicio.estatus === 'rechazado' || servicio.estatus === 'cancelado'
+  const totalFicha = cerrado ? cotizado : Math.max(cotizado, Number(servicio.presupuesto))
+
   return (
     <>
       <CabeceraDetalle titulo={servicio.folio ?? 'Servicio'} volverA="/admin/servicios" />
@@ -82,8 +94,8 @@ export default async function PaginaServicio({
             {servicio.hora_visita ? ` · ${horaCorta(servicio.hora_visita)}` : ''}
           </DatoFicha>
           <DatoFicha etiqueta="Técnico">{servicio.tecnico ?? 'Sin asignar'}</DatoFicha>
-          <DatoFicha etiqueta="Total" tono={cotizado > 0 ? 'verde' : undefined}>
-            {cotizado > 0 ? pesos(cotizado) : 'Sin presupuesto'}
+          <DatoFicha etiqueta="Total" tono={totalFicha > 0 ? 'verde' : undefined}>
+            {totalFicha > 0 ? pesos(totalFicha) : 'Sin presupuesto'}
           </DatoFicha>
           <DatoFicha etiqueta="Saldo" tono={saldo > 0 ? 'ambar' : 'verde'}>
             {cotizado > 0 ? (saldo > 0 ? pesos(saldo) : 'Saldado') : '—'}

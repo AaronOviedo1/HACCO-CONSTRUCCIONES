@@ -145,7 +145,7 @@ export function CampoDomicilio({
           <ul
             ref={panel}
             style={pos ?? undefined}
-            className={`fixed z-50 overflow-y-auto rounded-[14px] border-[0.5px] border-tinta-200 bg-white shadow-lg lg:rounded-lg ${
+            className={`fixed z-[56] overflow-y-auto rounded-[14px] border-[0.5px] border-tinta-200 bg-white shadow-lg lg:rounded-lg ${
               pos ? '' : 'invisible'
             }`}
           >

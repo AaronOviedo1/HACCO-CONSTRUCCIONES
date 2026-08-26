@@ -121,16 +121,16 @@ export function EditorPresupuesto({
         titulo="Presupuesto de la reparación"
         descripcion="Lo que se le pasa al cliente. Sale en el PDF tal como quede aquí."
         onCerrar={() => setAbierto(false)}
-        ancho="lg"
+        ancho="xl"
       >
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="space-y-3">
             {renglones.map((r, i) => (
               <div
                 key={i}
-                className="grid gap-2 rounded-[16px] border-[0.5px] border-tinta-200 bg-tinta-50/60 p-3 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-end lg:gap-2.5"
+                className="grid gap-2 rounded-[16px] border-[0.5px] border-tinta-200 bg-tinta-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_5rem_7rem_7rem_auto] lg:items-end lg:gap-2.5"
               >
-                <label className="block lg:min-w-0">
+                <label className="block min-w-0">
                   <span className="mb-1 block text-xs font-medium text-tinta-600">Concepto</span>
                   <Entrada
                     value={r.descripcion}
@@ -140,22 +140,20 @@ export function EditorPresupuesto({
                   />
                 </label>
 
-                <label className="block">
+                <label className="block min-w-0">
                   <span className="mb-1 block text-xs font-medium text-tinta-600">Cant.</span>
                   <Numero
                     value={r.cantidad}
                     onChange={(e) => tocar(i, { cantidad: e.target.value })}
-                    className="w-20"
                     disabled={pendiente}
                   />
                 </label>
 
-                <label className="block">
+                <label className="block min-w-0">
                   <span className="mb-1 block text-xs font-medium text-tinta-600">Unidad</span>
                   <Seleccion
                     value={r.unidad}
                     onChange={(e) => tocar(i, { unidad: e.target.value })}
-                    className="w-28"
                     disabled={pendiente}
                   >
                     {UNIDADES_PARTIDA.filter((u) => u.valor).map((u) => (
@@ -166,12 +164,11 @@ export function EditorPresupuesto({
                   </Seleccion>
                 </label>
 
-                <label className="block">
+                <label className="block min-w-0">
                   <span className="mb-1 block text-xs font-medium text-tinta-600">Precio</span>
                   <Numero
                     value={r.precio}
                     onChange={(e) => tocar(i, { precio: e.target.value })}
-                    className="w-28"
                     placeholder="0.00"
                     disabled={pendiente}
                   />

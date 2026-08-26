@@ -184,9 +184,32 @@ export function Dialogo({
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
+  /**
+   * El `onCerrar` que llega es casi siempre una función escrita en el sitio
+   * —`onCerrar={() => setAbierto(false)}`—, así que es distinta en cada
+   * render. Guardarla en una caja es lo que permite que el efecto de abajo
+   * dependa nada más de `abierto`.
+   */
+  const cerrar = useRef(onCerrar)
+  useEffect(() => {
+    cerrar.current = onCerrar
+  }, [onCerrar])
+
+  /**
+   * Esto corre una vez al abrir, y sólo al abrir.
+   *
+   * Tenía además `onCerrar` en las dependencias, y como esa función nace de
+   * nuevo en cada render, el efecto se rehacía con cada letra que se escribía
+   * en un campo del diálogo: el `focus()` de abajo se llevaba el cursor al
+   * primer botón. En los diálogos de formulario suelto no se notaba —no
+   * guardan nada en el estado mientras se teclea—, pero en los de servicios,
+   * donde cada tecla actualiza el estado, había que volver a picarle al campo
+   * para escribir la siguiente letra; y al llegar a un espacio, ese espacio
+   * activaba el botón «Cerrar» y el diálogo se iba con todo lo escrito.
+   */
   useEffect(() => {
     if (!abierto) return
-    const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar()
+    const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && cerrar.current()
     document.addEventListener('keydown', alTeclear)
     document.body.style.overflow = 'hidden'
     ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus()
@@ -194,14 +217,24 @@ export function Dialogo({
       document.removeEventListener('keydown', alTeclear)
       document.body.style.overflow = ''
     }
-  }, [abierto, onCerrar])
+  }, [abierto])
 
   if (!abierto) return null
 
   const anchos = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' } as const
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta-950/50 p-0 sm:items-center sm:p-4">
+    /* La escalera de capas del teléfono, de abajo hacia arriba: las pestañas
+       y el velo del menú en z-40; el «+» flotante y su menú en z-50; el
+       diálogo en z-[55]; lo que se despliega dentro de él —el calendario, las
+       sugerencias de cliente, las de domicilio— en z-[56], porque viven en un
+       portal colgado de <body> y no heredan esta capa; y el aviso de novedades
+       hasta arriba, en z-[60].
+
+       Estaba todo empatado en z-50 y se resolvía por orden del documento: el
+       «+» se dibujaba sobre la hoja y tapaba la esquina del campo, mientras que
+       el calendario quedaba encima de milagro. */
+    <div className="fixed inset-0 z-[55] flex items-end justify-center bg-tinta-950/50 p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0" onClick={onCerrar} aria-hidden />
       <div
         ref={ref}

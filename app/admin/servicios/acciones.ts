@@ -229,7 +229,17 @@ export async function guardarPresupuesto(
   },
 ): Promise<Resultado> {
   const items = datos.items.filter((i) => i.descripcion.trim())
-  if (items.length === 0) return { ok: false, error: 'El presupuesto necesita al menos una partida.' }
+  if (items.length === 0) {
+    // Decir «falta una partida» a quien ya escribió el precio no ayuda: lo que
+    // le falta es el concepto, y hay que nombrarlo.
+    const algoCapturado = datos.items.some((i) => i.precio_unitario > 0)
+    return {
+      ok: false,
+      error: algoCapturado
+        ? 'Falta decir qué es cada partida: escribe el concepto.'
+        : 'El presupuesto necesita al menos una partida.',
+    }
+  }
   if (items.some((i) => i.precio_unitario <= 0)) {
     return { ok: false, error: 'Cada partida necesita su precio.' }
   }

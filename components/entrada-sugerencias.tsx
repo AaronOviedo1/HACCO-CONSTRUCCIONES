@@ -184,7 +184,7 @@ export function EntradaSugerencias({
             ref={panel}
             style={pos ?? undefined}
             role="listbox"
-            className={`fixed z-50 overflow-y-auto rounded-2xl border-[0.5px] border-tinta-200 bg-white py-1.5 shadow-xl ${
+            className={`fixed z-[56] overflow-y-auto rounded-2xl border-[0.5px] border-tinta-200 bg-white py-1.5 shadow-xl ${
               pos ? '' : 'invisible'
             }`}
           >

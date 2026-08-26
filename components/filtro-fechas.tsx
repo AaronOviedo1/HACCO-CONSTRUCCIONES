@@ -167,11 +167,11 @@ function Desplegable({
         createPortal(
           <>
             {/* En el teléfono el calendario sube como hoja; en escritorio cuelga del botón. */}
-            <div className="fixed inset-0 z-50 bg-tinta-950/40 sm:hidden" aria-hidden />
+            <div className="fixed inset-0 z-[56] bg-tinta-950/40 sm:hidden" aria-hidden />
             <div
               ref={panel}
               style={pos ?? undefined}
-              className={`fixed inset-x-0 bottom-0 z-50 max-h-[92dvh] overflow-y-auto rounded-t-3xl border-tinta-200 bg-white p-4 pb-seguro shadow-xl animate-sube sm:inset-auto sm:w-max sm:animate-none sm:rounded-2xl sm:border-[0.5px] sm:p-3.5 ${
+              className={`fixed inset-x-0 bottom-0 z-[56] max-h-[92dvh] overflow-y-auto rounded-t-3xl border-tinta-200 bg-white p-4 pb-seguro shadow-xl animate-sube sm:inset-auto sm:w-max sm:animate-none sm:rounded-2xl sm:border-[0.5px] sm:p-3.5 ${
                 pos ? '' : 'sm:invisible'
               }`}
             >
