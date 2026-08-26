@@ -40,6 +40,12 @@ export type EstadoCxp = 'pagada' | 'vencida' | 'urgente' | 'proxima' | 'al_corri
 export type RubroMaterial = 'herreria' | 'pintura' | 'otro'
 /** De dónde salió un precio observado. Nunca «actual»: siempre su procedencia. */
 export type OrigenPrecio = 'factura' | 'llamada' | 'captura' | 'lista'
+/** Qué clase de visita es. El preventivo no lo pide nadie: se ofrece. */
+export type TipoServicio = 'reparacion' | 'preventivo'
+/** El flujo de una reparación. «Cobrado» no está: eso lo dicen los pagos. */
+export type EstatusServicio =
+  | 'agendado' | 'diagnostico' | 'presupuestado'
+  | 'aprobado' | 'rechazado' | 'reparado' | 'cancelado'
 export type EstatusPropuesta = 'pendiente' | 'aceptada' | 'rechazada'
 export type EstatusRonda = 'pendiente' | 'confirmado' | 'pospuesto'
 export type EventoObra =
@@ -514,9 +520,12 @@ export type AvisoRecordatorio = {
   titulo: string
   nota: string | null
   fecha: string
+  /** La hora de la cita, si la tiene: va al frente del aviso. */
+  hora: string | null
   vencido: boolean
   cotizacion_id: string | null
   obra_id: string | null
+  servicio_id: string | null
   suscripcion_id: string
   endpoint: string
   p256dh: string
@@ -535,11 +544,13 @@ export type PushSuscripcion = {
   created_at: string
 }
 
-/** Un pendiente con fecha. Cuelga de una cotización, de una obra, o de nada. */
+/** Un pendiente con fecha. Cuelga de una cotización, una obra, un servicio, o de nada. */
 export type Recordatorio = {
   id: string
   cotizacion_id: string | null
   obra_id: string | null
+  /** La cita del técnico: el primer recordatorio que de verdad usa la hora. */
+  servicio_id: string | null
   titulo: string
   nota: string | null
   fecha: string
@@ -675,6 +686,125 @@ export type VCotizacion = {
   cliente: string
   obras: number
   cobrado: number
+  created_at: string
+  updated_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Servicios y reparaciones
+// ---------------------------------------------------------------------------
+
+/** Una reparación de portón: la cita, el diagnóstico, el presupuesto y el cobro. */
+export type Servicio = {
+  id: string
+  /** 'S-###'. Serie propia, no se revuelve con las F-### de cotizaciones. */
+  folio: string | null
+  tipo: TipoServicio
+  /** De qué servicio nació. El preventivo cuelga de la reparación anterior. */
+  origen_id: string | null
+  cliente_id: string
+  descripcion: string
+  /** Dónde está el portón: puede no ser el domicilio del cliente. */
+  domicilio: string | null
+  estatus: EstatusServicio
+  /** El usuario que va a la visita. */
+  tecnico_id: string | null
+  fecha_visita: string
+  hora_visita: string | null
+  diagnostico: string | null
+  requiere_factura: boolean
+  iva_pct: number
+  /** Lo que cuesta ir a ver el portón. Se debe aunque el cliente diga que no. */
+  cuota_visita: number
+  /** Lo mantiene el trigger de partidas. */
+  subtotal: number
+  /**
+   * Columna generada: lo que se debe hoy, que depende de en qué va. Antes de
+   * la visita no se debe nada; después, la cuota; sólo al aprobar, la
+   * reparación completa. No se escribe.
+   */
+  total: number
+  vigencia_dias: number
+  garantia_dias: number
+  fecha_presupuesto: string | null
+  /** El sí o el no del cliente. De aquí sale la fecha de venta. */
+  fecha_resolucion: string | null
+  fecha_reparacion: string | null
+  notas: string | null
+  creado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ServicioItem = {
+  id: string
+  servicio_id: string
+  descripcion: string
+  cantidad: number
+  /** Nulo se lee «pza». */
+  unidad: string | null
+  precio_unitario: number
+  /** Lo pone el trigger: cantidad x precio. */
+  importe: number
+  orden: number
+  created_at: string
+}
+
+/** Un cobro de reparación. Sin tipo: no hay anticipo, se cobra al terminar. */
+export type ServicioPago = {
+  id: string
+  servicio_id: string
+  monto: number
+  metodo: MetodoPago
+  fecha: string
+  comprobante_path: string | null
+  notas: string | null
+  registrado_por: string | null
+  editado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * El servicio con su dinero ya sumado. Habla el mismo vocabulario que
+ * `VCobranza` —cotizado, cobrado, saldo, pct_pendiente— para que los totales
+ * del panel se saquen con la misma función y no con una cuenta parecida.
+ */
+export type VServicio = {
+  servicio_id: string
+  folio: string | null
+  tipo: TipoServicio
+  origen_id: string | null
+  descripcion: string
+  domicilio: string | null
+  estatus: EstatusServicio
+  fecha_visita: string
+  hora_visita: string | null
+  diagnostico: string | null
+  tecnico_id: string | null
+  tecnico: string | null
+  cliente_id: string
+  cliente: string
+  cliente_telefono: string | null
+  requiere_factura: boolean
+  subtotal: number
+  iva_pct: number
+  cuota_visita: number
+  /** Lo que se le pasó al cliente, se haya aprobado o no. */
+  presupuesto: number
+  /** Lo que se debe hoy: la visita, y la reparación sólo si la aprobaron. */
+  cotizado: number
+  cobrado: number
+  saldo: number
+  ultimo_pago: string | null
+  pct_pendiente: number
+  /** El mes en que el cliente dijo que sí; antes de eso, el de la visita. */
+  fecha_venta: string
+  fecha_presupuesto: string | null
+  fecha_reparacion: string | null
+  vigencia_dias: number
+  garantia_dias: number
+  notas: string | null
   created_at: string
   updated_at: string
 }
@@ -1131,6 +1261,9 @@ export type Database = {
       caja_chica: Tabla<CajaChica>
       polizas_garantia: Tabla<PolizaGarantia>
       recordatorios: Tabla<Recordatorio>
+      servicios: Tabla<Servicio>
+      servicio_items: Tabla<ServicioItem>
+      servicio_pagos: Tabla<ServicioPago>
       push_suscripciones: Tabla<PushSuscripcion>
       consecutivos: Tabla<Consecutivo>
       recibos: Tabla<Recibo>
@@ -1152,6 +1285,7 @@ export type Database = {
       v_cuentas_por_pagar: Vista<VCuentaPorPagar>
       v_cxp_por_proveedor: Vista<VCxpPorProveedor>
       v_cobranza: Vista<VCobranza>
+      v_servicios: Vista<VServicio>
       v_obra_concentrado: Vista<VObraConcentrado>
       v_nomina_contratos: Vista<VNominaContrato>
       v_prenomina: Vista<VPrenomina>
@@ -1186,6 +1320,10 @@ export type Database = {
       crear_pagare: {
         Args: { p_contrato: string; p_herramientas: string[] }
         Returns: string
+      }
+      editar_pagare: {
+        Args: { p_pagare: string; p_herramientas: string[] }
+        Returns: number
       }
       cancelar_pagare: { Args: { p_pagare: string }; Returns: number }
       entregar_obra: { Args: { p_obra: string; p_fecha: string }; Returns: undefined }

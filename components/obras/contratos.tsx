@@ -13,8 +13,8 @@ import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { GRUPOS_TRABAJOS, leerReparaciones, resumirTrabajos } from '@/lib/obras'
 import { REGLAS } from '@/lib/empresa'
 import {
-  cancelarPagare, crearPagare, devolverHerramienta, eliminarContrato, firmarContrato,
-  guardarContrato, reasignarContrato,
+  cancelarPagare, crearPagare, devolverHerramienta, editarPagare, eliminarContrato,
+  firmarContrato, guardarContrato, reasignarContrato,
 } from '@/app/admin/obras/acciones'
 import type { ContratoOficial, Profile } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
@@ -24,7 +24,10 @@ type Reparacion = { descripcion: string; importe: string }
 export function PanelContratos({ datos }: { datos: DatosObra }) {
   const [nuevo, setNuevo] = useState(false)
   const [editando, setEditando] = useState<ContratoOficial | null>(null)
-  const [pagareDe, setPagareDe] = useState<ContratoOficial | null>(null)
+  const [pagareDe, setPagareDe] = useState<{
+    contrato: ContratoOficial
+    pagare?: DatosObra['pagares'][number]
+  } | null>(null)
   const [reasignando, setReasignando] = useState<ContratoOficial | null>(null)
   const cerrada = datos.concentrado.estatus === 'cerrada'
 
@@ -57,8 +60,7 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
         <>
           {datos.contratos.map((contrato) => {
             const oficial = porTrabajador.get(contrato.trabajador_id)
-            const pagare = datos.pagares.find((p) => p.contrato_id === contrato.id)
-            const items = datos.pagareItems.filter((i) => i.pagare_id === pagare?.id)
+            const pagares = datos.pagares.filter((p) => p.contrato_id === contrato.id)
             const nomina = datos.nomina.find((n) => n.contrato_id === contrato.id)
 
             return (
@@ -66,15 +68,16 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
                 key={contrato.id}
                 contrato={contrato}
                 oficial={oficial}
-                pagare={pagare}
-                items={items}
+                pagares={pagares}
+                items={datos.pagareItems}
                 herramientas={datos.herramientas}
                 pagado={Number(nomina?.pagado ?? 0)}
                 pctPagado={Number(nomina?.pct_pagado ?? 0)}
                 obraId={datos.obra.id}
                 cerrada={cerrada}
                 onEditar={() => setEditando(contrato)}
-                onPagare={() => setPagareDe(contrato)}
+                onPagare={() => setPagareDe({ contrato })}
+                onCorregirPagare={(pagare) => setPagareDe({ contrato, pagare })}
                 onReasignar={() => setReasignando(contrato)}
               />
             )
@@ -108,8 +111,10 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
       {pagareDe && (
         <FormularioPagare
           obraId={datos.obra.id}
-          contrato={pagareDe}
-          oficial={porTrabajador.get(pagareDe.trabajador_id)}
+          contrato={pagareDe.contrato}
+          pagare={pagareDe.pagare}
+          items={datos.pagareItems.filter((i) => i.pagare_id === pagareDe.pagare?.id)}
+          oficial={porTrabajador.get(pagareDe.contrato.trabajador_id)}
           herramientas={datos.herramientas}
           onCerrar={() => setPagareDe(null)}
         />
@@ -131,12 +136,12 @@ export function PanelContratos({ datos }: { datos: DatosObra }) {
 
 // ---------------------------------------------------------------------------
 function TarjetaContrato({
-  contrato, oficial, pagare, items, herramientas, pagado, pctPagado, obraId, cerrada,
-  onEditar, onPagare, onReasignar,
+  contrato, oficial, pagares, items, herramientas, pagado, pctPagado, obraId, cerrada,
+  onEditar, onPagare, onCorregirPagare, onReasignar,
 }: {
   contrato: ContratoOficial
   oficial?: Profile
-  pagare?: DatosObra['pagares'][number]
+  pagares: DatosObra['pagares']
   items: DatosObra['pagareItems']
   herramientas: DatosObra['herramientas']
   pagado: number
@@ -145,6 +150,7 @@ function TarjetaContrato({
   cerrada: boolean
   onEditar: () => void
   onPagare: () => void
+  onCorregirPagare: (pagare: DatosObra['pagares'][number]) => void
   onReasignar: () => void
 }) {
   const router = useRouter()
@@ -194,16 +200,15 @@ function TarjetaContrato({
           </a>
           {!cerrada && (
             <>
-              {!pagare && (
-                <button
-                  type="button"
-                  onClick={onPagare}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
-                >
-                  <Wrench size={14} />
-                  Pagaré
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onPagare}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+                title="Firmar un pagaré por la herramienta que se lleva"
+              >
+                <Wrench size={14} />
+                {pagares.length === 0 ? 'Pagaré' : 'Otro pagaré'}
+              </button>
               {contrato.estatus === 'activo' && (
                 <button
                   type="button"
@@ -319,75 +324,123 @@ function TarjetaContrato({
         />
       </div>
 
-      {/* Pagaré */}
-      {pagare && (
-        <div className="border-t border-tinta-100 px-5 py-3.5">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-tinta-900">
-                Pagaré por {pesos(pagare.valor_total)}
-              </span>
-              <Etiqueta tono={pagare.estatus === 'activo' ? 'azul' : 'gris'}>
-                {pagare.estatus === 'activo' ? 'Activo' : 'Cancelado'}
-              </Etiqueta>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <a
-                href={`/api/pagares/${pagare.id}/pdf`}
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
-              >
-                <FileDown size={14} />
-                Pagaré
-              </a>
-              {pagare.estatus === 'activo' && !cerrada && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!confirm('¿Cancelar el pagaré? Todas las herramientas regresan al taller.')) return
-                    accion(() => cancelarPagare(obraId, pagare.id))
-                  }}
-                  disabled={pendiente}
-                  className="rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
-                >
-                  Cancelar y devolver todo
-                </button>
-              )}
-            </div>
-          </div>
+      {/* Pagarés: uno por cada salida de herramienta */}
+      {pagares.map((pagare) => (
+        <BloquePagare
+          key={pagare.id}
+          pagare={pagare}
+          varios={pagares.length > 1}
+          items={items.filter((i) => i.pagare_id === pagare.id)}
+          porCodigo={porCodigo}
+          obraId={obraId}
+          cerrada={cerrada}
+          pendiente={pendiente}
+          accion={accion}
+          onCorregir={() => onCorregirPagare(pagare)}
+        />
+      ))}
 
-          <ul className="grid gap-1 sm:grid-cols-2">
-            {items.map((item) => {
-              const h = porCodigo.get(item.herramienta_id)
-              return (
-                <li
-                  key={item.id}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-tinta-50 px-2.5 py-1.5 text-xs"
-                >
-                  <span className={item.devuelta ? 'text-tinta-400 line-through' : 'text-tinta-700'}>
-                    <span className="font-mono">{h?.codigo}</span> {h?.nombre}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="tabular-nums text-tinta-500">{pesos(item.valor_unitario)}</span>
-                    {!item.devuelta && !cerrada && (
-                      <button
-                        type="button"
-                        onClick={() => accion(() => devolverHerramienta(obraId, item.id))}
-                        disabled={pendiente}
-                        className="rounded px-1.5 py-0.5 font-medium text-haaco-700 hover:bg-haaco-50"
-                      >
-                        Devolver
-                      </button>
-                    )}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
     </Tarjeta>
+  )
+}
+
+function BloquePagare({
+  pagare, varios, items, porCodigo, obraId, cerrada, pendiente, accion, onCorregir,
+}: {
+  pagare: DatosObra['pagares'][number]
+  varios: boolean
+  items: DatosObra['pagareItems']
+  porCodigo: Map<string, DatosObra['herramientas'][number]>
+  obraId: string
+  cerrada: boolean
+  pendiente: boolean
+  accion: (fn: () => Promise<{ ok: boolean; error?: string }>) => void
+  onCorregir: () => void
+}) {
+  const activo = pagare.estatus === 'activo'
+
+  return (
+    <div className="border-t border-tinta-100 px-5 py-3.5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-tinta-900">
+            Pagaré por {pesos(pagare.valor_total)}
+          </span>
+          <Etiqueta tono={activo ? 'azul' : 'gris'}>{activo ? 'Activo' : 'Cancelado'}</Etiqueta>
+          {/* Con un solo pagaré la fecha estorba; con varios es lo que los distingue. */}
+          {varios && (
+            <span className="text-xs text-tinta-500">
+              {fecha(pagare.fecha_emision)}
+              {pagare.fecha_cancelacion && ` · cancelado ${fecha(pagare.fecha_cancelacion)}`}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <a
+            href={`/api/pagares/${pagare.id}/pdf`}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+          >
+            <FileDown size={14} />
+            Pagaré
+          </a>
+          {activo && !cerrada && (
+            <>
+              <button
+                type="button"
+                onClick={onCorregir}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+                title="Cambiar la herramienta de este pagaré"
+              >
+                <PenLine size={14} />
+                Corregir
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!confirm('¿Cancelar el pagaré? Todas las herramientas regresan al taller.')) return
+                  accion(() => cancelarPagare(obraId, pagare.id))
+                }}
+                disabled={pendiente}
+                className="rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
+              >
+                Cancelar y devolver todo
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <ul className="grid gap-1 sm:grid-cols-2">
+        {items.map((item) => {
+          const h = porCodigo.get(item.herramienta_id)
+          return (
+            <li
+              key={item.id}
+              className="flex items-center justify-between gap-2 rounded-lg bg-tinta-50 px-2.5 py-1.5 text-xs"
+            >
+              <span className={item.devuelta ? 'text-tinta-400 line-through' : 'text-tinta-700'}>
+                <span className="font-mono">{h?.codigo}</span> {h?.nombre}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="tabular-nums text-tinta-500">{pesos(item.valor_unitario)}</span>
+                {!item.devuelta && !cerrada && (
+                  <button
+                    type="button"
+                    onClick={() => accion(() => devolverHerramienta(obraId, item.id))}
+                    disabled={pendiente}
+                    className="rounded px-1.5 py-0.5 font-medium text-haaco-700 hover:bg-haaco-50"
+                  >
+                    Devolver
+                  </button>
+                )}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 
@@ -717,10 +770,13 @@ function FormularioContrato({
 
 // ---------------------------------------------------------------------------
 function FormularioPagare({
-  obraId, contrato, oficial, herramientas, onCerrar,
+  obraId, contrato, pagare, items, oficial, herramientas, onCerrar,
 }: {
   obraId: string
   contrato: ContratoOficial
+  /** Si viene, el diálogo corrige ese pagaré en lugar de firmar uno nuevo. */
+  pagare?: DatosObra['pagares'][number]
+  items: DatosObra['pagareItems']
   oficial?: Profile
   herramientas: DatosObra['herramientas']
   onCerrar: () => void
@@ -728,11 +784,20 @@ function FormularioPagare({
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [elegidas, setElegidas] = useState<string[]>([])
+  // Al corregir, las que ya trae el pagaré llegan marcadas. Las devueltas no:
+  // ésas ya están en el taller y volver a marcarlas es prestarlas de nuevo.
+  const [elegidas, setElegidas] = useState<string[]>(() =>
+    items.filter((i) => !i.devuelta).map((i) => i.herramienta_id),
+  )
   const [busqueda, setBusqueda] = useState('')
 
+  // Las que este pagaré ya tiene salieron del taller y están «en obra»: sin
+  // esta excepción desaparecerían de la lista justo cuando hay que corregirlas.
   const disponibles = herramientas.filter(
-    (h) => h.estado === 'disponible' || elegidas.includes(h.id),
+    (h) =>
+      h.estado === 'disponible' ||
+      elegidas.includes(h.id) ||
+      items.some((i) => i.herramienta_id === h.id && !i.devuelta),
   )
   const filtradas = busqueda.trim()
     ? disponibles.filter((h) =>
@@ -745,10 +810,12 @@ function FormularioPagare({
     0,
   )
 
-  const crear = () =>
+  const guardar = () =>
     iniciar(async () => {
       setError(null)
-      const r = await crearPagare(obraId, contrato.id, elegidas)
+      const r = pagare
+        ? await editarPagare(obraId, pagare.id, elegidas)
+        : await crearPagare(obraId, contrato.id, elegidas)
       if (!r.ok) return setError(r.error)
       onCerrar()
       router.refresh()
@@ -760,7 +827,11 @@ function FormularioPagare({
       onCerrar={onCerrar}
       ancho="lg"
       titulo={`Pagaré de herramientas · ${oficial?.nombre ?? ''}`}
-      descripcion="Al firmarlo, cada herramienta pasa a «En obra» con el oficial hasta que la devuelva."
+      descripcion={
+        pagare
+          ? 'Quita lo que sobra y agrega lo que falta. Lo que salga del pagaré regresa al taller.'
+          : 'Al firmarlo, cada herramienta pasa a «En obra» con el oficial hasta que la devuelva.'
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="border-b border-tinta-100 px-5 py-3">
@@ -829,11 +900,15 @@ function FormularioPagare({
           </button>
           <button
             type="button"
-            onClick={crear}
+            onClick={guardar}
             disabled={pendiente || elegidas.length === 0}
             className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
           >
-            {pendiente ? 'Generando…' : 'Generar pagaré'}
+            {pendiente
+              ? 'Guardando…'
+              : pagare
+                ? 'Guardar cambios'
+                : 'Generar pagaré'}
           </button>
         </PieDialogo>
       </div>

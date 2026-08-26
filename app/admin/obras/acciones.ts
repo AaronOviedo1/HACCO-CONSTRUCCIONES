@@ -358,6 +358,27 @@ export async function crearPagare(
   return { ok: true, datos: { id: data as string } }
 }
 
+export async function editarPagare(
+  obraId: string,
+  pagareId: string,
+  herramientas: string[],
+): Promise<Resultado<number>> {
+  if (herramientas.length === 0) {
+    return { ok: false, error: 'El pagaré tiene que quedar con al menos una herramienta.' }
+  }
+
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('editar_pagare', {
+    p_pagare: pagareId,
+    p_herramientas: herramientas,
+  })
+
+  if (error) return fallo(error)
+  refrescar(obraId)
+  revalidatePath('/admin/herramientas')
+  return { ok: true, datos: data as number }
+}
+
 export async function cancelarPagare(obraId: string, pagareId: string): Promise<Resultado<number>> {
   const supabase = await staff()
   const { data, error } = await supabase.rpc('cancelar_pagare', { p_pagare: pagareId })

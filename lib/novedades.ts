@@ -63,6 +63,23 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_26_DE_AGOSTO: Novedad[] = [
+  {
+    donde: 'Obras · Contratos',
+    titulo: 'Un oficial puede llevar varios pagarés',
+    texto:
+      'Antes, en cuanto un contrato tenía un pagaré ya no dejaba firmar otro —ni siquiera si ese primero estaba cancelado y la herramienta ya había vuelto al taller—. Ahora el botón sigue ahí siempre: dice «Otro pagaré» y arma uno nuevo con lo que se lleva esta vez. Cada pagaré se ve por separado en el contrato, con su fecha, su valor y su PDF, y en Documentos salen todos en la lista.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Obras · Contratos',
+    titulo: 'El pagaré se corrige sin tener que cancelarlo',
+    texto:
+      'Si al capturarlo se coló una herramienta de más o faltó alguna, ya no hay que cancelar todo y volver a empezar: en el pagaré hay un botón «Corregir» que abre la misma lista con lo que trae marcado. Lo que quitas regresa al taller y deja de contar en el valor del pagaré; lo que agregas sale con el oficial. Ojo con la diferencia: «Devolver» es que el oficial trajo la herramienta de vuelta y el renglón se queda tachado; «Corregir» es que ese renglón nunca debió estar. Sólo se corrigen los pagarés activos, y una herramienta no puede quedar prestada en dos pagarés a la vez.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_25_DE_AGOSTO: Novedad[] = [
   {
     donde: 'Servicios',
@@ -83,6 +100,27 @@ const DEL_25_DE_AGOSTO: Novedad[] = [
     titulo: 'El presupuesto se manda por WhatsApp con su folio',
     texto:
       'Las reparaciones llevan su propia serie de folios —S-1, S-2— aparte de las cotizaciones. El presupuesto sale en PDF con el membrete de siempre, con el diagnóstico impreso arriba para que se vea de dónde sale el precio, y con la garantía y la vigencia al pie. Se abre, se descarga o se manda directo al cliente por WhatsApp.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Servicios',
+    titulo: 'La visita se cobra aunque el cliente no acepte',
+    texto:
+      'Cada servicio nace con los $400 de la visita puestos, y se pueden cambiar o dejar en cero cuando no se le cobran. Si el cliente aprueba, los $400 van dentro del total; si dice que no, el servicio se queda debiendo nada más la visita y sale un botón para cobrarla —antes ese dinero no aparecía por ningún lado—. En el presupuesto que se le manda, la visita va como un renglón más y una condición dice que se cubre aun cuando no acepte.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Servicios',
+    titulo: 'Los trabajos grandes ya admiten anticipo',
+    texto:
+      'En cuanto el cliente aprueba se puede registrar un cobro, sin esperar a que el trabajo quede. El servicio se marca «Con anticipo» y sigue debiendo el resto, que se cobra al terminar como siempre. En el papel del presupuesto se dice que en trabajos mayores se pide anticipo para surtir el material.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Servicios',
+    titulo: 'El preventivo de seis meses se agenda de un botón',
+    texto:
+      'Al cerrar una reparación aparece «Agendar el preventivo» con la fecha ya contada seis meses adelante. Se toca y queda la visita agendada con el mismo cliente, el mismo domicilio y su aviso, sin capturar nada. De cada portón sale un solo preventivo, así que no se duplica, y en la lista hay un filtro para verlos todos juntos.',
     roles: OFICINA,
   },
   {
@@ -360,6 +398,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-08-26', fecha: '26 de agosto de 2026', novedades: DEL_26_DE_AGOSTO },
   { version: '2026-08-25', fecha: '25 de agosto de 2026', novedades: DEL_25_DE_AGOSTO },
   { version: '2026-08-18', fecha: '18 de agosto de 2026', novedades: DEL_18_DE_AGOSTO },
   { version: '2026-08-13', fecha: '13 de agosto de 2026', novedades: DEL_13_DE_AGOSTO },
