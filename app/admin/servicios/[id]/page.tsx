@@ -13,6 +13,7 @@ import { AvanceServicio, DatoFicha } from '@/components/servicios/ficha-servicio
 import {
   AccionesResolucion, AccionesSecundarias, BotonPreventivo, DialogoDiagnostico, DialogoReparado,
 } from '@/components/servicios/dialogos'
+import { BotonEliminarPresupuesto } from '@/components/servicios/boton-eliminar-presupuesto'
 import { EditorPresupuesto } from '@/components/servicios/editor-presupuesto'
 import { DialogoCobro } from '@/components/servicios/dialogo-cobro'
 import { AccionesPdf } from '@/components/servicios/acciones-pdf'
@@ -337,6 +338,16 @@ export default async function PaginaServicio({
           <div className="border-t-[0.5px] border-tinta-150 px-5 py-4">
             <AccionesPdf servicio={servicio} />
           </div>
+
+          {/* Borrar el presupuesto va aparte y abajo del todo: al lado de
+              «mandar por WhatsApp» invita a errores, y en su propia franja se
+              lee como lo que es, la salida de emergencia. Sólo mientras el
+              cliente no haya contestado; después, primero se deshace el paso. */}
+          {(servicio.estatus === 'diagnostico' || servicio.estatus === 'presupuestado') && (
+            <div className="flex flex-wrap items-center gap-2 border-t-[0.5px] border-tinta-150 bg-tinta-50/60 px-5 py-3">
+              <BotonEliminarPresupuesto servicio={servicio} />
+            </div>
+          )}
         </Tarjeta>
       )}
 

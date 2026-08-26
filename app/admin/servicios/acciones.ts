@@ -296,6 +296,67 @@ export async function guardarPresupuesto(
   return { ok: true }
 }
 
+/**
+ * Borra el presupuesto entero y deja el servicio como estaba antes de armarlo.
+ *
+ * «Corregir presupuesto» sirve cuando lo que cambia son los precios; esto es
+ * para el presupuesto que no debió existir —se capturó en el servicio
+ * equivocado, o el técnico volvió y lo que encontró era otra cosa—. Sin esto
+ * el único camino era dejar una partida de mentiras, porque el editor exige
+ * al menos una.
+ *
+ * Se puede mientras el cliente no haya contestado. Después ya hay una venta
+ * contada en el mes, y quizá dinero recibido: para eso está «Volver a
+ * presupuesto», que deshace el paso a la vista de todos antes de llegar aquí.
+ *
+ * El servicio regresa a «En diagnóstico», que es de donde salió: lo que el
+ * técnico encontró sigue siendo cierto aunque el precio se haya ido a la
+ * basura. El subtotal lo rehace solo el trigger de `servicio_items`, que
+ * también corre al borrar.
+ */
+export async function eliminarPresupuesto(id: string): Promise<Resultado> {
+  const supabase = await staff()
+
+  const { data: servicio, error: lectura } = await supabase
+    .from('servicios')
+    .select('estatus')
+    .eq('id', id)
+    .maybeSingle()
+  if (lectura) return fallo(lectura)
+  if (!servicio) return { ok: false, error: 'No se encontró el servicio.' }
+
+  if (servicio.estatus !== 'diagnostico' && servicio.estatus !== 'presupuestado') {
+    return {
+      ok: false,
+      error:
+        'El cliente ya contestó este presupuesto. Deshaz primero ese paso y luego elimínalo.',
+    }
+  }
+
+  // Aunque el estatus lo permita: si ya entró dinero, algo se cobró contra
+  // este presupuesto y borrarlo dejaría un pago sin nada que lo explique.
+  const { count, error: conteo } = await supabase
+    .from('servicio_pagos')
+    .select('id', { count: 'exact', head: true })
+    .eq('servicio_id', id)
+  if (conteo) return fallo(conteo)
+  if ((count ?? 0) > 0) {
+    return { ok: false, error: 'Este servicio ya tiene cobros. Quítalos antes de borrar el presupuesto.' }
+  }
+
+  const { error: borrado } = await supabase.from('servicio_items').delete().eq('servicio_id', id)
+  if (borrado) return fallo(borrado)
+
+  const { error } = await supabase
+    .from('servicios')
+    .update({ estatus: 'diagnostico', fecha_presupuesto: null })
+    .eq('id', id)
+  if (error) return fallo(error)
+
+  refrescar(id)
+  return { ok: true }
+}
+
 /** El sí o el no del cliente. Aquí nace la venta. */
 export async function resolverServicio(
   id: string,
