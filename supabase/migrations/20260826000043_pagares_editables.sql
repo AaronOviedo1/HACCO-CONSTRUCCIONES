@@ -85,7 +85,12 @@ begin
     raise exception 'El pagaré está cancelado: ya no se puede corregir';
   end if;
 
-  -- Ninguna herramienta puede estar prestada en dos pagarés a la vez.
+  -- Una herramienta que se agrega no puede venir prestada en otro pagaré vivo.
+  -- Se miran sólo las que entran hoy, y no las que el pagaré ya traía: en la
+  -- base real hay once herramientas repetidas en dos pagarés activos —de la
+  -- época en que corregir no se podía y hubo que capturar como se pudiera— y
+  -- vigilarlas aquí dejaría esos pagarés sin manera de arreglarse, que es
+  -- justo lo contrario de lo que esta función viene a resolver.
   select h.codigo || ' ' || h.nombre into v_ocupada
     from public.pagare_items i
     join public.pagares pg on pg.id = i.pagare_id
@@ -94,6 +99,11 @@ begin
      and i.pagare_id <> p_pagare
      and pg.estatus = 'activo'
      and not i.devuelta
+     and not exists (
+       select 1 from public.pagare_items previo
+        where previo.pagare_id = p_pagare
+          and previo.herramienta_id = i.herramienta_id
+          and not previo.devuelta)
    limit 1;
 
   if v_ocupada is not null then
