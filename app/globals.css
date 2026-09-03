@@ -466,6 +466,20 @@ body:has([data-lienzo="claro"]) {
   position: fixed;
   inset: 0;
   z-index: 120;
+  /*
+   * Nunca recibe un toque, ni mientras se ve: no hay nada que tocar aquí.
+   *
+   * No es una precaución de más, es lo único que sostiene la app en el iPhone
+   * y en el iPad. WebKit no aplica el `visibility: hidden` del último
+   * fotograma cuando el elemento que se anima contiene una pieza con su propia
+   * animación de `transform` —o sea, siempre aquí: las astas y los travesaños
+   * lo son—: la animación acaba, `opacity` sí se queda en 0, pero el elemento
+   * sigue en `visible`. Y un `fixed inset-0` en z-120 que no se ve pero sigue
+   * ahí se traga TODOS los toques de la app instalada, que es donde esta
+   * pantalla existe. En el escritorio nunca se notó porque ahí es `display:
+   * none`.
+   */
+  pointer-events: none;
   /* Oculta por defecto: en una pestaña normal esta pantalla no existe.
      `display: none` además impide que las animaciones lleguen a correr. */
   display: none;
@@ -487,8 +501,13 @@ html[data-standalone] .hp-splash  { display: grid; }
  * La salida va en el contenedor y las entradas en los hijos: si compartieran
  * elemento, el `transform` de una pisaría el de la otra.
  *
- * Acaba en `visibility: hidden` con `forwards`, así que la pantalla se aparta
- * sola aunque no llegue a ejecutarse ni una línea de JavaScript.
+ * Acaba en `opacity: 0` con `forwards`, así que la pantalla se aparta sola
+ * aunque no llegue a ejecutarse ni una línea de JavaScript.
+ *
+ * El `visibility: hidden` del último fotograma es el remate —donde el motor lo
+ * respeta, saca el elemento del árbol y ahorra la capa—, pero no se puede
+ * confiar en él: WebKit lo ignora aquí (ver `pointer-events` arriba). Lo que
+ * garantiza que la app siga siendo tocable es aquello, no esto.
  */
 .hp-splash {
   animation: hp-sale var(--hp-sale) ease-in calc(var(--hp-total) - var(--hp-sale)) forwards;
