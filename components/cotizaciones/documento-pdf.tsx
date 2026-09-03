@@ -208,6 +208,12 @@ const e = StyleSheet.create({
   nombreFirma: { fontFamily: 'Figtree', fontWeight: 700, fontSize: 9.5, textAlign: 'center' },
   cargoFirma: { fontSize: 8, color: GRIS, textAlign: 'center' },
 
+  // Términos y condiciones: bajo la firma y en letra chica, que es el peso que
+  // le toca. Lleva `lineHeight` propio —el de la página borra el pie fijo, ver
+  // la nota de arriba— y sí lo necesita: son párrafos de varias líneas.
+  terminos: { marginTop: 14, borderTopWidth: 0.7, borderTopColor: LINEA, paddingTop: 8 },
+  terminosTexto: { fontSize: 7.4, color: GRIS, lineHeight: 1.35, textAlign: 'justify' },
+
   pie: {
     position: 'absolute',
     bottom: 22,
@@ -253,6 +259,8 @@ export type DatosPdf = {
   total: number
   anticipoPct: number
   vigenciaDias: number
+  /** Bloque legal al pie. Nulo en las cotizaciones anteriores a que existiera. */
+  terminos: string | null
 }
 
 export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
@@ -422,6 +430,13 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
             </View>
           </View>
         </View>
+
+        {datos.terminos ? (
+          <View style={e.terminos}>
+            <Text style={e.tituloCondiciones}>TÉRMINOS Y CONDICIONES</Text>
+            <Text style={e.terminosTexto}>{datos.terminos}</Text>
+          </View>
+        ) : null}
 
         <View style={e.pie} fixed>
           <Text>

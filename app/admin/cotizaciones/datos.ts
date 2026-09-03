@@ -4,6 +4,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { masComunes } from '@/lib/sugerencias'
 import type { PrecioVigente } from '@/lib/precios'
 import {
+  TERMINOS_COTIZACION,
   borradorVacio,
   type BorradorCotizacion,
   type SugerenciasCotizacion,
@@ -11,12 +12,14 @@ import {
 
 /**
  * Lo que el editor necesita para poder pintarse: clientes, biblioteca de
- * textos y pinturas. Tres consultas cortas.
+ * textos, pinturas y los términos de la casa. Consultas cortas.
  */
 export async function cargarCatalogos() {
   const supabase = await crearClienteServidor()
-  const [{ data: clientes }, { data: textos }, { data: productos }, { data: precios }] =
-    await Promise.all([
+  const [
+    { data: clientes }, { data: textos }, { data: productos }, { data: precios },
+    { data: ajusteTerminos },
+  ] = await Promise.all([
       supabase.from('clientes').select('*').eq('activo', true).order('nombre'),
       supabase.from('textos_proceso').select('*').eq('activo', true).order('orden'),
       supabase.from('productos').select('*').eq('activo', true).neq('tipo', 'insumo_taller').order('nombre'),
@@ -24,6 +27,7 @@ export async function cargarCatalogos() {
       // índice. Viaja aquí y no con las sugerencias —que ya barren miles de
       // renglones— para no tocar lo que tarda en abrir el cotizador.
       supabase.from('v_precios_vigentes').select('*'),
+      supabase.from('ajustes').select('valor').eq('clave', 'terminos_cotizacion').maybeSingle(),
     ])
 
   return {
@@ -31,6 +35,11 @@ export async function cargarCatalogos() {
     textos: textos ?? [],
     productos: productos ?? [],
     precios: (precios ?? []) as PrecioVigente[],
+    // El de fábrica sólo entra si nadie ha guardado los suyos todavía.
+    terminosPorDefecto:
+      typeof ajusteTerminos?.valor === 'string' && ajusteTerminos.valor.trim()
+        ? ajusteTerminos.valor
+        : TERMINOS_COTIZACION,
   }
 }
 
@@ -107,6 +116,9 @@ export async function cargarCotizacion(id: string) {
     vigencia_dias: String(cotizacion.vigencia_dias),
     viaticos: Number(cotizacion.viaticos) > 0 ? String(cotizacion.viaticos) : '',
     linea_calidad: cotizacion.linea_calidad ?? '',
+    // Lo que se le mandó a ESTE cliente. Una cotización anterior a la columna
+    // no trae nada, y su bloque de términos sencillamente no se imprime.
+    terminos: cotizacion.terminos ?? '',
     notas: cotizacion.notas ?? '',
     fecha: cotizacion.fecha,
     procesos: (procesos ?? []).map((p) => ({

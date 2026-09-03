@@ -101,6 +101,12 @@ export type BorradorCotizacion = {
   /** Viáticos presupuestados: no salen en el PDF, van al concentrado de la OT. */
   viaticos: string
   linea_calidad: string
+  /**
+   * Términos y condiciones al pie del PDF. Nace del texto de la casa —el
+   * ajuste `terminos_cotizacion`— y se puede cambiar aquí sin tocar el de las
+   * demás; en blanco, el bloque no se imprime.
+   */
+  terminos: string
   notas: string
   fecha: string
   procesos: ProcesoBorrador[]
@@ -174,7 +180,15 @@ export function totalesCotizacion(borrador: BorradorCotizacion) {
 // ---------------------------------------------------------------------------
 // Borrador ⇄ payload de la función guardar_cotizacion
 // ---------------------------------------------------------------------------
-export function borradorVacio(tipo: TipoCotizacion = 'pintura'): BorradorCotizacion {
+export function borradorVacio(
+  tipo: TipoCotizacion = 'pintura',
+  /*
+   * Los términos de la casa, que vienen de la base. El valor por omisión es el
+   * de fábrica: sirve para el cotizador y para cualquier borrador que se arme
+   * sin haber consultado los ajustes.
+   */
+  terminos: string = TERMINOS_COTIZACION,
+): BorradorCotizacion {
   return {
     cliente_id: '',
     nombre_obra: '',
@@ -188,6 +202,7 @@ export function borradorVacio(tipo: TipoCotizacion = 'pintura'): BorradorCotizac
     vigencia_dias: String(REGLAS.vigenciaCotizacionDias),
     viaticos: '',
     linea_calidad: LINEA_CALIDAD,
+    terminos,
     notas: '',
     fecha: hoyISO(),
     procesos: [],
@@ -229,6 +244,7 @@ export function aPayload(borrador: BorradorCotizacion): DocumentoCotizacionSql {
     vigencia_dias: num(borrador.vigencia_dias) || 30,
     viaticos: num(borrador.viaticos),
     linea_calidad: borrador.linea_calidad.trim() || null,
+    terminos: borrador.terminos.trim() || null,
     notas: borrador.notas.trim() || null,
     fecha: borrador.fecha,
     procesos: borrador.procesos
@@ -346,6 +362,19 @@ export const tituloPartidas = (tipo: TipoCotizacion) =>
 
 export const LINEA_CALIDAD =
   'Se utilizarán productos de la más alta calidad en el mercado, garantizando la durabilidad y el acabado del trabajo.'
+
+/**
+ * Los términos y condiciones de fábrica.
+ *
+ * Es sólo la red: el texto que se usa de verdad vive en el ajuste
+ * `terminos_cotizacion` y se cambia desde la propia cotización. Este entra
+ * cuando todavía no hay ninguno guardado.
+ */
+export const TERMINOS_COTIZACION =
+  'Esta oferta es válida por los días de vigencia indicados. Los precios no incluyen ' +
+  'reparaciones de base o estructura. No somos responsables por fallas estructurales o ' +
+  'problemas existentes en el área de trabajo. El cliente deberá proporcionar condiciones ' +
+  'adecuadas de seguridad, acceso y superficie para la ejecución de los trabajos.'
 
 // ---------------------------------------------------------------------------
 // El {PRODUCTO} de los bullets del proceso

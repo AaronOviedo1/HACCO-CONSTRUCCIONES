@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function NuevaCotizacion() {
   await requerirRol(['admin', 'administracion'])
-  const { clientes, textos, productos, precios } = await cargarCatalogos()
+  const { clientes, textos, productos, precios, terminosPorDefecto } = await cargarCatalogos()
 
   // Sin `await`: la promesa cruza al editor y se resuelve allá. El `catch` va
   // aquí para que un fallo no viaje como rechazo suelto.
@@ -20,7 +20,7 @@ export default async function NuevaCotizacion() {
   // La descripción del trabajo arranca vacía: cada obra lleva sus propios
   // pasos y es más rápido agregarlos de la biblioteca que borrar los que sobran.
   const inicial = {
-    ...borradorVacio('pintura'),
+    ...borradorVacio('pintura', terminosPorDefecto),
     items: [{ descripcion: '', m2: '', unidad: '', precio_unitario: '' }],
   }
 
@@ -37,6 +37,7 @@ export default async function NuevaCotizacion() {
       precios={precios}
       obras={[]}
       recordatorios={[]}
+      terminosPorDefecto={terminosPorDefecto}
       sugerencias={sugerencias}
     />
   )
