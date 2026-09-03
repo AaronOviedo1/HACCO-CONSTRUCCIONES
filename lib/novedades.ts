@@ -63,6 +63,23 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_3_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Cotizaciones',
+    titulo: 'Los términos y condiciones ya se escriben desde aquí',
+    texto:
+      'Al pie de la cotización, junto a las notas, hay un cuadro de «Términos y condiciones». Lo que escribas ahí sale al final del PDF, debajo de la firma y en letra chica, que es donde le toca ir —hasta hoy sólo cabía metiéndolo en la línea de calidad y salía a media hoja—. Cada cotización lleva los suyos y se pueden cambiar sin tocar las demás. Si un texto es el que vas a usar siempre, el botón «Dejar estos como los de siempre» lo guarda para las cotizaciones nuevas; «Volver a los de siempre» te regresa a él si lo cambiaste de más. Una cotización de antes llega en blanco y no imprime el bloque: el botón «Poner los de siempre» se lo pone.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Toda la app',
+    titulo: 'En el celular y en el iPad la app vuelve a responder',
+    texto:
+      'A quien la abría desde el icono de la pantalla de inicio se le quedaba muerta: se veía todo bien pero no había forma de tocar nada, ni de quitar el aviso de novedades. Era la pantalla verde de bienvenida, que se desvanecía a la vista pero seguía puesta encima tapando los toques. Ya se aparta de verdad.',
+    roles: TODOS,
+  },
+]
+
 const DEL_26_DE_AGOSTO: Novedad[] = [
   {
     donde: 'Obras · Contratos',
@@ -398,6 +415,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-03', fecha: '3 de septiembre de 2026', novedades: DEL_3_DE_SEPTIEMBRE },
   { version: '2026-08-26', fecha: '26 de agosto de 2026', novedades: DEL_26_DE_AGOSTO },
   { version: '2026-08-25', fecha: '25 de agosto de 2026', novedades: DEL_25_DE_AGOSTO },
   { version: '2026-08-18', fecha: '18 de agosto de 2026', novedades: DEL_18_DE_AGOSTO },
