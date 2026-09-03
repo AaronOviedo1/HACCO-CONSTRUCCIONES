@@ -34,6 +34,7 @@ import {
 } from '@/lib/cotizaciones'
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
+  guardarTerminosPorDefecto,
 } from '@/app/admin/cotizaciones/acciones'
 import type {
   Cliente, EstatusCotizacion, Obra, Producto, Recordatorio, TextoProceso, TipoCotizacion,
@@ -78,12 +79,14 @@ type Props = {
   obras: ObraLigada[]
   /** Los pendientes con fecha de esta cotización. Vacío en una nueva. */
   recordatorios: Recordatorio[]
+  /** Los términos y condiciones de la casa, para comparar y para restituir. */
+  terminosPorDefecto: string
   sugerencias: Promise<SugerenciasCotizacion>
 }
 
 export function EditorCotizacion({
   cotizacionId, folio, estatus, inicial, clientes, textos, productos, precios, obras,
-  recordatorios, sugerencias: promesaSugerencias,
+  recordatorios, terminosPorDefecto, sugerencias: promesaSugerencias,
 }: Props) {
   const router = useRouter()
   const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
@@ -539,7 +542,7 @@ export function EditorCotizacion({
           <TarjetaPlegable
             titulo="Notas al pie"
             abierta={abiertaEnAlta}
-            resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias), doc.requiere_factura).length} notas en el PDF${doc.notas.trim() ? ' · con notas internas' : ''}`}
+            resumen={`${notasCotizacion(num(doc.anticipo_pct), num(doc.vigencia_dias), doc.requiere_factura).length} notas en el PDF${doc.terminos.trim() ? ' · con términos' : ''}${doc.notas.trim() ? ' · con notas internas' : ''}`}
           >
             <div className="px-5 py-5">
               <ul className="mb-4 space-y-1 text-sm text-tinta-600">
@@ -547,17 +550,25 @@ export function EditorCotizacion({
                   <li key={n} className="font-medium">{n}</li>
                 ))}
               </ul>
-              <Campo
-                etiqueta="Línea de calidad de productos"
-                hijo={
-                  <AreaTexto
-                    rows={2}
-                    value={doc.linea_calidad}
-                    onChange={(e) => cambiar('linea_calidad', e.target.value)}
-                    disabled={bloqueado}
-                  />
-                }
+              <CampoTerminos
+                valor={doc.terminos}
+                porDefecto={terminosPorDefecto}
+                bloqueado={bloqueado}
+                onCambio={(t) => cambiar('terminos', t)}
               />
+              <div className="mt-4">
+                <Campo
+                  etiqueta="Línea de calidad de productos"
+                  hijo={
+                    <AreaTexto
+                      rows={2}
+                      value={doc.linea_calidad}
+                      onChange={(e) => cambiar('linea_calidad', e.target.value)}
+                      disabled={bloqueado}
+                    />
+                  }
+                />
+              </div>
               <div className="mt-4">
                 <Campo
                   etiqueta="Notas internas (no salen en el PDF)"
@@ -796,6 +807,103 @@ export function EditorCotizacion({
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Los términos y condiciones que van al pie del PDF.
+ *
+ * Son dos cosas separadas a propósito, y por eso hay dos botones: lo que dice
+ * ESTA cotización —que es lo que se le mandó a este cliente y no se toca sola
+ * nunca más— y el texto de la casa, el que traen las nuevas. Cambiar uno no
+ * cambia el otro.
+ *
+ * Una cotización de antes de que existiera la columna llega en blanco. No se
+ * le mete el texto de la casa al abrirla: eso cambiaría, sin avisar, un
+ * documento que ya salió. Se ofrece el botón y decide quien la esté viendo.
+ */
+function CampoTerminos({
+  valor,
+  porDefecto,
+  bloqueado,
+  onCambio,
+}: {
+  valor: string
+  porDefecto: string
+  bloqueado: boolean
+  onCambio: (texto: string) => void
+}) {
+  // El texto de la casa puede cambiar aquí mismo; se lleva en estado para que
+  // los botones se apaguen en cuanto se fija, sin recargar la pantalla.
+  const [casa, setCasa] = useState(porDefecto)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [pendiente, iniciar] = useTransition()
+
+  const escrito = valor.trim()
+  const distinto = escrito !== casa.trim()
+
+  const fijar = () =>
+    iniciar(async () => {
+      const r = await guardarTerminosPorDefecto(valor)
+      setAviso(r.ok ? 'Listo: las cotizaciones nuevas nacen con este texto.' : r.error)
+      if (r.ok) setCasa(valor)
+    })
+
+  return (
+    <>
+      <Campo
+        etiqueta="Términos y condiciones"
+        ayuda="Salen al final del PDF, debajo de la firma. En blanco, no se imprime el bloque."
+        hijo={
+          <AreaTexto
+            rows={6}
+            value={valor}
+            onChange={(e) => onCambio(e.target.value)}
+            disabled={bloqueado}
+            placeholder="Escribe aquí lo que aplica a esta cotización."
+          />
+        }
+      />
+
+      {!bloqueado && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-4">
+          {!escrito ? (
+            <BotonTerminos onClick={() => onCambio(casa)}>Poner los de siempre</BotonTerminos>
+          ) : (
+            distinto && (
+              <>
+                <BotonTerminos onClick={fijar} deshabilitado={pendiente}>
+                  {pendiente ? 'Guardando…' : 'Dejar estos como los de siempre'}
+                </BotonTerminos>
+                <BotonTerminos onClick={() => onCambio(casa)}>Volver a los de siempre</BotonTerminos>
+              </>
+            )
+          )}
+          {aviso && <span className="text-xs text-tinta-500">{aviso}</span>}
+        </div>
+      )}
+    </>
+  )
+}
+
+function BotonTerminos({
+  onClick,
+  deshabilitado,
+  children,
+}: {
+  onClick: () => void
+  deshabilitado?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={deshabilitado}
+      className="inline-flex min-h-11 items-center text-[13px] font-semibold text-haaco-700 hover:underline disabled:opacity-50 lg:min-h-0 lg:text-xs lg:font-medium"
+    >
+      {children}
+    </button>
   )
 }
 

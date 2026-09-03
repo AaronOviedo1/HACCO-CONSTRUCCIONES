@@ -30,18 +30,22 @@ export function CotizadorRapido({
   clientes,
   textos,
   productos,
+  terminosPorDefecto,
   sugerencias: promesaSugerencias,
 }: {
   clientes: Cliente[]
   textos: TextoProceso[]
   productos: Producto[]
+  /* En sitio no se editan; se llevan puestos para que la cotización levantada
+     frente al cliente salga con el mismo pie que las de la oficina. */
+  terminosPorDefecto: string
   sugerencias: Promise<SugerenciasCotizacion>
 }) {
   const router = useRouter()
   const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
   const [paso, setPaso] = useState<Paso>('cliente')
   const [doc, setDoc] = useState<BorradorCotizacion>(() => ({
-    ...borradorVacio('pintura'),
+    ...borradorVacio('pintura', terminosPorDefecto),
     items: [{ descripcion: '', m2: '', unidad: '', precio_unitario: '' }],
   }))
   const [busqueda, setBusqueda] = useState('')

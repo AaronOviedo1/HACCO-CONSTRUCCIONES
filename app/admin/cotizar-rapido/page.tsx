@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function PaginaCotizarRapido() {
   await requerirRol(['admin', 'administracion'])
-  const { clientes, textos, productos } = await cargarCatalogos()
+  const { clientes, textos, productos, terminosPorDefecto } = await cargarCatalogos()
 
   // Sin `await`: la promesa cruza al cotizador y se resuelve allá. El `catch`
   // va aquí para que un fallo no viaje como rechazo suelto. En sitio importa:
@@ -22,6 +22,7 @@ export default async function PaginaCotizarRapido() {
       clientes={clientes}
       textos={textos}
       productos={productos}
+      terminosPorDefecto={terminosPorDefecto}
       sugerencias={sugerencias}
     />
   )

@@ -41,6 +41,28 @@ export async function guardarCotizacion(
   return { ok: true, datos: { id: data as string } }
 }
 
+/**
+ * Deja este texto como el de la casa: el que traerán las cotizaciones nuevas.
+ *
+ * No toca ni una cotización ya escrita —las viejas siguen diciendo lo que le
+ * dijeron a su cliente— y por eso vive aparte del guardado del documento: son
+ * dos decisiones distintas y se toman con dos botones distintos.
+ */
+export async function guardarTerminosPorDefecto(terminos: string): Promise<Resultado> {
+  const texto = terminos.trim()
+  if (!texto) return { ok: false, error: 'Escribe los términos antes de dejarlos como los de siempre.' }
+
+  const supabase = await staff()
+  const { error } = await supabase
+    .from('ajustes')
+    .upsert({ clave: 'terminos_cotizacion', valor: texto }, { onConflict: 'clave' })
+
+  if (error) return { ok: false, error: error.message }
+
+  refrescar()
+  return { ok: true }
+}
+
 /** Copia la cotización para armar una variante del mismo cliente. */
 export async function duplicarCotizacion(id: string): Promise<Resultado<{ id: string }>> {
   const supabase = await staff()

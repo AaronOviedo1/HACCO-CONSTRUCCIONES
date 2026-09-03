@@ -182,6 +182,8 @@ export type Cotizacion = {
   /** Viáticos presupuestados: no salen en el PDF, se comparan en la OT. */
   viaticos: number
   linea_calidad: string | null
+  /** Términos y condiciones al pie del PDF, tal como se le mandaron a este cliente. */
+  terminos: string | null
   notas: string | null
   vigencia_dias: number
   fecha: string
@@ -1080,6 +1082,7 @@ export type DocumentoCotizacionSql = {
   vigencia_dias?: number
   viaticos?: number
   linea_calidad?: string | null
+  terminos?: string | null
   notas?: string | null
   fecha?: string
   procesos: { texto_proceso_id?: string | null; contenido: string; orden: number }[]

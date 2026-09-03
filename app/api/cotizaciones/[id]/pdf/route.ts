@@ -57,6 +57,7 @@ export async function GET(
     total: cotizacion.total,
     anticipoPct: cotizacion.anticipo_pct ?? 50,
     vigenciaDias: cotizacion.vigencia_dias,
+    terminos: cotizacion.terminos,
   }
 
   // El componente devuelve un <Document>, pero TypeScript sólo ve su envoltura.
