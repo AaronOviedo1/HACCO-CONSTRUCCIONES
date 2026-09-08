@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useFormStatus } from 'react-dom'
 import { Trash2, X } from 'lucide-react'
 
@@ -166,6 +167,13 @@ export function Casilla({
 
 // ---------------------------------------------------------------------------
 // Diálogo
+/* Detector de «ya estamos en el navegador» para el portal del diálogo. Van
+   fuera del componente porque useSyncExternalStore vuelve a suscribirse cada
+   vez que la función de suscripción cambia de identidad. */
+const SIN_SUSCRIPCION = () => () => {}
+const EN_NAVEGADOR = () => true
+const EN_SERVIDOR = () => false
+
 // ---------------------------------------------------------------------------
 export function Dialogo({
   abierto,
@@ -183,6 +191,13 @@ export function Dialogo({
   ancho?: 'md' | 'lg' | 'xl'
 }) {
   const ref = useRef<HTMLDivElement>(null)
+
+  /**
+   * El diálogo se dibuja en un portal colgado de <body> (ver el return), y
+   * `document` no existe mientras Next renderiza en el servidor. Este estado
+   * retrasa el portal al primer render del navegador.
+   */
+  const montado = useSyncExternalStore(SIN_SUSCRIPCION, EN_NAVEGADOR, EN_SERVIDOR)
 
   /**
    * El `onCerrar` que llega es casi siempre una función escrita en el sitio
@@ -208,7 +223,7 @@ export function Dialogo({
    * activaba el botón «Cerrar» y el diálogo se iba con todo lo escrito.
    */
   useEffect(() => {
-    if (!abierto) return
+    if (!abierto || !montado) return
     const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && cerrar.current()
     document.addEventListener('keydown', alTeclear)
     document.body.style.overflow = 'hidden'
@@ -217,14 +232,27 @@ export function Dialogo({
       document.removeEventListener('keydown', alTeclear)
       document.body.style.overflow = ''
     }
-  }, [abierto])
+  }, [abierto, montado])
 
-  if (!abierto) return null
+  if (!abierto || !montado) return null
 
   const anchos = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' } as const
 
-  return (
-    /* La escalera de capas del teléfono, de abajo hacia arriba: las pestañas
+  return createPortal(
+    /* Colgado de <body>, y no donde lo escribe quien lo usa, porque casi todos
+       estos diálogos se abren desde dentro de un formulario: el de «Nuevo
+       cliente» vive dentro del <form> de un servicio, el de un pago dentro del
+       de una cotización. HTML no permite un <form> dentro de otro; el navegador
+       descarta el de adentro al parsear, y entonces el botón «Guardar» del
+       diálogo pasa a pertenecer al formulario de afuera. El síntoma no es un
+       error claro sino el guardado equivocado: React avisa «A React form was
+       unexpectedly submitted» y se envía la pantalla de atrás.
+
+       El portal saca el diálogo de ese anidamiento en el DOM sin moverlo en el
+       árbol de React, así que el estado y los eventos siguen igual. Es el mismo
+       recurso que ya usan el calendario y las sugerencias de domicilio.
+
+       La escalera de capas del teléfono, de abajo hacia arriba: las pestañas
        y el velo del menú en z-40; el «+» flotante y su menú en z-50; el
        diálogo en z-[55]; lo que se despliega dentro de él —el calendario, las
        sugerencias de cliente, las de domicilio— en z-[56], porque viven en un
@@ -264,7 +292,8 @@ export function Dialogo({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

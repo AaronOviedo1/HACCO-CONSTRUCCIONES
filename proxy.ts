@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { AUTOLOGIN_DEV } from '@/lib/supabase/autologin-dev'
 import { SUPABASE_CONFIGURADO, SUPABASE_LLAVE_PUBLICA, SUPABASE_URL } from '@/lib/supabase/entorno'
 import type { RolUsuario } from '@/types/database'
 
@@ -63,7 +64,20 @@ export default async function proxy(request: NextRequest) {
     return redireccion
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let { data: { user } } = await supabase.auth.getUser()
+
+  // En la máquina local, con DEV_AUTOLOGIN puesto, la sesión se abre sola. El
+  // signIn escribe las cookies en `respuesta` a través del setAll de arriba, y
+  // como también quedan en `request`, la misma petición ya continúa autenticada.
+  if (!user && AUTOLOGIN_DEV) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: AUTOLOGIN_DEV.correo,
+      password: AUTOLOGIN_DEV.contrasena,
+    })
+    if (error) console.warn(`[dev] autologin de ${AUTOLOGIN_DEV.correo} falló: ${error.message}`)
+    else user = data.user
+  }
+
   const ruta = request.nextUrl.pathname
   const esPublica = RUTAS_PUBLICAS.some((p) => ruta.startsWith(p))
 
