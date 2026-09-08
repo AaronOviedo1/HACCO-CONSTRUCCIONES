@@ -63,6 +63,16 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_8_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Servicios',
+    titulo: 'Dar de alta un cliente al agendar la visita ya guarda',
+    texto:
+      'Al agendar una visita, el botón «Nuevo» de junto al cliente abre el cuadro para darlo de alta sin salirte de la pantalla. Ese cuadro se veía bien y se llenaba bien, pero al darle «Guardar» no pasaba nada: el cliente no se creaba y a veces se mandaba la visita a medio llenar. Ya guarda y el cliente queda elegido en el acto. Lo mismo aplica a los demás cuadros que se abren encima de una hoja a medio llenar, como el de registrar un pago desde una cotización.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_3_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Cotizaciones',
@@ -415,6 +425,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-08', fecha: '8 de septiembre de 2026', novedades: DEL_8_DE_SEPTIEMBRE },
   { version: '2026-09-03', fecha: '3 de septiembre de 2026', novedades: DEL_3_DE_SEPTIEMBRE },
   { version: '2026-08-26', fecha: '26 de agosto de 2026', novedades: DEL_26_DE_AGOSTO },
   { version: '2026-08-25', fecha: '25 de agosto de 2026', novedades: DEL_25_DE_AGOSTO },
