@@ -34,6 +34,8 @@ export type CondicionCompra = 'contado' | 'credito'
 export type TipoPagoCobranza = 'anticipo' | 'abono' | 'liquidacion'
 export type TipoDeduccion = 'prestamo' | 'adelanto' | 'reembolso'
 export type EstadoPagoFijo = 'pagado' | 'pendiente' | 'vencido' | 'programado'
+export type TipoPagoProgramado = 'personal' | 'servicio'
+export type PeriodicidadPago = 'quincenal' | 'primera' | 'segunda'
 export type TipoMovimientoCaja = 'entrada' | 'salida'
 export type EstatusTarea = 'pendiente' | 'en_proceso' | 'terminada'
 export type EstadoCxp = 'pagada' | 'vencida' | 'urgente' | 'proxima' | 'al_corriente' | 'cancelada'
@@ -489,6 +491,9 @@ export type Deduccion = {
 export type PagoFijo = {
   id: string
   quincena: string
+  /** Del catálogo del que salió; nulo si se capturó suelto. */
+  programado_id: string | null
+  /** Derivada en la base: espejo de `programado_id !== null`. No se escribe. */
   recurrente: boolean
   categoria: string
   beneficiario: string
@@ -500,6 +505,33 @@ export type PagoFijo = {
   fecha_pago: string | null
   created_at: string
   updated_at: string
+}
+
+/** Un renglón del catálogo: a quién se le paga cada quincena. */
+export type PagoProgramado = {
+  id: string
+  tipo: TipoPagoProgramado
+  trabajador_id: string | null
+  beneficiario: string
+  categoria: string
+  monto: number
+  metodo: MetodoPago
+  periodicidad: PeriodicidadPago
+  descripcion: string | null
+  notas: string | null
+  activo: boolean
+  orden: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type VPagoProgramado = PagoProgramado & {
+  trabajador_nombre: string | null
+  /** Nulo si no hay nadie ligado; falso sólo si lo hay y está de baja. */
+  trabajador_activo: boolean | null
+  oficio: string | null
+  ultima_quincena: string | null
+  pagos_generados: number
 }
 
 export type CajaChica = {
@@ -1261,6 +1293,7 @@ export type Database = {
       nomina_pagos: Tabla<NominaPago>
       deducciones: Tabla<Deduccion>
       pagos_fijos: Tabla<PagoFijo>
+      pagos_programados: Tabla<PagoProgramado>
       caja_chica: Tabla<CajaChica>
       polizas_garantia: Tabla<PolizaGarantia>
       recordatorios: Tabla<Recordatorio>
@@ -1292,6 +1325,7 @@ export type Database = {
       v_obra_concentrado: Vista<VObraConcentrado>
       v_nomina_contratos: Vista<VNominaContrato>
       v_prenomina: Vista<VPrenomina>
+      v_pagos_programados: Vista<VPagoProgramado>
     }
     Functions: {
       guardar_cotizacion: {

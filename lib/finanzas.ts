@@ -1,8 +1,8 @@
 import { hoyHermosillo, parsearFecha } from '@/lib/format'
 import type { TonoEtiqueta } from '@/components/ui'
 import type {
-  CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago,
-  TipoDeduccion, TipoPagoCobranza,
+  CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago, PeriodicidadPago,
+  TipoDeduccion, TipoPagoCobranza, TipoPagoProgramado,
 } from '@/types/database'
 
 export const CATEGORIA_GASTO: Record<CategoriaGasto, string> = {
@@ -63,6 +63,28 @@ export const ESTADO_PAGO_FIJO: Record<EstadoPagoFijo, { texto: string; tono: Ton
   pendiente: { texto: 'Pendiente', tono: 'ambar' },
   vencido: { texto: 'Vencido', tono: 'rojo' },
   programado: { texto: 'Programado', tono: 'gris' },
+}
+
+export const TIPO_PAGO_PROGRAMADO: Record<TipoPagoProgramado, string> = {
+  personal: 'Personal',
+  servicio: 'Servicio',
+}
+
+/**
+ * Cada cuándo sale un pago del catálogo. Los sueldos caen en las dos
+ * quincenas; la renta y el internet, una vez al mes.
+ */
+export const PERIODICIDAD_PAGO: Record<PeriodicidadPago, string> = {
+  quincenal: 'Cada quincena',
+  primera: 'Sólo la 1ª',
+  segunda: 'Sólo la 2ª',
+}
+
+/** Si a un programado le toca salir en esa quincena. Espejo de `generar_quincena`. */
+export function tocaEnQuincena(periodicidad: PeriodicidadPago, quincena: string): boolean {
+  if (periodicidad === 'quincenal') return true
+  const esPrimera = new Date(`${quincena}T00:00:00`).getDate() === 15
+  return periodicidad === 'primera' ? esPrimera : !esPrimera
 }
 
 export const CATEGORIAS_PAGO_FIJO = [

@@ -5,8 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
 import type {
-  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, ResultadoPagoLote, TipoDeduccion,
-  TipoMovimientoCaja, TipoPagoCobranza, TipoProducto,
+  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago, ResultadoPagoLote,
+  TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -545,14 +545,139 @@ export async function eliminarPagoFijo(id: string): Promise<Resultado> {
   return { ok: true }
 }
 
-/** Copia los pagos recurrentes de la quincena anterior a la indicada. */
+/** Saca de la lista los pagos que le tocan a esa quincena. Repetirla no duplica. */
 export async function generarQuincena(quincena: string): Promise<Resultado<number>> {
   const supabase = await staff()
   const { data, error } = await supabase.rpc('generar_quincena', { p_quincena: quincena })
   if (error) return fallo(error)
 
   revalidatePath('/admin/pagos-fijos')
+  revalidatePath('/admin')
   return { ok: true, datos: data as number }
+}
+
+/**
+ * Arma las quincenas del mes que todavía no existen.
+ *
+ * La llama la pantalla al abrir el mes en curso. Es segura de repetir: quien
+ * manda es `generar_quincena`, que no duplica ni aunque entren dos a la vez.
+ */
+export async function asegurarQuincenas(quincenas: string[]): Promise<Resultado<number>> {
+  const supabase = await staff()
+  let creados = 0
+
+  for (const quincena of quincenas) {
+    const { data, error } = await supabase.rpc('generar_quincena', { p_quincena: quincena })
+    if (error) return fallo(error)
+    creados += (data as number) ?? 0
+  }
+
+  if (creados > 0) {
+    revalidatePath('/admin/pagos-fijos')
+    revalidatePath('/admin')
+  }
+  return { ok: true, datos: creados }
+}
+
+// ===========================================================================
+// CATÁLOGO DE PAGOS PROGRAMADOS · la lista de a quién se le paga cada quincena
+// ===========================================================================
+export async function guardarPagoProgramado(
+  programado: {
+    id?: string
+    tipo: TipoPagoProgramado
+    trabajador_id: string | null
+    beneficiario: string
+    categoria: string
+    monto: number
+    metodo: MetodoPago
+    periodicidad: PeriodicidadPago
+    descripcion: string | null
+    notas: string | null
+    activo: boolean
+  },
+  /** Llevar el cambio a las quincenas que todavía no se pagan. */
+  propagar = false,
+): Promise<Resultado<number>> {
+  if (!programado.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
+
+  const supabase = await staff()
+  const fila = { ...programado, beneficiario: programado.beneficiario.trim() }
+  delete (fila as { id?: string }).id
+
+  const { data, error } = programado.id
+    ? await supabase.from('pagos_programados').update(fila).eq('id', programado.id).select('id')
+    : await supabase.from('pagos_programados').insert(fila).select('id')
+
+  if (error) return fallo(error)
+  const id = programado.id ?? data?.[0]?.id
+  let alcanzados = 0
+
+  /*
+   * La historia no se reescribe: sólo se tocan los pagos que siguen por
+   * delante y que nadie ha marcado como pagados. Un mes cerrado y un pago ya
+   * hecho se quedan con el monto que tuvieron.
+   */
+  if (propagar && id) {
+    const hoy = new Date().toISOString().slice(0, 10)
+    const { data: tocados, error: errorPropagar } = await supabase
+      .from('pagos_fijos')
+      .update({
+        monto: fila.monto,
+        beneficiario: fila.beneficiario,
+        categoria: fila.categoria,
+        metodo: fila.metodo,
+        descripcion: fila.descripcion,
+      })
+      .eq('programado_id', id)
+      .neq('estado', 'pagado')
+      .gte('quincena', hoy)
+      .select('id')
+
+    if (errorPropagar) return fallo(errorPropagar)
+    alcanzados = tocados?.length ?? 0
+  }
+
+  revalidatePath('/admin/pagos-fijos')
+  revalidatePath('/admin')
+  return { ok: true, datos: alcanzados }
+}
+
+/** Sacarlo de la lista sin borrar lo que ya se le pagó. */
+export async function archivarPagoProgramado(id: string, activo: boolean): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('pagos_programados').update({ activo }).eq('id', id)
+  if (error) return fallo(error)
+  revalidatePath('/admin/pagos-fijos')
+  return { ok: true }
+}
+
+/**
+ * Borrarlo de verdad, y sólo si nunca generó un pago.
+ *
+ * En cuanto generó uno, borrarlo dejaría esos renglones huérfanos —la liga se
+ * pone en nulo y se vuelven pagos sueltos, sin manera de saber de dónde
+ * salieron—. Para eso está archivar.
+ */
+export async function eliminarPagoProgramado(id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { count, error: errorConteo } = await supabase
+    .from('pagos_fijos')
+    .select('id', { count: 'exact', head: true })
+    .eq('programado_id', id)
+
+  if (errorConteo) return fallo(errorConteo)
+  if (count && count > 0) {
+    return {
+      ok: false,
+      error: `Ya generó ${count} ${count === 1 ? 'pago' : 'pagos'}. Archívalo: deja de salir en las siguientes quincenas y el historial se conserva.`,
+    }
+  }
+
+  const { error } = await supabase.from('pagos_programados').delete().eq('id', id)
+  if (error) return fallo(error)
+  revalidatePath('/admin/pagos-fijos')
+  return { ok: true }
 }
 
 // ===========================================================================

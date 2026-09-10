@@ -66,6 +66,20 @@ const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 const DEL_10_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Pagos fijos',
+    titulo: 'Ya hay una lista fija de a quién se le paga',
+    texto:
+      'En la pestaña «Personal y servicios» das de alta una sola vez a quien cobra fijo —su gente, el internet, la renta— y de ahí salen solos los pagos de cada quincena, sin apretar nada. Ahí mismo lo corriges o lo das de baja: al bajarlo deja de salir en las quincenas nuevas y lo que ya se le pagó se queda en el historial. Si le cambias el monto, te pregunta si corrige también las quincenas que todavía no se pagan; lo pagado no se toca nunca. Y para lo que se paga una vez al mes y no cada quince días, se lo puedes decir.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'En todas',
+    titulo: 'El botón de «+» ya no se come los toques de al lado',
+    texto:
+      'En el teléfono, el «+» redondo de abajo a la derecha tapaba una franja invisible bastante más grande que él, y los botones que cayeran ahí no respondían aunque se vieran perfectamente. Ya sólo responde el «+».',
+    roles: ['admin', 'administracion', 'contador'],
+  },
+  {
+    donde: 'Pagos fijos',
     titulo: 'Los botones de cada pago ya se alcanzan en el teléfono',
     texto:
       'La lista se salía de la pantalla por el lado derecho, y ahí era donde estaban la palomita y el botón para corregir: había que arrastrar de lado para llegarles. Ya cabe todo, y el botón dice «Editar» con todas sus letras. Desde ahí cambias el monto, el beneficiario o lo que sea, o lo quitas.',

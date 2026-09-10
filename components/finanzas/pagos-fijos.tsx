@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Check, CopyPlus, Pencil, Plus } from 'lucide-react'
 import {
   AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
@@ -14,7 +14,7 @@ import {
   CATEGORIAS_PAGO_FIJO, ESTADO_PAGO_FIJO, METODO_PAGO_SIN_CAJA, etiquetaQuincena, quincenaDe,
 } from '@/lib/finanzas'
 import {
-  eliminarPagoFijo, generarQuincena, guardarPagoFijo, marcarPagoFijo,
+  asegurarQuincenas, eliminarPagoFijo, generarQuincena, guardarPagoFijo, marcarPagoFijo,
 } from '@/app/admin/finanzas-acciones'
 import type { EstadoPagoFijo, MetodoPago, PagoFijo } from '@/types/database'
 
@@ -85,6 +85,47 @@ export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: st
  * 26 px pegados: quien buscaba corregir un monto acababa marcándolo pagado.
  * Aquí los dos miden lo que mide un dedo y hay un respiro entre ellos.
  */
+/**
+ * Arma solo las quincenas del mes en curso que todavía no existen.
+ *
+ * La página no puede hacerlo por su cuenta: pintarla es un GET y un GET no
+ * escribe. Así que lo pide el navegador en cuanto la pantalla aparece, y sólo
+ * para el mes en curso —si se disparara en cualquier mes, hojear diciembre del
+ * año que entra dejaría veinte renglones creados allá—.
+ *
+ * Repetirlo no duplica nada: quien manda es `generar_quincena`, que lleva su
+ * propio candado. El `useRef` es sólo para no pedirlo dos veces por montaje,
+ * que en desarrollo React monta todo por partida doble.
+ */
+export function AsegurarQuincenas({ quincenas }: { quincenas: string[] }) {
+  const router = useRouter()
+  const pedido = useRef(false)
+  const [armando, setArmando] = useState(true)
+
+  useEffect(() => {
+    if (pedido.current) return
+    pedido.current = true
+
+    let vivo = true
+    asegurarQuincenas(quincenas).then((r) => {
+      if (!vivo) return
+      setArmando(false)
+      if (r.ok && (r.datos ?? 0) > 0) router.refresh()
+    })
+    return () => {
+      vivo = false
+    }
+  }, [quincenas, router])
+
+  if (!armando) return null
+
+  return (
+    <p className="mb-4 rounded-lg bg-haaco-50 px-4 py-2.5 text-sm text-haaco-800 ring-1 ring-haaco-200">
+      Armando la quincena con la lista de pagos fijos…
+    </p>
+  )
+}
+
 export function AccionesPagoFijo({ pago, quincenas }: { pago: PagoFijo; quincenas: string[] }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
