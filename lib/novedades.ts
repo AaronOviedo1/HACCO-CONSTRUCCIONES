@@ -63,6 +63,23 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_10_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Los botones de cada pago ya se alcanzan en el teléfono',
+    texto:
+      'La lista se salía de la pantalla por el lado derecho, y ahí era donde estaban la palomita y el botón para corregir: había que arrastrar de lado para llegarles. Ya cabe todo, y el botón dice «Editar» con todas sus letras. Desde ahí cambias el monto, el beneficiario o lo que sea, o lo quitas.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Aparecieron los pagos que se habían perdido de vista',
+    texto:
+      'Si capturabas un pago con una fecha que no fuera el día 15 ni el fin de mes —la nómina de dirección, por ejemplo—, se guardaba pero ya no se veía por ningún lado, aunque siguiera contando en Reportes. Ahora la pantalla trae el mes completo: cada pago se acomoda en la quincena que le toca y, si tiene otra fecha, la trae al lado. Y al capturar, las dos quincenas están a un toque y «Otra fecha» sigue ahí para lo que no cae en ninguna.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_8_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Servicios',
@@ -425,6 +442,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-10', fecha: '10 de septiembre de 2026', novedades: DEL_10_DE_SEPTIEMBRE },
   { version: '2026-09-08', fecha: '8 de septiembre de 2026', novedades: DEL_8_DE_SEPTIEMBRE },
   { version: '2026-09-03', fecha: '3 de septiembre de 2026', novedades: DEL_3_DE_SEPTIEMBRE },
   { version: '2026-08-26', fecha: '26 de agosto de 2026', novedades: DEL_26_DE_AGOSTO },

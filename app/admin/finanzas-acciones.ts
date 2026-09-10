@@ -500,6 +500,13 @@ export async function guardarPagoFijo(pago: {
   if (!pago.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
 
   const supabase = await staff()
+  /*
+   * La fecha se guarda tal como se capturó, sin cuadrarla al 15 ni al fin de
+   * mes. No todo pago fijo cae en quincena: la nómina de dirección se paga sin
+   * fecha fija y queda fuera del ciclo quincenal a propósito. Lo que sí hace
+   * falta es que ninguno se pierda de vista, y de eso se encarga la pantalla,
+   * que pide el mes completo y acomoda cada pago en la quincena que le toca.
+   */
   const fila = { ...pago, beneficiario: pago.beneficiario.trim() }
   delete (fila as { id?: string }).id
 

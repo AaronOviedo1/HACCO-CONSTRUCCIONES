@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Check, CopyPlus, Pencil, Plus } from 'lucide-react'
 import {
-  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, PieDialogo,
-  Seleccion,
+  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
+  PieConBorrado, Seleccion,
 } from '@/components/formulario'
 import { FiltroMes, SelectorFecha } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
@@ -71,67 +71,90 @@ export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: st
         </p>
       )}
 
-      {nuevo && <FormularioPagoFijo quincenaPorDefecto={quincenas[0]} onCerrar={() => setNuevo(false)} />}
+      {nuevo && <FormularioPagoFijo quincenas={quincenas} onCerrar={() => setNuevo(false)} />}
     </>
   )
 }
 
-export function AccionesPagoFijo({ pago }: { pago: PagoFijo }) {
+/**
+ * Las dos acciones de un renglón: marcar pagado y corregir.
+ *
+ * «Editar» va con su palabra y no sólo con el lápiz. Con el icono a secas nadie
+ * lo encontraba —el cliente pidió por escrito «habilitar» algo que llevaba
+ * meses habilitado—, y en el teléfono los dos botones eran dos cuadros de
+ * 26 px pegados: quien buscaba corregir un monto acababa marcándolo pagado.
+ * Aquí los dos miden lo que mide un dedo y hay un respiro entre ellos.
+ */
+export function AccionesPagoFijo({ pago, quincenas }: { pago: PagoFijo; quincenas: string[] }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [editando, setEditando] = useState(false)
+  const pagado = pago.estado === 'pagado'
 
   const marcar = () =>
     iniciar(async () => {
-      await marcarPagoFijo(pago.id, pago.estado === 'pagado' ? 'pendiente' : 'pagado')
+      await marcarPagoFijo(pago.id, pagado ? 'pendiente' : 'pagado')
       router.refresh()
     })
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={marcar}
         disabled={pendiente}
-        className={`rounded-lg p-1.5 transition ${
-          pago.estado === 'pagado'
-            ? 'text-haaco-600 hover:bg-haaco-50'
-            : 'text-tinta-400 hover:bg-tinta-100 hover:text-haaco-600'
+        className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border transition disabled:opacity-50 lg:min-h-9 lg:min-w-9 lg:rounded-lg ${
+          pagado
+            ? 'border-haaco-200 bg-haaco-50 text-haaco-700 hover:bg-haaco-100'
+            : 'border-tinta-200 bg-white text-tinta-400 hover:border-haaco-300 hover:text-haaco-600'
         }`}
-        aria-label={pago.estado === 'pagado' ? 'Marcar pendiente' : 'Marcar pagado'}
-        title={pago.estado === 'pagado' ? 'Marcar pendiente' : 'Marcar pagado'}
+        aria-label={pagado ? 'Marcar pendiente' : 'Marcar pagado'}
+        title={pagado ? 'Marcar pendiente' : 'Marcar pagado'}
       >
-        <Check size={15} />
+        <Check size={17} />
       </button>
       <button
         type="button"
         onClick={() => setEditando(true)}
-        className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
-        aria-label="Editar"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-tinta-200 bg-white px-3 text-sm font-medium text-tinta-700 transition hover:border-haaco-300 hover:bg-haaco-50 hover:text-haaco-800 lg:min-h-9 lg:rounded-lg lg:px-2.5 lg:text-[13px]"
       >
         <Pencil size={14} />
+        Editar
       </button>
 
-      {editando && <FormularioPagoFijo pago={pago} onCerrar={() => setEditando(false)} />}
+      {editando && (
+        <FormularioPagoFijo pago={pago} quincenas={quincenas} onCerrar={() => setEditando(false)} />
+      )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
 function FormularioPagoFijo({
-  pago, quincenaPorDefecto, onCerrar,
+  pago, quincenas, onCerrar,
 }: {
   pago?: PagoFijo
-  quincenaPorDefecto?: string
+  /** Las dos quincenas del mes que se está viendo. */
+  quincenas: string[]
   onCerrar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
+  /*
+   * Las dos quincenas del mes a un toque, y «otra fecha» para lo que no cae en
+   * ninguna: la nómina de dirección se paga cuando se puede y queda fuera del
+   * ciclo quincenal. Antes esto era un calendario a secas, y como la pantalla
+   * sólo pedía el 15 y el fin de mes, esos pagos se guardaban y ya no se veían
+   * —seguían contando en Reportes, pero aquí no había forma de encontrarlos—.
+   * El arreglo no fue prohibir la fecha, que es legítima, sino que la lista
+   * traiga el mes entero.
+   */
   const [quincena, setQuincena] = useState(
-    pago?.quincena ?? quincenaPorDefecto ?? quincenaDe(hoyISO()),
+    pago?.quincena ?? (quincenas.includes(quincenaDe(hoyISO())) ? quincenaDe(hoyISO()) : quincenas[0]),
   )
+  const [libre, setLibre] = useState(Boolean(pago) && !quincenas.includes(quincena))
   const [categoria, setCategoria] = useState(pago?.categoria ?? 'Nómina')
   const [beneficiario, setBeneficiario] = useState(pago?.beneficiario ?? '')
   const [monto, setMonto] = useState(String(pago?.monto ?? ''))
@@ -165,7 +188,6 @@ function FormularioPagoFijo({
   const borrar = () =>
     iniciar(async () => {
       if (!pago) return
-      if (!confirm(`¿Eliminar el pago a ${pago.beneficiario}?`)) return
       const r = await eliminarPagoFijo(pago.id)
       if (!r.ok) return setError(r.error)
       onCerrar()
@@ -177,14 +199,29 @@ function FormularioPagoFijo({
       abierto
       onCerrar={onCerrar}
       titulo={pago ? 'Editar pago fijo' : 'Nuevo pago fijo'}
-      descripcion="Marca como recurrente lo que se repite cada quincena para copiarlo después."
+      descripcion="Lo que marques abajo se copia a la siguiente quincena cuando aprietes «Generar quincena»."
     >
       <CuerpoDialogo>
         <Campo
-          etiqueta="Quincena"
-          ancho="medio"
-          hijo={<SelectorFecha valor={quincena} onCambio={setQuincena} />}
-          ayuda={`${etiquetaQuincena(quincena)} · ${fecha(quincena)}`}
+          etiqueta="Cuándo se paga"
+          hijo={
+            <div className="space-y-2">
+              <Opciones
+                valor={libre ? 'otra' : quincena}
+                opciones={[
+                  ...quincenas.map((q) => [q, etiquetaQuincena(q)] as [string, string]),
+                  ['otra', 'Otra fecha'],
+                ]}
+                onCambio={(v) => {
+                  if (v === 'otra') return setLibre(true)
+                  setLibre(false)
+                  setQuincena(v)
+                }}
+              />
+              {libre && <SelectorFecha valor={quincena} onCambio={setQuincena} titulo="Día del pago" />}
+            </div>
+          }
+          ayuda={`${fecha(quincena)}${libre ? ' · fuera del ciclo quincenal' : ''}`}
         />
         <Campo
           etiqueta="Categoría"
@@ -250,39 +287,22 @@ function FormularioPagoFijo({
           hijo={<AreaTexto rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />}
         />
         <Casilla
-          etiqueta="Se repite cada quincena"
+          etiqueta="Copiar a la siguiente quincena"
           checked={recurrente}
           onChange={(e) => setRecurrente(e.target.checked)}
         />
         <MensajeError mensaje={error} />
       </CuerpoDialogo>
 
-      <PieDialogo>
-        {pago && (
-          <button
-            type="button"
-            onClick={borrar}
-            className="mr-auto rounded-lg px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
-          >
-            Eliminar
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={pendiente || !beneficiario.trim()}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
-        >
-          {pendiente ? 'Guardando…' : 'Guardar'}
-        </button>
-      </PieDialogo>
+      <PieConBorrado
+        onCerrar={onCerrar}
+        onGuardar={guardar}
+        pendiente={pendiente}
+        puedeGuardar={Boolean(beneficiario.trim())}
+        borrado={
+          pago ? { pregunta: `¿Eliminar el pago a ${pago.beneficiario}?`, onBorrar: borrar } : undefined
+        }
+      />
     </Dialogo>
   )
 }

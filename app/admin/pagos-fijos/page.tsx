@@ -2,7 +2,8 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
 import {
-  ESTADO_PAGO_FIJO, METODO_PAGO, etiquetaMes, etiquetaQuincena, mesActual, quincenasDelMes,
+  ESTADO_PAGO_FIJO, METODO_PAGO, etiquetaMes, etiquetaQuincena, mesActual, quincenaDe, quincenasDelMes,
+  rangoMes,
 } from '@/lib/finanzas'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
 import { AccionesPagoFijo, BarraPagosFijos } from '@/components/finanzas/pagos-fijos'
@@ -20,10 +21,20 @@ export default async function PaginaPagosFijos({
   const quincenas = quincenasDelMes(mes)
 
   const supabase = await crearClienteServidor()
+  /*
+   * Se pide el mes entero y no los dos días de quincena.
+   * No todo pago fijo cae en quincena —la nómina de dirección se paga sin
+   * fecha fija—, y preguntando sólo por el 15 y el fin de mes esos pagos se
+   * volvían invisibles aquí, aunque siguieran contando en Reportes. Así se
+   * habían perdido de vista seis. Cada uno se acomoda abajo en la quincena que
+   * le toca, con su fecha a la vista: no hay nada que corregir, sólo que ver.
+   */
+  const { desde, hasta } = rangoMes(mes)
   const { data } = await supabase
     .from('pagos_fijos')
     .select('*')
-    .in('quincena', quincenas)
+    .gte('quincena', desde)
+    .lt('quincena', hasta)
     .order('categoria')
     .order('beneficiario')
 
@@ -66,10 +77,15 @@ export default async function PaginaPagosFijos({
 
       <BarraPagosFijos mes={mes} quincenas={quincenas} />
 
+      {/* Los `min-w-0`: sin ellos, un renglón largo estiraba la columna del
+          grid —que por omisión no baja de su contenido— y con ella la página
+          entera. En el teléfono eso dejaba la palomita y el botón de editar
+          fuera de la pantalla, a la derecha, y había que arrastrar de lado
+          para llegarles. De ahí venía el «no me deja editar». */}
       <div className="grid gap-4 xl:grid-cols-4">
-        <div className="space-y-4 xl:col-span-3">
+        <div className="min-w-0 space-y-4 xl:col-span-3">
           {quincenas.map((quincena) => {
-            const deLaQuincena = pagos.filter((p) => p.quincena === quincena)
+            const deLaQuincena = pagos.filter((p) => quincenaDe(p.quincena) === quincena)
             const totalQ = deLaQuincena.reduce((s, p) => s + Number(p.monto), 0)
             const pagadoQ = deLaQuincena
               .filter((p) => p.estado === 'pagado')
@@ -109,6 +125,9 @@ export default async function PaginaPagosFijos({
                             {p.beneficiario}
                             <Etiqueta tono="gris">{p.categoria}</Etiqueta>
                             {p.recurrente && <Etiqueta tono="azul">recurrente</Etiqueta>}
+                            {p.quincena !== quincena && (
+                              <Etiqueta tono="gris">{fecha(p.quincena)}</Etiqueta>
+                            )}
                           </p>
                           {(p.descripcion || p.notas) && (
                             <p className="mt-0.5 truncate text-xs text-tinta-500">
@@ -126,7 +145,7 @@ export default async function PaginaPagosFijos({
                         <Etiqueta tono={ESTADO_PAGO_FIJO[p.estado as EstadoPagoFijo].tono}>
                           {ESTADO_PAGO_FIJO[p.estado as EstadoPagoFijo].texto}
                         </Etiqueta>
-                        <AccionesPagoFijo pago={p} />
+                        <AccionesPagoFijo pago={p} quincenas={quincenas} />
                       </li>
                     ))}
                   </ul>
@@ -136,7 +155,11 @@ export default async function PaginaPagosFijos({
           })}
         </div>
 
-        <Tarjeta titulo="Resumen del mes" pie="Por categoría, como lo revisa el contador.">
+        <Tarjeta
+          titulo="Resumen del mes"
+          pie="Por categoría, como lo revisa el contador."
+          className="min-w-0"
+        >
           {porCategoria.size === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-tinta-500">Sin movimientos.</p>
           ) : (

@@ -375,6 +375,86 @@ export function PieFormulario({
   )
 }
 
+/**
+ * Hermano de `PieFormulario` para los diálogos que guardan con `useTransition`
+ * en vez de con `<form action>`: la misma confirmación de borrado en dos pasos
+ * y por la misma razón, pero con manejadores en lugar de `formAction`.
+ *
+ * Existen los dos porque conviven los dos patrones de captura, y el que no
+ * puede faltar en ninguno es el de no usar el `confirm()` del navegador.
+ */
+export function PieConBorrado({
+  onCerrar,
+  onGuardar,
+  pendiente = false,
+  puedeGuardar = true,
+  guardar = 'Guardar',
+  borrado,
+}: {
+  onCerrar: () => void
+  onGuardar: () => void
+  pendiente?: boolean
+  puedeGuardar?: boolean
+  guardar?: string
+  borrado?: { pregunta: string; onBorrar: () => void }
+}) {
+  const [confirmando, setConfirmando] = useState(false)
+
+  if (borrado && confirmando) {
+    return (
+      <PieDialogo>
+        <p className="mr-auto text-sm text-tinta-600 sm:flex-none">{borrado.pregunta}</p>
+        <button
+          type="button"
+          onClick={() => setConfirmando(false)}
+          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+        >
+          No, conservar
+        </button>
+        <button
+          type="button"
+          onClick={borrado.onBorrar}
+          disabled={pendiente}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:bg-red-300"
+        >
+          <Trash2 size={15} />
+          Sí, eliminar
+        </button>
+      </PieDialogo>
+    )
+  }
+
+  return (
+    <PieDialogo>
+      {borrado && (
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          className="mr-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+        >
+          <Trash2 size={15} />
+          Eliminar
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onCerrar}
+        className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        onClick={onGuardar}
+        disabled={pendiente || !puedeGuardar}
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-haaco-700 px-4 text-base font-semibold text-white transition hover:bg-haaco-900 disabled:cursor-not-allowed disabled:bg-haaco-300 sm:min-h-0 sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium"
+      >
+        {pendiente ? 'Guardando…' : guardar}
+      </button>
+    </PieDialogo>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Botones de envío
 // ---------------------------------------------------------------------------
