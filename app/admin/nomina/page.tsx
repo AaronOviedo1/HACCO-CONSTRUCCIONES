@@ -100,11 +100,21 @@ export default async function PaginaNomina({
   // contrato se haya terminado de pagar.
   const totalMO = activos.reduce((s, c) => s + Number(c.mano_obra), 0)
   const totalRetencion = activos.reduce((s, c) => s + Number(c.retencion_haaco), 0)
-  const totalPagado = activos.reduce((s, c) => s + Number(c.pagado), 0)
-  const totalDisponible = activos.reduce((s, c) => s + Number(c.disponible), 0)
-  // Lo que se le sigue debiendo a la cuadrilla por lo ya contratado, sin
+
+  /*
+   * Estos tres salen de la prenómina y no de los contratos, porque la prenómina
+   * es la que ya suma los dos motores. Desde que hay raya semanal, alguien
+   * puede tener dinero por cobrar sin un solo contrato de por medio: contando
+   * nada más contratos, «se puede pagar hoy» se quedaba corto por el monto
+   * exacto de las rayas de la semana, que es justo el número que se mira el
+   * sábado para saber cuánto sacar de la caja. La mano de obra contratada sí se
+   * queda con los contratos: un sueldo no se contrata por metro.
+   */
+  const totalPagado = (prenomina ?? []).reduce((s, p) => s + Number(p.pagado), 0)
+  const totalDisponible = (prenomina ?? []).reduce((s, p) => s + Number(p.disponible), 0)
+  // Lo que se le sigue debiendo a la cuadrilla por lo ya comprometido, sin
   // importar el avance: es la deuda completa, no lo que toca pagar hoy.
-  const totalPorPagar = activos.reduce((s, c) => s + Number(c.por_pagar), 0)
+  const totalPorPagar = (prenomina ?? []).reduce((s, p) => s + Number(p.pendiente), 0)
 
   // Lo que de verdad sale de la caja esta semana: devengado menos préstamos.
   const aPagarSemana = (prenomina ?? []).reduce(
@@ -191,7 +201,7 @@ export default async function PaginaNomina({
         <Indicador
           etiqueta="Por pagar"
           valor={pesosCortos(totalPorPagar)}
-          nota="lo que falta de todos los contratos"
+          nota="lo que falta de contratos y rayas"
           tono={totalPorPagar > 0 ? 'ambar' : 'neutro'}
         />
         <Indicador

@@ -378,20 +378,20 @@ export default async function Dashboard() {
         <TileResumen
           etiqueta="Nómina de la semana"
           valor={pesosCortos(aPagarNomina)}
-          nota="devengado por avance"
+          nota="avance de obra y raya semanal"
           href="/admin/nomina?t=prenomina"
           titulo="Prenómina de la semana"
-          descripcion="Lo que se puede pagar hoy según el avance reportado, menos préstamos."
+          descripcion="Lo que se puede pagar hoy: el avance reportado y la raya de la semana, menos préstamos."
           irA="Ir a nómina"
         >
           {nomina.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-tinta-500">Sin contratos activos.</p>
+            <p className="px-5 py-10 text-center text-sm text-tinta-500">Sin contratos ni rayas activas.</p>
           ) : (
             <Tabla>
               <thead>
                 <tr>
                   <Th>Trabajador</Th>
-                  <Th numerico>Obras</Th>
+                  <Th numerico>Obras y semanas</Th>
                   <Th numerico>Devengado</Th>
                   <Th numerico>Pagado</Th>
                   <Th numerico>Deducciones</Th>

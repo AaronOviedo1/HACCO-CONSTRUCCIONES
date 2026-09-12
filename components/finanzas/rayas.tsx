@@ -48,7 +48,9 @@ export function PanelRayas({
       setAviso(
         r.datos === 0
           ? 'Ya estaban armadas las rayas de esa semana.'
-          : `Se armaron ${r.datos} ${r.datos === 1 ? 'raya' : 'rayas'} de la semana ${etiquetaSemana(semana)}.`,
+          : r.datos === 1
+            ? `Se armó una raya de la semana ${etiquetaSemana(semana)}.`
+            : `Se armaron ${r.datos} rayas de la semana ${etiquetaSemana(semana)}.`,
       )
       router.refresh()
     })
