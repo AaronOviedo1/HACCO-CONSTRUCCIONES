@@ -1,8 +1,8 @@
 import { hoyHermosillo, parsearFecha } from '@/lib/format'
 import type { TonoEtiqueta } from '@/components/ui'
 import type {
-  CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago,
-  TipoDeduccion, TipoPagoCobranza,
+  CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago, PeriodicidadPago,
+  TipoDeduccion, TipoPagoCobranza, TipoPagoProgramado,
 } from '@/types/database'
 
 export const CATEGORIA_GASTO: Record<CategoriaGasto, string> = {
@@ -65,6 +65,28 @@ export const ESTADO_PAGO_FIJO: Record<EstadoPagoFijo, { texto: string; tono: Ton
   programado: { texto: 'Programado', tono: 'gris' },
 }
 
+export const TIPO_PAGO_PROGRAMADO: Record<TipoPagoProgramado, string> = {
+  personal: 'Personal',
+  servicio: 'Servicio',
+}
+
+/**
+ * Cada cuándo sale un pago del catálogo. Los sueldos caen en las dos
+ * quincenas; la renta y el internet, una vez al mes.
+ */
+export const PERIODICIDAD_PAGO: Record<PeriodicidadPago, string> = {
+  quincenal: 'Cada quincena',
+  primera: 'Sólo la 1ª',
+  segunda: 'Sólo la 2ª',
+}
+
+/** Si a un programado le toca salir en esa quincena. Espejo de `generar_quincena`. */
+export function tocaEnQuincena(periodicidad: PeriodicidadPago, quincena: string): boolean {
+  if (periodicidad === 'quincenal') return true
+  const esPrimera = new Date(`${quincena}T00:00:00`).getDate() === 15
+  return periodicidad === 'primera' ? esPrimera : !esPrimera
+}
+
 export const CATEGORIAS_PAGO_FIJO = [
   'Nómina',
   'Servicio',
@@ -97,6 +119,57 @@ export function quincenasDelMes(mes: string): string[] {
 export function etiquetaQuincena(quincena: string): string {
   const d = new Date(`${quincena}T00:00:00`)
   return d.getDate() === 15 ? '1ª quincena' : '2ª quincena'
+}
+
+// ---------------------------------------------------------------------------
+// Semanas: la raya corre de lunes a sábado y se paga el sábado.
+//
+// Una semana se nombra por su lunes, que es lo mismo que `date_trunc('week')`
+// de Postgres: así la app y la base dicen lo mismo sin traducir nada. El mes al
+// que pertenece una raya lo decide su fecha de pago, no su lunes, y de eso ya
+// se encargan los reportes, que leen `nomina_pagos.fecha`.
+// ---------------------------------------------------------------------------
+
+/** El lunes de la semana a la que pertenece una fecha. */
+export function semanaDe(fecha: Date | string): string {
+  const d = typeof fecha === 'string' ? new Date(`${fecha}T00:00:00`) : new Date(fecha)
+  // getDay(): 0 es domingo. El domingo pertenece a la semana que va terminando.
+  const alLunes = d.getDay() === 0 ? -6 : 1 - d.getDay()
+  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + alLunes))
+}
+
+/** El sábado en que se raya esa semana. */
+export function diaDeRaya(lunes: string): string {
+  const d = new Date(`${lunes}T00:00:00`)
+  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 5))
+}
+
+/** Los lunes cuya semana de trabajo cae, aunque sea en parte, dentro del mes. */
+export function semanasDelMes(mes: string): string[] {
+  const [anio, m] = mes.split('-').map(Number)
+  const finDeMes = new Date(anio, m, 0)
+  const semanas: string[] = []
+
+  for (let lunes = semanaDe(iso(new Date(anio, m - 1, 1)));
+       lunes <= iso(finDeMes);
+       lunes = semanaDe(sumarDias(lunes, 7))) {
+    semanas.push(lunes)
+  }
+  return semanas
+}
+
+const sumarDias = (fecha: string, dias: number) => {
+  const d = new Date(`${fecha}T00:00:00`)
+  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias))
+}
+
+/** "del 7 al 12 de septiembre", o con los dos meses si la semana los cruza. */
+export function etiquetaSemana(lunes: string): string {
+  const [a1, m1, d1] = lunes.split('-').map(Number)
+  const [a2, m2, d2] = diaDeRaya(lunes).split('-').map(Number)
+
+  if (m1 === m2 && a1 === a2) return `del ${d1} al ${d2} de ${MESES_LARGOS_MIN[m1 - 1]}`
+  return `del ${d1} de ${MESES_LARGOS_MIN[m1 - 1]} al ${d2} de ${MESES_LARGOS_MIN[m2 - 1]}`
 }
 
 /**

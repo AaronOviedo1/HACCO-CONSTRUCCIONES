@@ -63,6 +63,61 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_12_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Nómina',
+    titulo: 'Ya se le puede pagar por semana a quien no va por avance',
+    texto:
+      'En la pestaña «Raya semanal» pones a alguien a sueldo fijo —cuánto gana a la semana y de cuántos días—, y cada semana armas su raya de un botón. Si faltó un día, le bajas los días y el sueldo se ajusta solo; si hubo tiempo extra o un bono, va en el ajuste. La semana corre de lunes a sábado y se raya el sábado.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina',
+    titulo: 'El sueldo se reparte entre las obras donde anduvo',
+    texto:
+      'Al armar la raya se reparte sola entre las obras donde tiene contrato abierto, en partes iguales, y puedes corregir el reparto a mano. Eso es lo que hace que la obra sepa de verdad cuánto costó: si el sueldo no se cargara a ninguna, la obra saldría más barata de lo que fue y las utilidades mentirían. Si una semana no anduvo en ninguna obra, se queda como gasto general y la pantalla te lo dice.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina',
+    titulo: 'Un solo recibo para el avance y para la raya',
+    texto:
+      'Quien cobra de las dos formas —por avance en unas obras y sueldo fijo por otras— recibe un solo papel con todo junto, con su folio y sus préstamos descontados, como siempre. En el recibo, la semana aparece con sus fechas: «Raya del 14 al 19 de septiembre».',
+    roles: OFICINA,
+  },
+]
+
+const DEL_10_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Ya hay una lista fija de a quién se le paga',
+    texto:
+      'En la pestaña «Personal y servicios» das de alta una sola vez a quien cobra fijo —su gente, el internet, la renta— y de ahí salen solos los pagos de cada quincena, sin apretar nada. Ahí mismo lo corriges o lo das de baja: al bajarlo deja de salir en las quincenas nuevas y lo que ya se le pagó se queda en el historial. Si le cambias el monto, te pregunta si corrige también las quincenas que todavía no se pagan; lo pagado no se toca nunca. Y para lo que se paga una vez al mes y no cada quince días, se lo puedes decir.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'En todas',
+    titulo: 'El botón de «+» ya no se come los toques de al lado',
+    texto:
+      'En el teléfono, el «+» redondo de abajo a la derecha tapaba una franja invisible bastante más grande que él, y los botones que cayeran ahí no respondían aunque se vieran perfectamente. Ya sólo responde el «+».',
+    roles: ['admin', 'administracion', 'contador'],
+  },
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Los botones de cada pago ya se alcanzan en el teléfono',
+    texto:
+      'La lista se salía de la pantalla por el lado derecho, y ahí era donde estaban la palomita y el botón para corregir: había que arrastrar de lado para llegarles. Ya cabe todo, y el botón dice «Editar» con todas sus letras. Desde ahí cambias el monto, el beneficiario o lo que sea, o lo quitas.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Aparecieron los pagos que se habían perdido de vista',
+    texto:
+      'Si capturabas un pago con una fecha que no fuera el día 15 ni el fin de mes —la nómina de dirección, por ejemplo—, se guardaba pero ya no se veía por ningún lado, aunque siguiera contando en Reportes. Ahora la pantalla trae el mes completo: cada pago se acomoda en la quincena que le toca y, si tiene otra fecha, la trae al lado. Y al capturar, las dos quincenas están a un toque y «Otra fecha» sigue ahí para lo que no cae en ninguna.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_8_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Servicios',
@@ -425,6 +480,8 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-12', fecha: '12 de septiembre de 2026', novedades: DEL_12_DE_SEPTIEMBRE },
+  { version: '2026-09-10', fecha: '10 de septiembre de 2026', novedades: DEL_10_DE_SEPTIEMBRE },
   { version: '2026-09-08', fecha: '8 de septiembre de 2026', novedades: DEL_8_DE_SEPTIEMBRE },
   { version: '2026-09-03', fecha: '3 de septiembre de 2026', novedades: DEL_3_DE_SEPTIEMBRE },
   { version: '2026-08-26', fecha: '26 de agosto de 2026', novedades: DEL_26_DE_AGOSTO },

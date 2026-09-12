@@ -4,9 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { hoyHermosillo } from '@/lib/format'
 import type {
-  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, ResultadoPagoLote, TipoDeduccion,
-  TipoMovimientoCaja, TipoPagoCobranza, TipoProducto,
+  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago, ResultadoPagoLote,
+  TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -235,11 +236,22 @@ export async function eliminarCobro(id: string, obras: string[] = []): Promise<R
 // ===========================================================================
 // NÓMINA
 // ===========================================================================
+/**
+ * Un renglón del recibo: abona a un contrato de obra o a la raya de una
+ * semana, nunca a los dos. La base lo exige con un check y la RPC lo reparte.
+ */
+export type BloqueDeRecibo = {
+  contrato_id?: string | null
+  raya_id?: string | null
+  monto: number
+  porcentaje: number | null
+}
+
 export async function pagarNomina(datos: {
   trabajador_id: string
   fecha: string
   metodo: MetodoPago
-  pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+  pagos: BloqueDeRecibo[]
   deducciones: string[]
   notas: string | null
 }): Promise<Resultado<{ reciboId: string }>> {
@@ -271,7 +283,7 @@ export async function editarReciboNomina(datos: {
   recibo_id: string
   fecha: string
   metodo: MetodoPago
-  pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+  pagos: BloqueDeRecibo[]
   notas: string | null
 }): Promise<Resultado> {
   const conMonto = datos.pagos.filter((p) => p.monto > 0)
@@ -494,12 +506,18 @@ export async function guardarPagoFijo(pago: {
   estado: EstadoPagoFijo
   descripcion: string | null
   notas: string | null
-  recurrente: boolean
   fecha_pago: string | null
 }): Promise<Resultado> {
   if (!pago.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
 
   const supabase = await staff()
+  /*
+   * La fecha se guarda tal como se capturó, sin cuadrarla al 15 ni al fin de
+   * mes. No todo pago fijo cae en quincena: la nómina de dirección se paga sin
+   * fecha fija y queda fuera del ciclo quincenal a propósito. Lo que sí hace
+   * falta es que ninguno se pierda de vista, y de eso se encarga la pantalla,
+   * que pide el mes completo y acomoda cada pago en la quincena que le toca.
+   */
   const fila = { ...pago, beneficiario: pago.beneficiario.trim() }
   delete (fila as { id?: string }).id
 
@@ -521,7 +539,8 @@ export async function marcarPagoFijo(
     .from('pagos_fijos')
     .update({
       estado,
-      fecha_pago: estado === 'pagado' ? new Date().toISOString().slice(0, 10) : null,
+      // En Hermosillo, no en UTC: marcado a las seis de la tarde, quedaba pagado mañana.
+      fecha_pago: estado === 'pagado' ? hoyHermosillo() : null,
     })
     .eq('id', id)
 
@@ -538,14 +557,250 @@ export async function eliminarPagoFijo(id: string): Promise<Resultado> {
   return { ok: true }
 }
 
-/** Copia los pagos recurrentes de la quincena anterior a la indicada. */
+/** Saca de la lista los pagos que le tocan a esa quincena. Repetirla no duplica. */
 export async function generarQuincena(quincena: string): Promise<Resultado<number>> {
   const supabase = await staff()
   const { data, error } = await supabase.rpc('generar_quincena', { p_quincena: quincena })
   if (error) return fallo(error)
 
   revalidatePath('/admin/pagos-fijos')
+  revalidatePath('/admin')
   return { ok: true, datos: data as number }
+}
+
+/**
+ * Arma las quincenas del mes que todavía no existen.
+ *
+ * La llama la pantalla al abrir el mes en curso. Es segura de repetir: quien
+ * manda es `generar_quincena`, que no duplica ni aunque entren dos a la vez.
+ */
+export async function asegurarQuincenas(quincenas: string[]): Promise<Resultado<number>> {
+  const supabase = await staff()
+  let creados = 0
+
+  for (const quincena of quincenas) {
+    const { data, error } = await supabase.rpc('generar_quincena', { p_quincena: quincena })
+    if (error) return fallo(error)
+    creados += (data as number) ?? 0
+  }
+
+  if (creados > 0) {
+    revalidatePath('/admin/pagos-fijos')
+    revalidatePath('/admin')
+  }
+  return { ok: true, datos: creados }
+}
+
+// ===========================================================================
+// RAYA SEMANAL · el sueldo fijo de los oficiales
+// ===========================================================================
+/** Pone a alguien a sueldo, o le cambia el monto cerrando el trato anterior. */
+export async function guardarSueldoSemanal(datos: {
+  trabajador_id: string
+  monto_semanal: number
+  dias_base: number
+  costo_haaco_pct: number
+  obra_id: string | null
+  notas: string | null
+}): Promise<Resultado> {
+  if (!datos.trabajador_id) return { ok: false, error: 'Falta decir de quién es el sueldo.' }
+  if (datos.monto_semanal <= 0) return { ok: false, error: 'El sueldo tiene que ser mayor a cero.' }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('guardar_sueldo_semanal', {
+    p_trabajador: datos.trabajador_id,
+    p_monto: datos.monto_semanal,
+    p_dias_base: datos.dias_base,
+    p_pct: datos.costo_haaco_pct,
+    p_obra: datos.obra_id,
+    p_notas: datos.notas,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  return { ok: true }
+}
+
+/** Saca la raya de esa semana desde los sueldos dados de alta. */
+export async function generarRaya(semana: string): Promise<Resultado<number>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('generar_raya', { p_semana: semana })
+  if (error) return fallo(error)
+
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true, datos: data as number }
+}
+
+/**
+ * Corrige una raya: los días, el ajuste y a qué obras se carga.
+ *
+ * El reparto viaja completo, como los renglones del recibo: lo que no venga en
+ * la lista deja de cargar a esa obra.
+ */
+export async function guardarRaya(datos: {
+  raya_id: string
+  dias_trabajados: number
+  ajuste: number
+  notas: string | null
+  obras: { obra_id: string; pct: number }[]
+}): Promise<Resultado> {
+  const suma = datos.obras.reduce((s, o) => s + o.pct, 0)
+  if (suma > 100) {
+    return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
+  }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('guardar_raya', {
+    p_raya: datos.raya_id,
+    p_dias_trabajados: datos.dias_trabajados,
+    p_ajuste: datos.ajuste,
+    p_notas: datos.notas,
+    p_obras: datos.obras,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/** Cancela una raya que no debió existir. Si ya se pagó, primero va el recibo. */
+export async function cancelarRaya(id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.rpc('cancelar_raya', { p_raya: id })
+  if (error) return fallo(error)
+
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+// ===========================================================================
+// CATÁLOGO DE PAGOS PROGRAMADOS · la lista de a quién se le paga cada quincena
+// ===========================================================================
+export async function guardarPagoProgramado(
+  programado: {
+    id?: string
+    tipo: TipoPagoProgramado
+    trabajador_id: string | null
+    beneficiario: string
+    categoria: string
+    monto: number
+    metodo: MetodoPago
+    periodicidad: PeriodicidadPago
+    descripcion: string | null
+    notas: string | null
+    activo: boolean
+  },
+  /** Llevar el cambio a las quincenas que todavía no se pagan. */
+  propagar = false,
+): Promise<Resultado<number>> {
+  if (!programado.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
+
+  const supabase = await staff()
+  const fila = { ...programado, beneficiario: programado.beneficiario.trim() }
+  delete (fila as { id?: string }).id
+
+  const { data, error } = programado.id
+    ? await supabase.from('pagos_programados').update(fila).eq('id', programado.id).select('id')
+    : await supabase.from('pagos_programados').insert(fila).select('id')
+
+  if (error) return fallo(error)
+  const id = programado.id ?? data?.[0]?.id
+  let alcanzados = 0
+
+  /*
+   * La historia no se reescribe: sólo se tocan los pagos que siguen por
+   * delante y que nadie ha marcado como pagados. Un mes cerrado y un pago ya
+   * hecho se quedan con el monto que tuvieron.
+   */
+  if (propagar && id) {
+    const { data: tocados, error: errorPropagar } = await supabase
+      .from('pagos_fijos')
+      .update({
+        monto: fila.monto,
+        beneficiario: fila.beneficiario,
+        categoria: fila.categoria,
+        metodo: fila.metodo,
+        descripcion: fila.descripcion,
+      })
+      .eq('programado_id', id)
+      .neq('estado', 'pagado')
+      .gte('quincena', hoyHermosillo())
+      .select('id')
+
+    if (errorPropagar) return fallo(errorPropagar)
+    alcanzados = tocados?.length ?? 0
+  }
+
+  revalidatePath('/admin/pagos-fijos')
+  revalidatePath('/admin')
+  return { ok: true, datos: alcanzados }
+}
+
+/** Un pago fijo que todavía se puede corregir, para enseñarlo antes de tocarlo. */
+export type PagoPorCorregir = { id: string; quincena: string; monto: number }
+
+/**
+ * Qué quincenas se corregirían al cambiarle el monto a un programado.
+ *
+ * Se consulta antes de guardar para poder decirlas por su nombre —«el 30 de
+ * septiembre y el 15 de octubre»— en vez de un «las que todavía no se pagan»
+ * que obliga a confiar. Si no devuelve nada, no hay nada que preguntar.
+ *
+ * El filtro es el mismo que aplica la propagación aquí abajo, y tiene que
+ * seguirlo siendo: lo que se enseña y lo que se toca no pueden separarse.
+ */
+export async function pagosPorCorregir(id: string): Promise<Resultado<PagoPorCorregir[]>> {
+  const supabase = await staff()
+  const { data, error } = await supabase
+    .from('pagos_fijos')
+    .select('id, quincena, monto')
+    .eq('programado_id', id)
+    .neq('estado', 'pagado')
+    .gte('quincena', hoyHermosillo())
+    .order('quincena')
+
+  if (error) return fallo(error)
+  return { ok: true, datos: data ?? [] }
+}
+
+/** Sacarlo de la lista sin borrar lo que ya se le pagó. */
+export async function archivarPagoProgramado(id: string, activo: boolean): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.from('pagos_programados').update({ activo }).eq('id', id)
+  if (error) return fallo(error)
+  revalidatePath('/admin/pagos-fijos')
+  return { ok: true }
+}
+
+/**
+ * Borrarlo de verdad, y sólo si nunca generó un pago.
+ *
+ * En cuanto generó uno, borrarlo dejaría esos renglones huérfanos —la liga se
+ * pone en nulo y se vuelven pagos sueltos, sin manera de saber de dónde
+ * salieron—. Para eso está archivar.
+ */
+export async function eliminarPagoProgramado(id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { count, error: errorConteo } = await supabase
+    .from('pagos_fijos')
+    .select('id', { count: 'exact', head: true })
+    .eq('programado_id', id)
+
+  if (errorConteo) return fallo(errorConteo)
+  if (count && count > 0) {
+    return {
+      ok: false,
+      error: `Ya generó ${count} ${count === 1 ? 'pago' : 'pagos'}. Archívalo: deja de salir en las siguientes quincenas y el historial se conserva.`,
+    }
+  }
+
+  const { error } = await supabase.from('pagos_programados').delete().eq('id', id)
+  if (error) return fallo(error)
+  revalidatePath('/admin/pagos-fijos')
+  return { ok: true }
 }
 
 // ===========================================================================

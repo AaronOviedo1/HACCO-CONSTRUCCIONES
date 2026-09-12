@@ -34,6 +34,9 @@ export type CondicionCompra = 'contado' | 'credito'
 export type TipoPagoCobranza = 'anticipo' | 'abono' | 'liquidacion'
 export type TipoDeduccion = 'prestamo' | 'adelanto' | 'reembolso'
 export type EstadoPagoFijo = 'pagado' | 'pendiente' | 'vencido' | 'programado'
+export type TipoPagoProgramado = 'personal' | 'servicio'
+export type PeriodicidadPago = 'quincenal' | 'primera' | 'segunda'
+export type EstatusRaya = 'abierta' | 'cerrada' | 'cancelada'
 export type TipoMovimientoCaja = 'entrada' | 'salida'
 export type EstatusTarea = 'pendiente' | 'en_proceso' | 'terminada'
 export type EstadoCxp = 'pagada' | 'vencida' | 'urgente' | 'proxima' | 'al_corriente' | 'cancelada'
@@ -461,7 +464,9 @@ export type PagoCobranza = {
 
 export type NominaPago = {
   id: string
-  contrato_id: string
+  /** Uno de los dos viene lleno y el otro nulo: lo obliga la base. */
+  contrato_id: string | null
+  raya_id: string | null
   recibo_id: string | null
   fecha: string
   monto: number
@@ -471,6 +476,87 @@ export type NominaPago = {
   notas: string | null
   registrado_por: string | null
   created_at: string
+}
+
+/** El trato: cuánto gana a la semana un oficial a sueldo fijo. */
+export type SueldoSemanal = {
+  id: string
+  trabajador_id: string
+  monto_semanal: number
+  dias_base: number
+  costo_haaco_pct: number
+  obra_id: string | null
+  vigencia_desde: string
+  vigencia_hasta: string | null
+  activo: boolean
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Lo devengado en una semana. `semana` es el lunes; se raya el sábado. */
+export type RayaSemanal = {
+  id: string
+  sueldo_id: string | null
+  trabajador_id: string
+  semana: string
+  monto_semanal: number
+  dias_base: number
+  dias_trabajados: number
+  ajuste: number
+  /** Generadas en la base: no se escriben. */
+  bruto: number
+  costo_haaco_pct: number
+  retencion: number
+  total_pagar: number
+  estatus: EstatusRaya
+  notas: string | null
+  registrado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** A qué obras se carga la semana, en porcentaje. Sin filas = costo general. */
+export type RayaObra = {
+  raya_id: string
+  obra_id: string
+  pct: number
+}
+
+/** Un renglón del recibo tal como lo espera la base: contrato o raya, uno solo. */
+export type BloqueReciboSql = {
+  contrato_id?: string | null
+  raya_id?: string | null
+  monto: number
+  porcentaje: number | null
+}
+
+export type VRayaSemanal = {
+  raya_id: string
+  trabajador_id: string
+  trabajador: string
+  es_externo: boolean
+  oficio: OficioTrabajador | null
+  semana: string
+  semana_termina: string
+  monto_semanal: number
+  dias_base: number
+  dias_trabajados: number
+  ajuste: number
+  mano_obra: number
+  costo_haaco_pct: number
+  retencion_haaco: number
+  total: number
+  devengado: number
+  pagado: number
+  por_pagar: number
+  disponible: number
+  ultimo_pago: string | null
+  estatus: EstatusRaya
+  notas: string | null
+  /** "COLOSSUS (100.00%)", ya resuelto por la vista. Nulo si no se cargó a ninguna. */
+  obras: string | null
+  pct_asignado: number
 }
 
 export type Deduccion = {
@@ -489,6 +575,9 @@ export type Deduccion = {
 export type PagoFijo = {
   id: string
   quincena: string
+  /** Del catálogo del que salió; nulo si se capturó suelto. */
+  programado_id: string | null
+  /** Derivada en la base: espejo de `programado_id !== null`. No se escribe. */
   recurrente: boolean
   categoria: string
   beneficiario: string
@@ -500,6 +589,33 @@ export type PagoFijo = {
   fecha_pago: string | null
   created_at: string
   updated_at: string
+}
+
+/** Un renglón del catálogo: a quién se le paga cada quincena. */
+export type PagoProgramado = {
+  id: string
+  tipo: TipoPagoProgramado
+  trabajador_id: string | null
+  beneficiario: string
+  categoria: string
+  monto: number
+  metodo: MetodoPago
+  periodicidad: PeriodicidadPago
+  descripcion: string | null
+  notas: string | null
+  activo: boolean
+  orden: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type VPagoProgramado = PagoProgramado & {
+  trabajador_nombre: string | null
+  /** Nulo si no hay nadie ligado; falso sólo si lo hay y está de baja. */
+  trabajador_activo: boolean | null
+  oficio: string | null
+  ultima_quincena: string | null
+  pagos_generados: number
 }
 
 export type CajaChica = {
@@ -908,6 +1024,10 @@ export type VPrenomina = {
   pct_pagado: number
   deducciones: number
   ultimo_pago: string | null
+  /** El desglose por motor: por avance de obra y por raya semanal. */
+  disponible_destajo: number
+  disponible_sueldo: number
+  semanas_por_pagar: number
 }
 
 export type ReciboNomina = {
@@ -1261,6 +1381,10 @@ export type Database = {
       nomina_pagos: Tabla<NominaPago>
       deducciones: Tabla<Deduccion>
       pagos_fijos: Tabla<PagoFijo>
+      pagos_programados: Tabla<PagoProgramado>
+      sueldos_semanales: Tabla<SueldoSemanal>
+      rayas_semanales: Tabla<RayaSemanal>
+      raya_obras: Tabla<RayaObra>
       caja_chica: Tabla<CajaChica>
       polizas_garantia: Tabla<PolizaGarantia>
       recordatorios: Tabla<Recordatorio>
@@ -1292,6 +1416,8 @@ export type Database = {
       v_obra_concentrado: Vista<VObraConcentrado>
       v_nomina_contratos: Vista<VNominaContrato>
       v_prenomina: Vista<VPrenomina>
+      v_pagos_programados: Vista<VPagoProgramado>
+      v_rayas_semanales: Vista<VRayaSemanal>
     }
     Functions: {
       guardar_cotizacion: {
@@ -1377,7 +1503,7 @@ export type Database = {
           p_trabajador: string
           p_fecha: string
           p_metodo: MetodoPago
-          p_pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+          p_pagos: BloqueReciboSql[]
           p_deducciones: string[]
           p_notas: string | null
         }
@@ -1388,7 +1514,7 @@ export type Database = {
           p_recibo: string
           p_fecha: string
           p_metodo: MetodoPago
-          p_pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+          p_pagos: BloqueReciboSql[]
           p_notas: string | null
         }
         Returns: undefined
@@ -1398,6 +1524,30 @@ export type Database = {
         Returns: undefined
       }
       generar_quincena: { Args: { p_quincena: string }; Returns: number }
+      generar_raya: { Args: { p_semana: string }; Returns: number }
+      guardar_sueldo_semanal: {
+        Args: {
+          p_trabajador: string
+          p_monto: number
+          p_dias_base: number
+          p_pct: number
+          p_obra: string | null
+          p_notas: string | null
+        }
+        Returns: string
+      }
+      guardar_raya: {
+        Args: {
+          p_raya: string
+          p_dias_trabajados: number
+          p_ajuste: number
+          p_notas: string | null
+          p_obras: { obra_id: string; pct: number }[]
+        }
+        Returns: undefined
+      }
+      cerrar_raya: { Args: { p_raya: string; p_cerrada: boolean }; Returns: undefined }
+      cancelar_raya: { Args: { p_raya: string }; Returns: undefined }
       registrar_precio: {
         Args: {
           p_producto: string

@@ -68,14 +68,19 @@ export function BotonMas() {
         }`}
       />
 
+      {/* `pointer-events-none` en la columna y `auto` en cada hijo: la caja de
+          esta capa mide lo que mide el menú —16.5rem de ancho y todo su alto—
+          aunque esté cerrado, y sin esto se tragaba los toques de cualquier
+          botón que cayera debajo, en la franja derecha de la pantalla. Los
+          botones de la lista de pagos fijos vivían justo ahí. */}
       <div
-        className="fixed right-4 z-50 flex flex-col items-end gap-2.5 lg:hidden"
+        className="pointer-events-none fixed right-4 z-50 flex flex-col items-end gap-2.5 lg:hidden"
         style={{ bottom: 'var(--alto-tabs)' }}
       >
         <div
           role="menu"
           aria-label="Crear"
-          className={`cristal cristal-brillo relative w-[16.5rem] origin-bottom-right rounded-[1.375rem] p-1.5 transition-[opacity,transform] duration-[260ms] ease-suave motion-reduce:transition-none ${
+          className={`cristal cristal-brillo pointer-events-auto relative w-[16.5rem] origin-bottom-right rounded-[1.375rem] p-1.5 transition-[opacity,transform] duration-[260ms] ease-suave motion-reduce:transition-none ${
             abierto ? 'visible opacity-100' : 'invisible translate-y-2 scale-90 opacity-0'
           }`}
         >
@@ -111,7 +116,7 @@ export function BotonMas() {
           aria-expanded={abierto}
           aria-label={abierto ? 'Cerrar el menú de crear' : 'Crear'}
           onClick={() => setAbierto((a) => !a)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-haaco-700 text-white shadow-verde transition-transform duration-300 ease-suave active:scale-90 motion-reduce:transition-none"
+          className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-haaco-700 text-white shadow-verde transition-transform duration-300 ease-suave active:scale-90 motion-reduce:transition-none"
         >
           {/* El «+» gira a «×» para decir que el mismo dedo lo cierra. */}
           <svg
