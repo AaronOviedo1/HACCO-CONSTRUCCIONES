@@ -391,7 +391,7 @@ export default async function Dashboard() {
               <thead>
                 <tr>
                   <Th>Trabajador</Th>
-                  <Th numerico>Obras y semanas</Th>
+                  <Th numerico>Obras</Th>
                   <Th numerico>Devengado</Th>
                   <Th numerico>Pagado</Th>
                   <Th numerico>Deducciones</Th>

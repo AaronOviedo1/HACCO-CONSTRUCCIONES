@@ -9,8 +9,8 @@ import {
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { fecha, pesos } from '@/lib/format'
-import { hoyISO, num, redondear } from '@/lib/cotizaciones'
-import { diaDeRaya, etiquetaSemana, semanaDe } from '@/lib/finanzas'
+import { num, redondear } from '@/lib/cotizaciones'
+import { diaDeRaya, etiquetaSemana } from '@/lib/finanzas'
 import {
   cancelarRaya, generarRaya, guardarRaya, guardarSueldoSemanal,
 } from '@/app/admin/finanzas-acciones'
@@ -225,6 +225,10 @@ function FormularioRaya({
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
+  /* Con abonos, el monto ya quedó en un recibo firmado: la base no deja mover
+     los días ni el ajuste, y aquí se dice antes de que lo intenten. El reparto
+     entre obras sí se corrige, porque no cambia lo que se le debe a nadie. */
+  const conAbonos = Number(raya.pagado) > 0
   const [dias, setDias] = useState(String(raya.dias_trabajados))
   const [ajuste, setAjuste] = useState(String(raya.ajuste ?? 0))
   const [notas, setNotas] = useState(raya.notas ?? '')
@@ -290,13 +294,18 @@ function FormularioRaya({
             sufijo={`de ${raya.dias_base}`}
             value={dias}
             onChange={(e) => setDias(e.target.value)}
+            disabled={conAbonos}
           />
-          <p className="mt-1 text-xs text-tinta-400">Con menos días, el sueldo baja a proporción.</p>
+          <p className="mt-1 text-xs text-tinta-400">
+            {conAbonos
+              ? 'Ya se pagó: para cambiar los días, cancela primero el recibo.'
+              : 'Con menos días, el sueldo baja a proporción.'}
+          </p>
         </div>
         <Campo
           etiqueta="Ajuste"
           ancho="medio"
-          hijo={<Numero value={ajuste} onChange={(e) => setAjuste(e.target.value)} />}
+          hijo={<Numero value={ajuste} onChange={(e) => setAjuste(e.target.value)} disabled={conAbonos} />}
           ayuda="Tiempo extra o un bono. En negativo, un descuento."
         />
 
@@ -313,11 +322,16 @@ function FormularioRaya({
                     }
                   >
                     <option value="">Elegir obra…</option>
-                    {obras.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.nombre}
-                      </option>
-                    ))}
+                    {/* Una obra ya elegida en otro renglón no se ofrece: dos
+                        renglones de la misma obra se suman en uno al guardar,
+                        y en pantalla parecían dos cosas distintas. */}
+                    {obras
+                      .filter((o) => o.id === r.obra_id || !reparto.some((x) => x.obra_id === o.id))
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.nombre}
+                        </option>
+                      ))}
                   </Seleccion>
                   <input
                     type="text"
@@ -559,6 +573,3 @@ function FormularioSueldo({
     </Dialogo>
   )
 }
-
-/** La semana de hoy, para cuando la URL no trae ninguna. */
-export const semanaVigente = () => semanaDe(hoyISO())

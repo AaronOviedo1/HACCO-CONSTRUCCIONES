@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
-import { hoyISO } from '@/lib/cotizaciones'
+import { hoyHermosillo } from '@/lib/format'
 import type {
   EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago, ResultadoPagoLote,
   TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
@@ -506,7 +506,6 @@ export async function guardarPagoFijo(pago: {
   estado: EstadoPagoFijo
   descripcion: string | null
   notas: string | null
-  recurrente: boolean
   fecha_pago: string | null
 }): Promise<Resultado> {
   if (!pago.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
@@ -540,7 +539,8 @@ export async function marcarPagoFijo(
     .from('pagos_fijos')
     .update({
       estado,
-      fecha_pago: estado === 'pagado' ? new Date().toISOString().slice(0, 10) : null,
+      // En Hermosillo, no en UTC: marcado a las seis de la tarde, quedaba pagado mañana.
+      fecha_pago: estado === 'pagado' ? hoyHermosillo() : null,
     })
     .eq('id', id)
 
@@ -727,7 +727,7 @@ export async function guardarPagoProgramado(
       })
       .eq('programado_id', id)
       .neq('estado', 'pagado')
-      .gte('quincena', hoyISO())
+      .gte('quincena', hoyHermosillo())
       .select('id')
 
     if (errorPropagar) return fallo(errorPropagar)
@@ -759,7 +759,7 @@ export async function pagosPorCorregir(id: string): Promise<Resultado<PagoPorCor
     .select('id, quincena, monto')
     .eq('programado_id', id)
     .neq('estado', 'pagado')
-    .gte('quincena', hoyISO())
+    .gte('quincena', hoyHermosillo())
     .order('quincena')
 
   if (error) return fallo(error)

@@ -4,7 +4,7 @@ import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
 import {
   ESTADO_PAGO_FIJO, METODO_PAGO, etiquetaMes, etiquetaQuincena, mesActual, quincenaDe, quincenasDelMes,
-  rangoMes,
+  rangoMes, tocaEnQuincena,
 } from '@/lib/finanzas'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
 import {
@@ -64,13 +64,34 @@ export default async function PaginaPagosFijos({
   const programados = catalogo ?? []
 
   /*
-   * Sólo el mes en curso se arma solo, y sólo si le falta alguna quincena. Los
-   * meses viejos se quedan como quedaron —el pasado no se reescribe— y los de
-   * más adelante esperan a que alguien apriete «Generar», que para eso está.
+   * Sólo el mes en curso se arma solo. Los meses viejos se quedan como quedaron
+   * —el pasado no se reescribe— y los de más adelante esperan a que alguien
+   * apriete «Generar», que para eso está.
+   *
+   * Lo que falta se cuenta renglón por renglón de la lista y no quincena por
+   * quincena. Preguntando nada más «¿ya tiene algún pago?», bastaba un pago
+   * capturado a mano el día 15 para que la quincena se diera por armada; y a
+   * quien se agregaba a la lista a media quincena no se le generaba nada hasta
+   * la siguiente. Las dos condiciones son las mismas de `generar_quincena`: si
+   * se separan, la pantalla pediría armar lo que la base no va a crear y el
+   * aviso de «armando» saldría en cada visita.
    */
-  const faltantes = quincenas.filter((q) => !pagos.some((p) => p.quincena === q))
-  const armarSolo =
-    mes === mesActual() && faltantes.length > 0 && programados.some((p) => p.activo)
+  const faltantes = quincenas.filter((q) =>
+    programados.some(
+      (pp) =>
+        pp.activo &&
+        tocaEnQuincena(pp.periodicidad, q) &&
+        !pagos.some(
+          (p) =>
+            p.quincena === q &&
+            (p.programado_id === pp.id ||
+              (p.programado_id === null &&
+                p.beneficiario.trim().toLowerCase() === pp.beneficiario.trim().toLowerCase() &&
+                p.categoria === pp.categoria)),
+        ),
+    ),
+  )
+  const armarSolo = mes === mesActual() && faltantes.length > 0
   const total = pagos.reduce((s, p) => s + Number(p.monto), 0)
   const pagado = pagos.filter((p) => p.estado === 'pagado').reduce((s, p) => s + Number(p.monto), 0)
   const pendiente = total - pagado

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
-import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
+import { fecha, hoyHermosillo, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { agruparPorMes, mesActual, rangoMes, semanaDe } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import { ESTATUS_OBRA } from '@/lib/obras'
@@ -33,6 +33,12 @@ export default async function PaginaNomina({
     : 'mensual'
   const verSaldados = saldados === '1'
   const { desde, hasta } = rangoMes(mes)
+  // La semana que se está viendo: la de la URL, o la de hoy en Hermosillo. Con
+  // `new Date()` en el servidor, que corre en UTC, el domingo a partir de las
+  // cinco de la tarde ya enseñaba la semana siguiente.
+  const semana = semanaUrl && /^\d{4}-\d{2}-\d{2}$/.test(semanaUrl)
+    ? semanaDe(semanaUrl)
+    : semanaDe(hoyHermosillo())
 
   const supabase = await crearClienteServidor()
 
@@ -54,14 +60,18 @@ export default async function PaginaNomina({
     // WhatsApp lo necesita. Sale más barato traerlo aparte que recrear
     // v_nomina_contratos y v_prenomina, que van encadenadas.
     supabase.from('profiles').select('id, nombre, telefono'),
-    // Las rayas del mes se leen por su sábado de pago, no por su lunes: así
-    // una semana a caballo entre dos meses cae en el mes en que se paga, que
-    // es como la ven los reportes y el contador.
+    /*
+     * Las rayas no se piden por mes. Se filtraban por el mes que se estaba
+     * viendo, y eso escondía justo la que importa: una semana de agosto que no
+     * se pagó ya no salía en «Pagar nómina» al pasar a septiembre, aunque la
+     * prenómina la seguía contando como deuda. Se piden la semana que se está
+     * viendo y todas las que tienen saldo, sin importar de cuándo sean; las que
+     * ya se pagaron y cuelgan de un recibo del mes se completan abajo.
+     */
     supabase
       .from('v_rayas_semanales')
       .select('*')
-      .gte('semana', semanaDe(desde))
-      .lte('semana', hasta)
+      .or(`semana.eq.${semana},por_pagar.gt.0`)
       .order('semana', { ascending: false }),
     supabase.from('sueldos_semanales').select('*').eq('activo', true),
     supabase
@@ -71,11 +81,19 @@ export default async function PaginaNomina({
       .order('nombre'),
   ])
 
-  const listaRayas = (rayas ?? []).filter((r) => r.estatus !== 'cancelada')
-  // La semana que se está viendo: la de la URL, o la de hoy.
-  const semana = semanaUrl && /^\d{4}-\d{2}-\d{2}$/.test(semanaUrl)
-    ? semanaDe(semanaUrl)
-    : semanaDe(new Date())
+  // Los recibos del mes nombran sus renglones de raya por la semana, y una
+  // semana ya saldada no viene en la consulta de arriba.
+  const rayasVistas = new Set((rayas ?? []).map((r) => r.raya_id))
+  const faltanDeRecibos = [
+    ...new Set((pagos ?? []).map((p) => p.raya_id).filter((id): id is string => Boolean(id))),
+  ].filter((id) => !rayasVistas.has(id))
+  const { data: rayasDeRecibos } = faltanDeRecibos.length
+    ? await supabase.from('v_rayas_semanales').select('*').in('raya_id', faltanDeRecibos)
+    : { data: [] }
+
+  const listaRayas = [...(rayas ?? []), ...(rayasDeRecibos ?? [])].filter(
+    (r) => r.estatus !== 'cancelada',
+  )
   const telefonos = new Map((gente ?? []).map((p) => [p.id, p.telefono]))
   const nombres = new Map((gente ?? []).map((p) => [p.id, p.nombre]))
 
@@ -163,7 +181,7 @@ export default async function PaginaNomina({
                   const aPagar = Math.max(0, Number(p.disponible) - Number(p.deducciones))
                   const tope = Math.max(1, ...(prenomina ?? []).map((x) => Number(x.disponible)))
                   const semanas = Number(p.semanas_por_pagar)
-                  const obras = Number(p.contratos_activos) - semanas
+                  const obras = Number(p.contratos_activos)
                   return (
                     <li key={p.trabajador_id}>
                       <div className="mb-1.5 flex items-baseline justify-between">
@@ -179,10 +197,9 @@ export default async function PaginaNomina({
                           style={{ width: `${(Number(p.deducciones) / tope) * 100}%` }}
                         />
                       </div>
-                      {/* `contratos_activos` de la prenómina cuenta los dos motores
-                          juntos, así que aquí se vuelven a separar: decirle «9
-                          obras» a quien tiene ocho contratos y una semana de raya
-                          no es cierto de ninguna de las dos formas. */}
+                      {/* Obras y semanas por separado: decirle «9 obras» a quien
+                          tiene ocho contratos y una semana de raya no es cierto
+                          de ninguna de las dos formas. */}
                       <p className="mt-1 text-[11px] text-tinta-400">
                         {obras > 0 && `${obras} ${obras === 1 ? 'obra' : 'obras'} · `}
                         {semanas > 0 && `${semanas} ${semanas === 1 ? 'semana' : 'semanas'} · `}

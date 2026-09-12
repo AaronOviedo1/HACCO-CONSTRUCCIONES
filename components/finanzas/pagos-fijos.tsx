@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Check, CopyPlus, Pencil, Plus } from 'lucide-react'
 import {
-  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
+  AreaTexto, Campo, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
   PieConBorrado, Seleccion,
 } from '@/components/formulario'
 import { FiltroMes, SelectorFecha } from '@/components/filtro-fechas'
@@ -30,8 +30,8 @@ export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: st
       if (!r.ok) return setAviso(r.error)
       setAviso(
         r.datos === 0
-          ? 'No había pagos recurrentes que copiar.'
-          : `Se copiaron ${r.datos} pagos recurrentes a la ${etiquetaQuincena(quincena).toLowerCase()}.`,
+          ? `La ${etiquetaQuincena(quincena).toLowerCase()} ya tenía a todos los de la lista.`
+          : `Se agregaron ${r.datos} ${r.datos === 1 ? 'pago' : 'pagos'} de la lista a la ${etiquetaQuincena(quincena).toLowerCase()}.`,
       )
       router.refresh()
     })
@@ -203,7 +203,6 @@ function FormularioPagoFijo({
   const [estado, setEstado] = useState<EstadoPagoFijo>(pago?.estado ?? 'programado')
   const [descripcion, setDescripcion] = useState(pago?.descripcion ?? '')
   const [notas, setNotas] = useState(pago?.notas ?? '')
-  const [recurrente, setRecurrente] = useState(pago?.recurrente ?? false)
 
   const guardar = () =>
     iniciar(async () => {
@@ -218,7 +217,6 @@ function FormularioPagoFijo({
         estado,
         descripcion: descripcion.trim() || null,
         notas: notas.trim() || null,
-        recurrente,
         fecha_pago: estado === 'pagado' ? (pago?.fecha_pago ?? hoyISO()) : null,
       })
       if (!r.ok) return setError(r.error)
@@ -327,11 +325,15 @@ function FormularioPagoFijo({
           etiqueta="Notas"
           hijo={<AreaTexto rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />}
         />
-        <Casilla
-          etiqueta="Copiar a la siguiente quincena"
-          checked={recurrente}
-          onChange={(e) => setRecurrente(e.target.checked)}
-        />
+        {/* Aquí había una casilla de «recurrente». Desde la lista de personal y
+            servicios, lo que se repite es lo que viene de la lista y la base lo
+            deriva sola: marcarla no hacía nada, y al guardar se desmarcaba. */}
+        {!pago && (
+          <p className="text-xs text-tinta-500 sm:col-span-2">
+            Este pago se registra una sola vez. Si se repite cada quincena, agrégalo en
+            «Personal y servicios» y saldrá solo.
+          </p>
+        )}
         <MensajeError mensaje={error} />
       </CuerpoDialogo>
 
