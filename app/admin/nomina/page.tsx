@@ -162,6 +162,8 @@ export default async function PaginaNomina({
                 {(prenomina ?? []).map((p) => {
                   const aPagar = Math.max(0, Number(p.disponible) - Number(p.deducciones))
                   const tope = Math.max(1, ...(prenomina ?? []).map((x) => Number(x.disponible)))
+                  const semanas = Number(p.semanas_por_pagar)
+                  const obras = Number(p.contratos_activos) - semanas
                   return (
                     <li key={p.trabajador_id}>
                       <div className="mb-1.5 flex items-baseline justify-between">
@@ -177,8 +179,13 @@ export default async function PaginaNomina({
                           style={{ width: `${(Number(p.deducciones) / tope) * 100}%` }}
                         />
                       </div>
+                      {/* `contratos_activos` de la prenómina cuenta los dos motores
+                          juntos, así que aquí se vuelven a separar: decirle «9
+                          obras» a quien tiene ocho contratos y una semana de raya
+                          no es cierto de ninguna de las dos formas. */}
                       <p className="mt-1 text-[11px] text-tinta-400">
-                        {p.contratos_activos} {p.contratos_activos === 1 ? 'obra' : 'obras'} ·
+                        {obras > 0 && `${obras} ${obras === 1 ? 'obra' : 'obras'} · `}
+                        {semanas > 0 && `${semanas} ${semanas === 1 ? 'semana' : 'semanas'} · `}
                         pendiente {pesosCortos(p.pendiente)}
                         {Number(p.deducciones) > 0 && ` · ${pesosCortos(p.deducciones)} en préstamos`}
                       </p>
