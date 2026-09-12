@@ -9,9 +9,11 @@ import {
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { pesos } from '@/lib/format'
 import { num, redondear } from '@/lib/cotizaciones'
-import { METODO_PAGO_SIN_CAJA } from '@/lib/finanzas'
+import { METODO_PAGO_SIN_CAJA, etiquetaSemana } from '@/lib/finanzas'
 import { cancelarReciboNomina, editarReciboNomina } from '@/app/admin/finanzas-acciones'
-import type { MetodoPago, NominaPago, ReciboNomina, VNominaContrato } from '@/types/database'
+import type {
+  MetodoPago, NominaPago, ReciboNomina, VNominaContrato, VRayaSemanal,
+} from '@/types/database'
 
 /**
  * Corregir o cancelar un recibo de abono ya emitido.
@@ -25,13 +27,15 @@ import type { MetodoPago, NominaPago, ReciboNomina, VNominaContrato } from '@/ty
  * porque un folio que desaparece es peor que uno que dice por qué se canceló.
  */
 export function BotonEditarRecibo({
-  recibo, pagos, contratos, trabajador,
+  recibo, pagos, contratos, rayas, trabajador,
 }: {
   recibo: ReciboNomina
-  /** Los renglones de este recibo, uno por contrato abonado. */
+  /** Los renglones de este recibo: cada uno abona a una obra o a una semana. */
   pagos: NominaPago[]
-  /** Para poner el nombre de la obra de cada renglón. */
+  /** Para poner el nombre de la obra de cada renglón de destajo. */
   contratos: VNominaContrato[]
+  /** Para poner las fechas de cada renglón de raya semanal. */
+  rayas: VRayaSemanal[]
   trabajador: string
 }) {
   const [abierto, setAbierto] = useState(false)
@@ -54,6 +58,7 @@ export function BotonEditarRecibo({
           recibo={recibo}
           pagos={pagos}
           contratos={contratos}
+          rayas={rayas}
           trabajador={trabajador}
           onCerrar={() => setAbierto(false)}
         />
@@ -63,11 +68,12 @@ export function BotonEditarRecibo({
 }
 
 function FormularioRecibo({
-  recibo, pagos, contratos, trabajador, onCerrar,
+  recibo, pagos, contratos, rayas, trabajador, onCerrar,
 }: {
   recibo: ReciboNomina
   pagos: NominaPago[]
   contratos: VNominaContrato[]
+  rayas: VRayaSemanal[]
   trabajador: string
   onCerrar: () => void
 }) {
@@ -82,10 +88,23 @@ function FormularioRecibo({
     Object.fromEntries(pagos.map((p) => [p.id, String(Number(p.monto))])),
   )
 
-  const obraDe = (contratoId: string) =>
-    contratos.find((c) => c.contrato_id === contratoId)?.obra ?? 'Obra sin nombre'
-  const totalDe = (contratoId: string) =>
-    Number(contratos.find((c) => c.contrato_id === contratoId)?.total ?? 0)
+  /*
+   * Un renglón abona a una obra o a la raya de una semana. La raya se nombra
+   * por sus fechas: «Raya del 7 al 12 de septiembre» le dice más a quien firma
+   * que el nombre de la obra a la que se repartió, que es cuenta aparte.
+   */
+  const conceptoDe = (p: NominaPago) => {
+    if (p.raya_id) {
+      const r = rayas.find((x) => x.raya_id === p.raya_id)
+      return r ? `Raya ${etiquetaSemana(r.semana)}` : 'Raya de la semana'
+    }
+    return contratos.find((c) => c.contrato_id === p.contrato_id)?.obra ?? 'Obra sin nombre'
+  }
+
+  const totalDe = (p: NominaPago) =>
+    p.raya_id
+      ? Number(rayas.find((x) => x.raya_id === p.raya_id)?.total ?? 0)
+      : Number(contratos.find((c) => c.contrato_id === p.contrato_id)?.total ?? 0)
 
   const subtotal = redondear(pagos.reduce((s, p) => s + num(montos[p.id] ?? ''), 0))
   const total = redondear(subtotal - Number(recibo.deducciones))
@@ -100,11 +119,12 @@ function FormularioRecibo({
         metodo,
         pagos: pagos.map((p) => {
           const monto = num(montos[p.id] ?? '')
-          const contrato = totalDe(p.contrato_id)
+          const base = totalDe(p)
           return {
             contrato_id: p.contrato_id,
+            raya_id: p.raya_id,
             monto,
-            porcentaje: contrato > 0 ? redondear((monto / contrato) * 100) : null,
+            porcentaje: base > 0 ? redondear((monto / base) * 100) : null,
           }
         }),
         notas: notas.trim() || null,
@@ -168,13 +188,13 @@ function FormularioRecibo({
             {pagos.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
                 <span className="min-w-0 flex-1 text-sm text-tinta-900">
-                  {obraDe(p.contrato_id)}
+                  {conceptoDe(p)}
                 </span>
                 <Numero
                   value={montos[p.id] ?? ''}
                   onChange={(e) => setMontos((m) => ({ ...m, [p.id]: e.target.value }))}
                   className="max-w-32"
-                  aria-label={`Importe abonado a ${obraDe(p.contrato_id)}`}
+                  aria-label={`Importe abonado a ${conceptoDe(p)}`}
                 />
                 <span className="text-xs text-tinta-400">era {pesos(p.monto)}</span>
               </li>

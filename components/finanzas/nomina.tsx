@@ -9,10 +9,11 @@ import {
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
-import { METODO_PAGO_SIN_CAJA, TIPO_DEDUCCION } from '@/lib/finanzas'
+import { METODO_PAGO_SIN_CAJA, TIPO_DEDUCCION, etiquetaSemana } from '@/lib/finanzas'
 import { eliminarDeduccion, guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
+import { Etiqueta } from '@/components/ui'
 import type {
-  Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina,
+  Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina, VRayaSemanal,
 } from '@/types/database'
 
 /**
@@ -22,10 +23,31 @@ import type {
  */
 type Captura = { modo: 'monto' | 'pct'; texto: string }
 
+/**
+ * Un renglón al que se le puede abonar, venga del avance de una obra o de la
+ * raya de una semana. Los dos motores calculan distinto —uno por porcentaje de
+ * obra y el otro por días trabajados— pero a la hora de pagar se comportan
+ * igual, y con esto el diálogo, los totales y el recibo no tienen que saber de
+ * cuál vienen.
+ */
+type Pagable = {
+  /** `contrato_id` o `raya_id`, según de dónde salga. */
+  clave: string
+  esRaya: boolean
+  titulo: string
+  detalle: string
+  total: number
+  devengado: number
+  pagado: number
+  porPagar: number
+  disponible: number
+}
+
 export function PanelNomina({
-  contratos, prenomina, deducciones,
+  contratos, rayas, prenomina, deducciones,
 }: {
   contratos: VNominaContrato[]
+  rayas: VRayaSemanal[]
   prenomina: VPrenomina[]
   deducciones: Deduccion[]
   mes: string
@@ -57,6 +79,7 @@ export function PanelNomina({
           // Un contrato ya saldado no se ofrece para abonar: lo que aparece en
           // el diálogo es lo que todavía se le debe a alguien.
           contratos={contratos.filter((c) => Number(c.por_pagar) > 0)}
+          rayas={rayas.filter((r) => Number(r.por_pagar) > 0 && r.estatus !== 'cancelada')}
           prenomina={prenomina.filter((p) => Number(p.pendiente) > 0)}
           deducciones={deducciones.filter((d) => !d.saldado)}
           onCerrar={() => setPagando(false)}
@@ -72,9 +95,10 @@ export function PanelNomina({
 
 // ---------------------------------------------------------------------------
 function DialogoPago({
-  contratos, prenomina, deducciones, onCerrar,
+  contratos, rayas, prenomina, deducciones, onCerrar,
 }: {
   contratos: VNominaContrato[]
+  rayas: VRayaSemanal[]
   prenomina: VPrenomina[]
   deducciones: Deduccion[]
   onCerrar: () => void
@@ -90,13 +114,47 @@ function DialogoPago({
   const [capturas, setCapturas] = useState<Record<string, Captura>>({})
   const [elegidas, setElegidas] = useState<string[]>([])
 
+  /*
+   * Al mismo trabajador se le puede deber por los dos lados: por el avance de
+   * sus obras y por la raya de la semana. Los dos se normalizan aquí a un
+   * mismo renglón pagable para que el diálogo, los totales y el recibo los
+   * traten igual — y para que quepan en un solo recibo, que es lo que se le
+   * entrega en la mano.
+   */
   const suyos = contratos.filter((c) => c.trabajador_id === trabajadorId)
+  const susRayas = rayas.filter((r) => r.trabajador_id === trabajadorId)
   const susDeducciones = deducciones.filter((d) => d.trabajador_id === trabajadorId)
-  // Lo que se le sigue debiendo a este trabajador antes de capturar el abono.
-  const suSaldo = redondear(suyos.reduce((s, c) => s + Number(c.por_pagar), 0))
 
-  const capturaDe = (c: VNominaContrato): Captura =>
-    capturas[c.contrato_id] ?? { modo: 'monto', texto: '' }
+  const pagables: Pagable[] = [
+    ...susRayas.map((r) => ({
+      clave: r.raya_id,
+      esRaya: true,
+      titulo: `Raya ${etiquetaSemana(r.semana)}`,
+      detalle: `${r.dias_trabajados} de ${r.dias_base} días · ${r.obras ?? 'sin obra'}`,
+      total: Number(r.total),
+      devengado: Number(r.devengado),
+      pagado: Number(r.pagado),
+      porPagar: Number(r.por_pagar),
+      disponible: Number(r.disponible),
+    })),
+    ...suyos.map((c) => ({
+      clave: c.contrato_id,
+      esRaya: false,
+      titulo: c.obra,
+      detalle: `avance ${Number(c.avance_pct)}%`,
+      total: Number(c.total),
+      devengado: Number(c.devengado),
+      pagado: Number(c.pagado),
+      porPagar: Number(c.por_pagar),
+      disponible: Number(c.disponible),
+    })),
+  ]
+
+  // Lo que se le sigue debiendo a este trabajador antes de capturar el abono.
+  const suSaldo = redondear(pagables.reduce((s, x) => s + x.porPagar, 0))
+
+  const capturaDe = (x: Pagable): Captura =>
+    capturas[x.clave] ?? { modo: 'monto', texto: '' }
 
   /**
    * El importe del abono, se haya capturado en pesos o en porcentaje. El
@@ -104,15 +162,15 @@ function DialogoPago({
    * 20% de lo pactado, que es lo mismo que dice la etiqueta del renglón y lo
    * que se guarda en el recibo.
    */
-  const importeDe = (c: VNominaContrato) => {
-    const { modo, texto } = capturaDe(c)
-    return modo === 'pct' ? redondear((Number(c.total) * num(texto)) / 100) : num(texto)
+  const importeDe = (x: Pagable) => {
+    const { modo, texto } = capturaDe(x)
+    return modo === 'pct' ? redondear((x.total * num(texto)) / 100) : num(texto)
   }
 
   // Sin useMemo: el compilador de React ya memoiza esto solo, y hacerlo a mano
   // le impedía optimizar el componente completo.
   const totales = (() => {
-    const subtotal = suyos.reduce((s, c) => s + importeDe(c), 0)
+    const subtotal = pagables.reduce((s, x) => s + importeDe(x), 0)
     const descuento = susDeducciones
       .filter((d) => elegidas.includes(d.id))
       .reduce((s, d) => s + Number(d.monto), 0)
@@ -129,30 +187,27 @@ function DialogoPago({
     setCapturas((m) => ({ ...m, [contratoId]: captura }))
 
   /** Al cambiar de unidad el número no se pierde: se convierte a la otra. */
-  const cambiarModo = (c: VNominaContrato, modo: Captura['modo']) => {
-    const actual = capturaDe(c)
+  const cambiarModo = (x: Pagable, modo: Captura['modo']) => {
+    const actual = capturaDe(x)
     if (actual.modo === modo) return
-    const total = Number(c.total)
     const texto =
       actual.texto.trim() === ''
         ? ''
         : modo === 'pct'
-          ? total > 0 ? String(redondear((num(actual.texto) / total) * 100)) : ''
-          : String(redondear((total * num(actual.texto)) / 100))
-    capturar(c.contrato_id, { modo, texto })
+          ? x.total > 0 ? String(redondear((num(actual.texto) / x.total) * 100)) : ''
+          : String(redondear((x.total * num(actual.texto)) / 100))
+    capturar(x.clave, { modo, texto })
   }
 
-  /** Lo que se le puede pagar hoy de un contrato según el avance de su obra. */
-  const devengarUno = (c: VNominaContrato) =>
-    capturar(c.contrato_id, { modo: 'monto', texto: String(Number(c.disponible)) })
+  /** Lo que se le puede pagar hoy: el avance de la obra, o la semana completa. */
+  const devengarUno = (x: Pagable) =>
+    capturar(x.clave, { modo: 'monto', texto: String(x.disponible) })
 
-  /** Lo mismo, pero de golpe en todos sus contratos y con sus préstamos. */
+  /** Lo mismo de golpe en todo lo suyo, y con sus préstamos marcados. */
   const sugerir = () => {
     const nuevas: Record<string, Captura> = {}
-    for (const c of suyos) {
-      if (Number(c.disponible) > 0) {
-        nuevas[c.contrato_id] = { modo: 'monto', texto: String(Number(c.disponible)) }
-      }
+    for (const x of pagables) {
+      if (x.disponible > 0) nuevas[x.clave] = { modo: 'monto', texto: String(x.disponible) }
     }
     setCapturas(nuevas)
     setElegidas(susDeducciones.map((d) => d.id))
@@ -165,11 +220,12 @@ function DialogoPago({
         trabajador_id: trabajadorId,
         fecha,
         metodo,
-        pagos: suyos.map((c) => {
-          const { modo, texto } = capturaDe(c)
-          const monto = importeDe(c)
+        pagos: pagables.map((x) => {
+          const { modo, texto } = capturaDe(x)
+          const monto = importeDe(x)
           return {
-            contrato_id: c.contrato_id,
+            contrato_id: x.esRaya ? null : x.clave,
+            raya_id: x.esRaya ? x.clave : null,
             monto,
             // Capturado en porcentaje va el que se tecleó, sin volver a
             // derivarlo del importe ya redondeado. El % del recibo representa
@@ -177,8 +233,8 @@ function DialogoPago({
             porcentaje:
               modo === 'pct'
                 ? num(texto)
-                : Number(c.total) > 0
-                  ? redondear((monto / Number(c.total)) * 100)
+                : x.total > 0
+                  ? redondear((monto / x.total) * 100)
                   : null,
           }
         }),
@@ -198,7 +254,7 @@ function DialogoPago({
       onCerrar={onCerrar}
       ancho="lg"
       titulo="Abono a mano de obra"
-      descripcion="Un recibo puede cubrir varias obras del mismo trabajador."
+      descripcion="Un recibo puede cubrir varias obras y la raya de la semana, todo del mismo trabajador."
     >
       <CuerpoDialogo>
         {prenomina.length === 0 ? (
@@ -244,7 +300,7 @@ function DialogoPago({
         <div className="sm:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p className="text-sm font-medium text-tinta-700">
-              Abono por obra
+              Qué se le abona
               {suSaldo > 0 && (
                 <span className="ml-2 font-normal text-tinta-500">
                   se le deben <strong className="text-tinta-700">{pesos(suSaldo)}</strong>
@@ -256,36 +312,39 @@ function DialogoPago({
               onClick={sugerir}
               className="text-xs font-medium text-haaco-700 hover:underline"
             >
-              Sugerir según avance
+              Sugerir lo devengado
             </button>
           </div>
 
-          {suyos.length === 0 ? (
+          {pagables.length === 0 ? (
             <p className="rounded-lg bg-tinta-50 px-3 py-3 text-sm text-tinta-500">
-              Este trabajador no tiene contratos con saldo.
+              A este trabajador no se le debe nada: ni contratos con saldo ni rayas por pagar.
             </p>
           ) : (
             <ul className="divide-y divide-tinta-100 overflow-hidden rounded-xl border border-tinta-200">
-              {suyos.map((c) => {
+              {pagables.map((c) => {
                 const { modo, texto } = capturaDe(c)
                 const monto = importeDe(c)
-                const excede = monto > Number(c.por_pagar)
-                const pct = Number(c.total) > 0 ? (monto / Number(c.total)) * 100 : 0
+                const excede = monto > c.porPagar
+                const pct = c.total > 0 ? (monto / c.total) * 100 : 0
                 return (
-                  <li key={c.contrato_id} className="px-3 py-2.5">
+                  <li key={c.clave} className="px-3 py-2.5">
                     <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-tinta-900">{c.obra}</span>
+                      <span className="flex items-center gap-1.5 text-sm font-medium text-tinta-900">
+                        {c.titulo}
+                        {c.esRaya && <Etiqueta tono="azul">sueldo</Etiqueta>}
+                      </span>
                       <span className="text-xs text-tinta-500">
-                        avance {Number(c.avance_pct)}% · devengado {pesos(c.devengado)} · pagado{' '}
+                        {c.detalle} · devengado {pesos(c.devengado)} · pagado{' '}
                         {pesos(c.pagado)} · por pagar{' '}
-                        <strong className="text-tinta-700">{pesos(c.por_pagar)}</strong>
+                        <strong className="text-tinta-700">{pesos(c.porPagar)}</strong>
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <ConmutadorUnidad modo={modo} onCambio={(m) => cambiarModo(c, m)} />
                       <Numero
                         value={texto}
-                        onChange={(e) => capturar(c.contrato_id, { modo, texto: e.target.value })}
+                        onChange={(e) => capturar(c.clave, { modo, texto: e.target.value })}
                         placeholder={modo === 'pct' ? '0' : '0.00'}
                         className="max-w-28"
                         aria-label={modo === 'pct' ? 'Porcentaje del contrato' : 'Importe del abono'}
@@ -299,7 +358,7 @@ function DialogoPago({
                             : <>= <strong className="text-tinta-800">{porcentaje(pct, 1)}</strong> de {pesos(c.total)}</>
                           : <>de {pesos(c.total)}</>}
                         {monto > 0 && !excede && (
-                          <> · quedan {pesos(redondear(Number(c.por_pagar) - monto))}</>
+                          <> · quedan {pesos(redondear(c.porPagar - monto))}</>
                         )}
                       </span>
                       {/* Sin devengado sin pagar no hay atajo que ofrecer: lo
@@ -316,7 +375,7 @@ function DialogoPago({
                     </div>
                     {excede && (
                       <p className="mt-1 text-xs text-red-600">
-                        Rebasa lo que falta del contrato ({pesos(c.por_pagar)}).
+                        Rebasa lo que falta por pagar ({pesos(c.porPagar)}).
                       </p>
                     )}
                     {monto > Number(c.disponible) && !excede && (

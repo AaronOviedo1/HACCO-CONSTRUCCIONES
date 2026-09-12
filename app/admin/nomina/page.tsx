@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
-import { agruparPorMes, mesActual, rangoMes } from '@/lib/finanzas'
+import { agruparPorMes, mesActual, rangoMes, semanaDe } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
@@ -12,6 +12,7 @@ import { CuerpoMes, MesesPlegables } from '@/components/meses'
 import { BotonEditarPrestamo, PanelNomina } from '@/components/finanzas/nomina'
 import { EnviarRecibo } from '@/components/finanzas/enviar-recibo'
 import { BotonEditarRecibo } from '@/components/finanzas/editar-recibo'
+import { PanelRayas } from '@/components/finanzas/rayas'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
@@ -21,11 +22,15 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaNomina({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string; t?: string; saldados?: string }>
+  searchParams: Promise<{ mes?: string; t?: string; saldados?: string; semana?: string }>
 }) {
   await requerirRol(['admin', 'administracion'])
-  const { mes = mesActual(), t, saldados } = await searchParams
-  const vista = t === 'prenomina' ? 'prenomina' : t === 'prestamos' ? 'prestamos' : 'mensual'
+  const { mes = mesActual(), t, saldados, semana: semanaUrl } = await searchParams
+  const vista =
+    t === 'prenomina' ? 'prenomina'
+    : t === 'prestamos' ? 'prestamos'
+    : t === 'rayas' ? 'rayas'
+    : 'mensual'
   const verSaldados = saldados === '1'
   const { desde, hasta } = rangoMes(mes)
 
@@ -33,7 +38,7 @@ export default async function PaginaNomina({
 
   const [
     { data: contratos }, { data: prenomina }, { data: pagos }, { data: deducciones },
-    { data: recibos }, { data: gente },
+    { data: recibos }, { data: gente }, { data: rayas }, { data: sueldos }, { data: obrasVivas },
   ] = await Promise.all([
     supabase.from('v_nomina_contratos').select('*').order('trabajador'),
     supabase.from('v_prenomina').select('*').order('trabajador'),
@@ -49,8 +54,28 @@ export default async function PaginaNomina({
     // WhatsApp lo necesita. Sale más barato traerlo aparte que recrear
     // v_nomina_contratos y v_prenomina, que van encadenadas.
     supabase.from('profiles').select('id, nombre, telefono'),
+    // Las rayas del mes se leen por su sábado de pago, no por su lunes: así
+    // una semana a caballo entre dos meses cae en el mes en que se paga, que
+    // es como la ven los reportes y el contador.
+    supabase
+      .from('v_rayas_semanales')
+      .select('*')
+      .gte('semana', semanaDe(desde))
+      .lte('semana', hasta)
+      .order('semana', { ascending: false }),
+    supabase.from('sueldos_semanales').select('*').eq('activo', true),
+    supabase
+      .from('obras')
+      .select('id, nombre, ot_numero')
+      .not('estatus', 'in', '(cerrada,terminada)')
+      .order('nombre'),
   ])
 
+  const listaRayas = (rayas ?? []).filter((r) => r.estatus !== 'cancelada')
+  // La semana que se está viendo: la de la URL, o la de hoy.
+  const semana = semanaUrl && /^\d{4}-\d{2}-\d{2}$/.test(semanaUrl)
+    ? semanaDe(semanaUrl)
+    : semanaDe(new Date())
   const telefonos = new Map((gente ?? []).map((p) => [p.id, p.telefono]))
   const nombres = new Map((gente ?? []).map((p) => [p.id, p.nombre]))
 
@@ -94,8 +119,8 @@ export default async function PaginaNomina({
   return (
     <>
       <EncabezadoPagina
-        titulo="Nómina por avance"
-        descripcion="Se paga según el avance de la obra. El devengado es el total del contrato por el porcentaje reportado."
+        titulo="Nómina"
+        descripcion="Por avance de obra o por raya semanal. Lo devengado por contrato es el total por el porcentaje reportado; la raya se devenga completa cada semana."
       />
 
       {/* Teléfono: lo que se puede pagar hoy, trabajador por trabajador ---- */}
@@ -108,7 +133,7 @@ export default async function PaginaNomina({
             <div className="mt-1 text-3xl font-bold -tracking-[1px] tabular-nums">
               {pesosCortos(aPagarSemana)}
             </div>
-            <div className="mt-1 text-xs opacity-80">devengado por avance, menos préstamos</div>
+            <div className="mt-1 text-xs opacity-80">avance y raya de la semana, menos préstamos</div>
           </div>
 
           <Tarjeta className="mt-3.5">
@@ -202,6 +227,7 @@ export default async function PaginaNomina({
         {[
           { clave: 'mensual', titulo: 'Vista mensual' },
           { clave: 'prenomina', titulo: 'Prenómina' },
+          { clave: 'rayas', titulo: 'Raya semanal' },
           { clave: 'prestamos', titulo: 'Préstamos y adelantos' },
         ].map((p) => (
           <Link
@@ -219,12 +245,25 @@ export default async function PaginaNomina({
         <FiltroMes mes={mes} titulo="Mes de la nómina" />
         <PanelNomina
           contratos={activos}
+          rayas={listaRayas}
           prenomina={prenomina ?? []}
           deducciones={deducciones ?? []}
           mes={mes}
         />
       </nav>
 
+      {/* La raya semanal va aparte: no depende de que haya contratos por
+          avance. Un pintor puede estar a puro sueldo y no tener ninguno. */}
+      {vista === 'rayas' ? (
+        <PanelRayas
+          rayas={listaRayas}
+          sueldos={sueldos ?? []}
+          gente={gente ?? []}
+          obras={obrasVivas ?? []}
+          semana={semana}
+        />
+      ) : (
+      <>
       {/* El chip de saldados sólo recorta la vista mensual: la prenómina y los
           préstamos siguen viéndose completos. */}
       {(vista === 'mensual' ? filas.length : activos.length) === 0 ? (
@@ -479,6 +518,7 @@ export default async function PaginaNomina({
                     {!cancelado && (
                       <>
                         <BotonEditarRecibo
+                          rayas={listaRayas}
                           recibo={r}
                           pagos={pagosDelMes.filter((p) => p.recibo_id === r.id)}
                           contratos={contratos ?? []}
@@ -507,6 +547,8 @@ export default async function PaginaNomina({
             })}
           </ul>
         </Tarjeta>
+      )}
+      </>
       )}
     </>
   )

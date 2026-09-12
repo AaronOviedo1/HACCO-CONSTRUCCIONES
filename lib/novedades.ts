@@ -63,6 +63,30 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_12_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Nómina',
+    titulo: 'Ya se le puede pagar por semana a quien no va por avance',
+    texto:
+      'En la pestaña «Raya semanal» pones a alguien a sueldo fijo —cuánto gana a la semana y de cuántos días—, y cada semana armas su raya de un botón. Si faltó un día, le bajas los días y el sueldo se ajusta solo; si hubo tiempo extra o un bono, va en el ajuste. La semana corre de lunes a sábado y se raya el sábado.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina',
+    titulo: 'El sueldo se reparte entre las obras donde anduvo',
+    texto:
+      'Al armar la raya se reparte sola entre las obras donde tiene contrato abierto, en partes iguales, y puedes corregir el reparto a mano. Eso es lo que hace que la obra sepa de verdad cuánto costó: si el sueldo no se cargara a ninguna, la obra saldría más barata de lo que fue y las utilidades mentirían. Si una semana no anduvo en ninguna obra, se queda como gasto general y la pantalla te lo dice.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina',
+    titulo: 'Un solo recibo para el avance y para la raya',
+    texto:
+      'Quien cobra de las dos formas —por avance en unas obras y sueldo fijo por otras— recibe un solo papel con todo junto, con su folio y sus préstamos descontados, como siempre. En el recibo, la semana aparece con sus fechas: «Raya del 14 al 19 de septiembre».',
+    roles: OFICINA,
+  },
+]
+
 const DEL_10_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Pagos fijos',
@@ -456,6 +480,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-12', fecha: '12 de septiembre de 2026', novedades: DEL_12_DE_SEPTIEMBRE },
   { version: '2026-09-10', fecha: '10 de septiembre de 2026', novedades: DEL_10_DE_SEPTIEMBRE },
   { version: '2026-09-08', fecha: '8 de septiembre de 2026', novedades: DEL_8_DE_SEPTIEMBRE },
   { version: '2026-09-03', fecha: '3 de septiembre de 2026', novedades: DEL_3_DE_SEPTIEMBRE },

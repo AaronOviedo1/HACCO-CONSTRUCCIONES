@@ -87,7 +87,14 @@ export type DatosReciboNomina = {
   trabajador: string
   oficio: string
   metodo: string
-  renglones: { obra: string; otNumero: string | null; importe: number; porcentaje: number | null }[]
+  renglones: {
+    obra: string
+    otNumero: string | null
+    importe: number
+    porcentaje: number | null
+    /** La raya de una semana no se abona por avance: la leyenda del pie cambia. */
+    esRaya?: boolean
+  }[]
   deducciones: { tipo: string; monto: number; notas: string | null }[]
   subtotal: number
   totalDeducciones: number
@@ -216,7 +223,11 @@ export function DocumentoReciboNomina({ datos }: { datos: DatosReciboNomina }) {
           <Text style={e.leyenda}>
             * El % de avance en el recibo representa sólo lo del pago actual.
           </Text>
-          <Text style={e.leyenda}>* Abonos según requiera avance de obra.</Text>
+          <Text style={e.leyenda}>
+            {datos.renglones.some((r) => r.esRaya)
+              ? '* La raya cubre la semana completa; los abonos a obra, según requiera el avance.'
+              : '* Abonos según requiera avance de obra.'}
+          </Text>
         </View>
 
         <View style={e.firmas} wrap={false}>

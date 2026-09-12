@@ -235,11 +235,22 @@ export async function eliminarCobro(id: string, obras: string[] = []): Promise<R
 // ===========================================================================
 // NÓMINA
 // ===========================================================================
+/**
+ * Un renglón del recibo: abona a un contrato de obra o a la raya de una
+ * semana, nunca a los dos. La base lo exige con un check y la RPC lo reparte.
+ */
+export type BloqueDeRecibo = {
+  contrato_id?: string | null
+  raya_id?: string | null
+  monto: number
+  porcentaje: number | null
+}
+
 export async function pagarNomina(datos: {
   trabajador_id: string
   fecha: string
   metodo: MetodoPago
-  pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+  pagos: BloqueDeRecibo[]
   deducciones: string[]
   notas: string | null
 }): Promise<Resultado<{ reciboId: string }>> {
@@ -271,7 +282,7 @@ export async function editarReciboNomina(datos: {
   recibo_id: string
   fecha: string
   metodo: MetodoPago
-  pagos: { contrato_id: string; monto: number; porcentaje: number | null }[]
+  pagos: BloqueDeRecibo[]
   notas: string | null
 }): Promise<Resultado> {
   const conMonto = datos.pagos.filter((p) => p.monto > 0)
@@ -577,6 +588,91 @@ export async function asegurarQuincenas(quincenas: string[]): Promise<Resultado<
     revalidatePath('/admin')
   }
   return { ok: true, datos: creados }
+}
+
+// ===========================================================================
+// RAYA SEMANAL · el sueldo fijo de los oficiales
+// ===========================================================================
+/** Pone a alguien a sueldo, o le cambia el monto cerrando el trato anterior. */
+export async function guardarSueldoSemanal(datos: {
+  trabajador_id: string
+  monto_semanal: number
+  dias_base: number
+  costo_haaco_pct: number
+  obra_id: string | null
+  notas: string | null
+}): Promise<Resultado> {
+  if (!datos.trabajador_id) return { ok: false, error: 'Falta decir de quién es el sueldo.' }
+  if (datos.monto_semanal <= 0) return { ok: false, error: 'El sueldo tiene que ser mayor a cero.' }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('guardar_sueldo_semanal', {
+    p_trabajador: datos.trabajador_id,
+    p_monto: datos.monto_semanal,
+    p_dias_base: datos.dias_base,
+    p_pct: datos.costo_haaco_pct,
+    p_obra: datos.obra_id,
+    p_notas: datos.notas,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  return { ok: true }
+}
+
+/** Saca la raya de esa semana desde los sueldos dados de alta. */
+export async function generarRaya(semana: string): Promise<Resultado<number>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('generar_raya', { p_semana: semana })
+  if (error) return fallo(error)
+
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true, datos: data as number }
+}
+
+/**
+ * Corrige una raya: los días, el ajuste y a qué obras se carga.
+ *
+ * El reparto viaja completo, como los renglones del recibo: lo que no venga en
+ * la lista deja de cargar a esa obra.
+ */
+export async function guardarRaya(datos: {
+  raya_id: string
+  dias_trabajados: number
+  ajuste: number
+  notas: string | null
+  obras: { obra_id: string; pct: number }[]
+}): Promise<Resultado> {
+  const suma = datos.obras.reduce((s, o) => s + o.pct, 0)
+  if (suma > 100) {
+    return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
+  }
+
+  const supabase = await staff()
+  const { error } = await supabase.rpc('guardar_raya', {
+    p_raya: datos.raya_id,
+    p_dias_trabajados: datos.dias_trabajados,
+    p_ajuste: datos.ajuste,
+    p_notas: datos.notas,
+    p_obras: datos.obras,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/** Cancela una raya que no debió existir. Si ya se pagó, primero va el recibo. */
+export async function cancelarRaya(id: string): Promise<Resultado> {
+  const supabase = await staff()
+  const { error } = await supabase.rpc('cancelar_raya', { p_raya: id })
+  if (error) return fallo(error)
+
+  revalidatePath('/admin/nomina')
+  revalidatePath('/admin')
+  return { ok: true }
 }
 
 // ===========================================================================
