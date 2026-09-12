@@ -280,19 +280,17 @@ function FormularioRaya({
       descripcion={`Semana ${etiquetaSemana(raya.semana)}. Se paga el ${fecha(diaDeRaya(raya.semana))}.`}
     >
       <CuerpoDialogo>
-        <Campo
-          etiqueta="Días trabajados"
-          ancho="medio"
-          hijo={
-            <NumeroCorto
-              etiqueta="Días trabajados"
-              sufijo={`de ${raya.dias_base}`}
-              value={dias}
-              onChange={(e) => setDias(e.target.value)}
-            />
-          }
-          ayuda="Con menos días, el sueldo baja a proporción."
-        />
+        {/* `NumeroCorto` trae su propia etiqueta, así que no va dentro de un
+            `Campo`: se pintaba el nombre dos veces, uno encima del otro. */}
+        <div className="sm:col-span-1">
+          <NumeroCorto
+            etiqueta="Días trabajados"
+            sufijo={`de ${raya.dias_base}`}
+            value={dias}
+            onChange={(e) => setDias(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-tinta-400">Con menos días, el sueldo baja a proporción.</p>
+        </div>
         <Campo
           etiqueta="Ajuste"
           ancho="medio"
@@ -533,19 +531,15 @@ function FormularioSueldo({
           }
           ayuda="Sin obra fija, la semana se reparte sola entre las obras donde tenga contrato."
         />
-        <Campo
-          etiqueta="Costo Haaco"
-          ancho="medio"
-          hijo={
-            <NumeroCorto
-              etiqueta="Costo Haaco"
-              sufijo="%"
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-            />
-          }
-          ayuda="A sueldo normalmente no se retiene."
-        />
+        <div className="sm:col-span-1">
+          <NumeroCorto
+            etiqueta="Costo Haaco"
+            sufijo="%"
+            value={pct}
+            onChange={(e) => setPct(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-tinta-400">A sueldo normalmente no se retiene.</p>
+        </div>
         <Campo
           etiqueta="Notas"
           hijo={<AreaTexto rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />}

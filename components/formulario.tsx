@@ -310,6 +310,29 @@ export function CuerpoDialogo({ children }: { children: ReactNode }) {
 }
 
 /**
+ * El renglón de texto que acompaña a los botones del pie: la pregunta antes de
+ * borrar, el aviso de un cambio de monto.
+ *
+ * Los `!` son a propósito. `PieDialogo` estira por igual a todos sus hijos para
+ * que los botones llenen el ancho en el teléfono, y en pantalla grande los deja
+ * a su ancho natural; con esa segunda regla una frase larga se quedaba en un
+ * solo renglón desbordado y, como el pie alinea a la derecha, la oración se
+ * salía por la izquierda: se perdía la primera cifra.
+ *
+ * En el teléfono el texto se lleva su propio renglón. En pantalla grande pide
+ * veinte caracteres de ancho mínimo y, si con eso ya no caben los botones al
+ * lado, el pie los baja solo a la línea de abajo y la frase se queda con todo
+ * el ancho. Una pregunta corta sigue compartiendo renglón, como siempre.
+ */
+export function TextoPie({ children }: { children: ReactNode }) {
+  return (
+    <p className="mr-auto min-w-0 grow! shrink! basis-full! text-sm text-tinta-600 sm:basis-80!">
+      {children}
+    </p>
+  )
+}
+
+/**
  * El pie de un formulario que además puede borrar el registro.
  *
  * La confirmación se pide aquí dentro y no con el `confirm()` del navegador:
@@ -331,7 +354,7 @@ export function PieFormulario({
   if (borrado && confirmando) {
     return (
       <PieDialogo>
-        <p className="mr-auto text-sm text-tinta-600 sm:flex-none">{borrado.pregunta}</p>
+        <TextoPie>{borrado.pregunta}</TextoPie>
         <button
           type="button"
           onClick={() => setConfirmando(false)}
@@ -403,7 +426,7 @@ export function PieConBorrado({
   if (borrado && confirmando) {
     return (
       <PieDialogo>
-        <p className="mr-auto text-sm text-tinta-600 sm:flex-none">{borrado.pregunta}</p>
+        <TextoPie>{borrado.pregunta}</TextoPie>
         <button
           type="button"
           onClick={() => setConfirmando(false)}

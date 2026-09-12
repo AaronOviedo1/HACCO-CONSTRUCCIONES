@@ -5,16 +5,17 @@ import { useState, useTransition } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import {
   AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
-  PieConBorrado, PieDialogo, Seleccion,
+  PieConBorrado, PieDialogo, Seleccion, TextoPie,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
-import { pesos } from '@/lib/format'
+import { fecha, pesos } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
 import {
   CATEGORIAS_PAGO_FIJO, METODO_PAGO, METODO_PAGO_SIN_CAJA, PERIODICIDAD_PAGO,
 } from '@/lib/finanzas'
 import {
-  archivarPagoProgramado, eliminarPagoProgramado, guardarPagoProgramado,
+  archivarPagoProgramado, eliminarPagoProgramado, guardarPagoProgramado, pagosPorCorregir,
+  type PagoPorCorregir,
 } from '@/app/admin/finanzas-acciones'
 import type {
   MetodoPago, PeriodicidadPago, TipoPagoProgramado, VPagoProgramado,
@@ -242,7 +243,7 @@ function FormularioProgramado({
    * así que se dice en voz alta qué se va a mover.
    */
   const montoCambio = Boolean(programado) && num(monto) !== Number(programado?.monto ?? 0)
-  const [preguntando, setPreguntando] = useState(false)
+  const [porCorregir, setPorCorregir] = useState<PagoPorCorregir[] | null>(null)
 
   const enviar = (propagar: boolean) =>
     iniciar(async () => {
@@ -268,7 +269,21 @@ function FormularioProgramado({
       router.refresh()
     })
 
-  const guardar = () => (montoCambio ? setPreguntando(true) : enviar(false))
+  /*
+   * Antes de preguntar se va a ver qué hay de verdad por corregir. Si no hay
+   * nada —todo lo de esa persona ya se pagó— no se pregunta: se guarda y ya.
+   */
+  const guardar = () => {
+    if (!montoCambio || !programado) return enviar(false)
+    iniciar(async () => {
+      setError(null)
+      const r = await pagosPorCorregir(programado.id)
+      if (!r.ok) return setError(r.error)
+      const lista = r.datos ?? []
+      if (lista.length === 0) return enviar(false)
+      setPorCorregir(lista)
+    })
+  }
 
   const archivar = () =>
     iniciar(async () => {
@@ -426,19 +441,28 @@ function FormularioProgramado({
         <MensajeError mensaje={error} />
       </CuerpoDialogo>
 
-      {preguntando ? (
+      {porCorregir ? (
         <PieDialogo>
-          <p className="mr-auto text-sm text-tinta-600 sm:flex-none">
+          <TextoPie>
             Le cambiaste el monto de {pesos(programado?.monto ?? 0)} a {pesos(num(monto))}.
-            ¿Corrijo también las quincenas que todavía no se pagan?
-          </p>
+            ¿Corrijo también {porCorregir.length === 1 ? 'este pago' : `estos ${porCorregir.length} pagos`},
+            que todavía no se pagan?
+            <span className="mt-1 block text-tinta-800">
+              {porCorregir.slice(0, 4).map((p) => (
+                <span key={p.id} className="mr-3 inline-block whitespace-nowrap tabular-nums">
+                  {fecha(p.quincena)} · {pesos(p.monto)}
+                </span>
+              ))}
+              {porCorregir.length > 4 && <span>y {porCorregir.length - 4} más</span>}
+            </span>
+          </TextoPie>
           <button
             type="button"
             onClick={() => enviar(false)}
             disabled={pendiente}
             className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50"
           >
-            Sólo de aquí en adelante
+            Dejarlos como están
           </button>
           <button
             type="button"
@@ -446,7 +470,7 @@ function FormularioProgramado({
             disabled={pendiente}
             className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
           >
-            {pendiente ? 'Guardando…' : 'Sí, corregirlas'}
+            {pendiente ? 'Guardando…' : 'Sí, corregirlos'}
           </button>
         </PieDialogo>
       ) : (

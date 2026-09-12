@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { hoyISO } from '@/lib/cotizaciones'
 import type {
   EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago, ResultadoPagoLote,
   TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
@@ -715,7 +716,6 @@ export async function guardarPagoProgramado(
    * hecho se quedan con el monto que tuvieron.
    */
   if (propagar && id) {
-    const hoy = new Date().toISOString().slice(0, 10)
     const { data: tocados, error: errorPropagar } = await supabase
       .from('pagos_fijos')
       .update({
@@ -727,7 +727,7 @@ export async function guardarPagoProgramado(
       })
       .eq('programado_id', id)
       .neq('estado', 'pagado')
-      .gte('quincena', hoy)
+      .gte('quincena', hoyISO())
       .select('id')
 
     if (errorPropagar) return fallo(errorPropagar)
@@ -737,6 +737,33 @@ export async function guardarPagoProgramado(
   revalidatePath('/admin/pagos-fijos')
   revalidatePath('/admin')
   return { ok: true, datos: alcanzados }
+}
+
+/** Un pago fijo que todavía se puede corregir, para enseñarlo antes de tocarlo. */
+export type PagoPorCorregir = { id: string; quincena: string; monto: number }
+
+/**
+ * Qué quincenas se corregirían al cambiarle el monto a un programado.
+ *
+ * Se consulta antes de guardar para poder decirlas por su nombre —«el 30 de
+ * septiembre y el 15 de octubre»— en vez de un «las que todavía no se pagan»
+ * que obliga a confiar. Si no devuelve nada, no hay nada que preguntar.
+ *
+ * El filtro es el mismo que aplica la propagación aquí abajo, y tiene que
+ * seguirlo siendo: lo que se enseña y lo que se toca no pueden separarse.
+ */
+export async function pagosPorCorregir(id: string): Promise<Resultado<PagoPorCorregir[]>> {
+  const supabase = await staff()
+  const { data, error } = await supabase
+    .from('pagos_fijos')
+    .select('id, quincena, monto')
+    .eq('programado_id', id)
+    .neq('estado', 'pagado')
+    .gte('quincena', hoyISO())
+    .order('quincena')
+
+  if (error) return fallo(error)
+  return { ok: true, datos: data ?? [] }
 }
 
 /** Sacarlo de la lista sin borrar lo que ya se le pagó. */
