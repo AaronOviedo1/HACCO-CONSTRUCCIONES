@@ -591,6 +591,19 @@ export type PagoFijo = {
   updated_at: string
 }
 
+/**
+ * La quincena de la que alguien sacó a mano a un renglón de la lista.
+ *
+ * Es lo que hace que eliminar un pago fijo se quede eliminado: sin esta huella,
+ * `generar_quincena` lo volvía a traer en cuanto se recargaba la pantalla.
+ */
+export type PagoFijoOmitido = {
+  programado_id: string
+  quincena: string
+  quitado_por: string | null
+  created_at: string
+}
+
 /** Un renglón del catálogo: a quién se le paga cada quincena. */
 export type PagoProgramado = {
   id: string
@@ -1339,6 +1352,23 @@ export type ResultadoBorradoObra = {
   cotizacion_id: string
 }
 
+/**
+ * Hasta dónde llega un «eliminar» en la pantalla de quincenas.
+ *
+ *   `esta`    — sólo de esta quincena; la lista se queda como está.
+ *   `siempre` — además, en la lista pasa a ser de una vez al mes.
+ */
+export type AlcanceQuitarPago = 'esta' | 'siempre'
+
+/** Qué se llevó `quitar_pago_fijo`, para poder decirlo con todas sus letras. */
+export type ResultadoQuitarPago = {
+  beneficiario: string
+  /** La periodicidad nueva del renglón de la lista; nula si la lista no se tocó. */
+  periodicidad: PeriodicidadPago | null
+  /** Cuántas quincenas por venir se limpiaron de paso. */
+  limpiados: number
+}
+
 // ---------------------------------------------------------------------------
 // Mapa que consume supabase-js
 // ---------------------------------------------------------------------------
@@ -1381,6 +1411,7 @@ export type Database = {
       nomina_pagos: Tabla<NominaPago>
       deducciones: Tabla<Deduccion>
       pagos_fijos: Tabla<PagoFijo>
+      pagos_fijos_omitidos: Tabla<PagoFijoOmitido>
       pagos_programados: Tabla<PagoProgramado>
       sueldos_semanales: Tabla<SueldoSemanal>
       rayas_semanales: Tabla<RayaSemanal>
@@ -1524,6 +1555,14 @@ export type Database = {
         Returns: undefined
       }
       generar_quincena: { Args: { p_quincena: string }; Returns: number }
+      quitar_pago_fijo: {
+        Args: { p_id: string; p_alcance: AlcanceQuitarPago }
+        Returns: ResultadoQuitarPago
+      }
+      restaurar_pago_fijo: {
+        Args: { p_programado: string; p_quincena: string }
+        Returns: number
+      }
       generar_raya: { Args: { p_semana: string }; Returns: number }
       guardar_sueldo_semanal: {
         Args: {
