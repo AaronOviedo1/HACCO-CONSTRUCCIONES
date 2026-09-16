@@ -73,7 +73,7 @@ export default async function PaginaNomina({
       .select('*')
       .or(`semana.eq.${semana},por_pagar.gt.0`)
       .order('semana', { ascending: false }),
-    supabase.from('sueldos_semanales').select('*').eq('activo', true),
+    supabase.from('v_sueldos_semanales').select('*').eq('activo', true).order('trabajador'),
     supabase
       .from('obras')
       .select('id, nombre, ot_numero')
@@ -295,6 +295,12 @@ export default async function PaginaNomina({
           gente={gente ?? []}
           obras={obrasVivas ?? []}
           semana={semana}
+          // Para poder pagar la semana y descontarle sus préstamos sin salir de
+          // aquí: el recibo es uno solo por trabajador y puede llevar también
+          // lo que traiga a destajo.
+          contratos={activos}
+          prenomina={prenomina ?? []}
+          deducciones={deducciones ?? []}
         />
       ) : (
       <>
@@ -500,7 +506,11 @@ export default async function PaginaNomina({
                           <Td className="text-tinta-500">
                             <span className="flex items-center justify-between gap-2">
                               {d.notas ?? '—'}
-                              <BotonEditarPrestamo deduccion={d} prenomina={prenomina ?? []} />
+                              <BotonEditarPrestamo
+                                deduccion={d}
+                                prenomina={prenomina ?? []}
+                                nombre={nombres.get(d.trabajador_id) ?? undefined}
+                              />
                             </span>
                           </Td>
                         </tr>

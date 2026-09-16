@@ -4,10 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { quincenaDe, tocaEnQuincena } from '@/lib/finanzas'
 import { hoyHermosillo } from '@/lib/format'
 import type {
-  EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago, ResultadoPagoLote,
-  TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
+  AlcanceQuitarPago, EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago,
+  ResultadoPagoLote, ResultadoQuitarPago, ResultadoSueldoSemanal, TipoDeduccion,
+  TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -549,12 +551,49 @@ export async function marcarPagoFijo(
   return { ok: true }
 }
 
-export async function eliminarPagoFijo(id: string): Promise<Resultado> {
+/**
+ * Quita un pago de su quincena, y con `alcance` dice hasta dónde.
+ *
+ * Borrar el renglón a secas no alcanzaba: la pantalla vuelve a armar las
+ * quincenas del mes en curso cada vez que se abre, y mientras la lista dijera
+ * que TELMEX es quincenal el renglón regresaba solo. Desde fuera se veía como
+ * que el botón de eliminar no servía.
+ *
+ *   `esta`    — lo saca de esta quincena y lo deja anotado, para que no vuelva.
+ *   `siempre` — además lo deja en la lista como de una vez al mes, en la otra
+ *               mitad, y limpia las quincenas por venir que ya no le tocan.
+ */
+export async function eliminarPagoFijo(
+  id: string,
+  alcance: AlcanceQuitarPago = 'esta',
+): Promise<Resultado<ResultadoQuitarPago>> {
   const supabase = await staff()
-  const { error } = await supabase.from('pagos_fijos').delete().eq('id', id)
+  const { data, error } = await supabase.rpc('quitar_pago_fijo', {
+    p_id: id,
+    p_alcance: alcance,
+  })
+
   if (error) return fallo(error)
   revalidatePath('/admin/pagos-fijos')
-  return { ok: true }
+  revalidatePath('/admin')
+  return { ok: true, datos: data as ResultadoQuitarPago }
+}
+
+/** Deshace un «quitar de esta quincena»: vuelve a traer el renglón de la lista. */
+export async function restaurarPagoFijo(
+  programadoId: string,
+  quincena: string,
+): Promise<Resultado<number>> {
+  const supabase = await staff()
+  const { data, error } = await supabase.rpc('restaurar_pago_fijo', {
+    p_programado: programadoId,
+    p_quincena: quincena,
+  })
+
+  if (error) return fallo(error)
+  revalidatePath('/admin/pagos-fijos')
+  revalidatePath('/admin')
+  return { ok: true, datos: data as number }
 }
 
 /** Saca de la lista los pagos que le tocan a esa quincena. Repetirla no duplica. */
@@ -594,31 +633,44 @@ export async function asegurarQuincenas(quincenas: string[]): Promise<Resultado<
 // ===========================================================================
 // RAYA SEMANAL · el sueldo fijo de los oficiales
 // ===========================================================================
-/** Pone a alguien a sueldo, o le cambia el monto cerrando el trato anterior. */
+/**
+ * Pone a alguien a sueldo, o le cambia el trato cerrando el anterior.
+ *
+ * El reparto entre obras viaja completo, igual que el de una semana: lo que no
+ * venga en la lista deja de cargar a esa obra. Sin lista, la raya lo sigue
+ * repartiendo sola entre las obras donde tenga contrato vivo, que es lo que
+ * hacía antes de que se pudiera elegir.
+ */
 export async function guardarSueldoSemanal(datos: {
   trabajador_id: string
   monto_semanal: number
   dias_base: number
   costo_haaco_pct: number
-  obra_id: string | null
+  obras: { obra_id: string; pct: number }[]
   notas: string | null
-}): Promise<Resultado> {
+}): Promise<Resultado<ResultadoSueldoSemanal>> {
   if (!datos.trabajador_id) return { ok: false, error: 'Falta decir de quién es el sueldo.' }
   if (datos.monto_semanal <= 0) return { ok: false, error: 'El sueldo tiene que ser mayor a cero.' }
 
+  const suma = datos.obras.reduce((s, o) => s + o.pct, 0)
+  if (suma > 100) {
+    return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
+  }
+
   const supabase = await staff()
-  const { error } = await supabase.rpc('guardar_sueldo_semanal', {
+  const { data, error } = await supabase.rpc('guardar_sueldo_semanal', {
     p_trabajador: datos.trabajador_id,
     p_monto: datos.monto_semanal,
     p_dias_base: datos.dias_base,
     p_pct: datos.costo_haaco_pct,
-    p_obra: datos.obra_id,
+    p_obras: datos.obras,
     p_notas: datos.notas,
   })
 
   if (error) return fallo(error)
   revalidatePath('/admin/nomina')
-  return { ok: true }
+  revalidatePath('/admin')
+  return { ok: true, datos: data as ResultadoSueldoSemanal }
 }
 
 /** Saca la raya de esa semana desde los sueldos dados de alta. */
@@ -695,7 +747,7 @@ export async function guardarPagoProgramado(
   },
   /** Llevar el cambio a las quincenas que todavía no se pagan. */
   propagar = false,
-): Promise<Resultado<number>> {
+): Promise<Resultado<{ alcanzados: number; limpiados: number }>> {
   if (!programado.beneficiario.trim()) return { ok: false, error: 'Falta el beneficiario.' }
 
   const supabase = await staff()
@@ -734,9 +786,47 @@ export async function guardarPagoProgramado(
     alcanzados = tocados?.length ?? 0
   }
 
+  /*
+   * Si dejó de tocarle una mitad del mes, los renglones ya generados que caen
+   * ahí sobran: son justo el duplicado que se venía a quitar. Dejarlos era la
+   * mitad del problema —se corregía la lista y el pago de más seguía en la
+   * pantalla, así que parecía que el cambio no había servido—.
+   *
+   * Se va con la misma regla que todo lo demás: sólo lo que no se ha pagado y
+   * está por delante. Un mes cerrado no se reescribe porque hoy cambie la
+   * periodicidad.
+   */
+  let limpiados = 0
+  if (id && programado.periodicidad !== 'quincenal') {
+    const { data: candidatos, error: errorCandidatos } = await supabase
+      .from('pagos_fijos')
+      .select('id, quincena')
+      .eq('programado_id', id)
+      .neq('estado', 'pagado')
+      .gte('quincena', hoyHermosillo())
+
+    if (errorCandidatos) return fallo(errorCandidatos)
+
+    // `quincenaDe` y no la fecha pelada: un pago se puede haber corregido a una
+    // fecha suelta, y la mitad del mes a la que pertenece la decide la pantalla.
+    const sobran = (candidatos ?? []).filter(
+      (p) => !tocaEnQuincena(programado.periodicidad, quincenaDe(p.quincena)),
+    )
+
+    if (sobran.length > 0) {
+      const { error: errorLimpieza } = await supabase
+        .from('pagos_fijos')
+        .delete()
+        .in('id', sobran.map((p) => p.id))
+
+      if (errorLimpieza) return fallo(errorLimpieza)
+      limpiados = sobran.length
+    }
+  }
+
   revalidatePath('/admin/pagos-fijos')
   revalidatePath('/admin')
-  return { ok: true, datos: alcanzados }
+  return { ok: true, datos: { alcanzados, limpiados } }
 }
 
 /** Un pago fijo que todavía se puede corregir, para enseñarlo antes de tocarlo. */

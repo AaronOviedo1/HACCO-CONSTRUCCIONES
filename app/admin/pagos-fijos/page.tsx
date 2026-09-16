@@ -8,7 +8,7 @@ import {
 } from '@/lib/finanzas'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tarjeta } from '@/components/ui'
 import {
-  AccionesPagoFijo, AsegurarQuincenas, BarraPagosFijos,
+  AccionesPagoFijo, AsegurarQuincenas, BarraPagosFijos, OmitidosDeQuincena,
 } from '@/components/finanzas/pagos-fijos'
 import { CatalogoProgramados } from '@/components/finanzas/pagos-programados'
 import type { EstadoPagoFijo } from '@/types/database'
@@ -60,8 +60,22 @@ export default async function PaginaPagosFijos({
     .eq('activo', true)
     .order('nombre')
 
+  /*
+   * Lo que alguien sacó a mano de alguna quincena del mes. Hace falta aquí por
+   * dos razones: para no volver a pedir que se arme lo que la base no va a
+   * crear —el aviso de «armando» saldría en cada visita— y para dejar la vuelta
+   * atrás a la vista, que si no, quitar algo por error no tendría remedio.
+   */
+  const { data: omisiones } = await supabase
+    .from('pagos_fijos_omitidos')
+    .select('programado_id, quincena')
+    .gte('quincena', desde)
+    .lt('quincena', hasta)
+
   const pagos = data ?? []
   const programados = catalogo ?? []
+  const omitidos = omisiones ?? []
+  const periodicidadDe = new Map(programados.map((pp) => [pp.id, pp.periodicidad]))
 
   /*
    * Sólo el mes en curso se arma solo. Los meses viejos se quedan como quedaron
@@ -72,7 +86,7 @@ export default async function PaginaPagosFijos({
    * quincena. Preguntando nada más «¿ya tiene algún pago?», bastaba un pago
    * capturado a mano el día 15 para que la quincena se diera por armada; y a
    * quien se agregaba a la lista a media quincena no se le generaba nada hasta
-   * la siguiente. Las dos condiciones son las mismas de `generar_quincena`: si
+   * la siguiente. Las tres condiciones son las mismas de `generar_quincena`: si
    * se separan, la pantalla pediría armar lo que la base no va a crear y el
    * aviso de «armando» saldría en cada visita.
    */
@@ -81,6 +95,7 @@ export default async function PaginaPagosFijos({
       (pp) =>
         pp.activo &&
         tocaEnQuincena(pp.periodicidad, q) &&
+        !omitidos.some((o) => o.quincena === q && o.programado_id === pp.id) &&
         !pagos.some(
           (p) =>
             p.quincena === q &&
@@ -165,9 +180,24 @@ export default async function PaginaPagosFijos({
                   .filter((p) => p.estado === 'pagado')
                   .reduce((s, p) => s + Number(p.monto), 0)
 
+                // Los que alguien sacó a mano, con su nombre, para poder volver a traerlos.
+                const quitados = omitidos
+                  .filter((o) => o.quincena === quincena)
+                  .map((o) => ({
+                    programado_id: o.programado_id,
+                    beneficiario:
+                      programados.find((pp) => pp.id === o.programado_id)?.beneficiario ?? '',
+                  }))
+                  .filter((o) => o.beneficiario)
+
                 return (
                   <Tarjeta
                     key={quincena}
+                    pie={
+                      quitados.length > 0 ? (
+                        <OmitidosDeQuincena quincena={quincena} omitidos={quitados} />
+                      ) : undefined
+                    }
                     titulo={
                       <span className="flex flex-wrap items-center justify-between gap-2">
                         <span>
@@ -182,7 +212,7 @@ export default async function PaginaPagosFijos({
                     {deLaQuincena.length === 0 ? (
                       <EstadoVacio
                         titulo="Sin pagos capturados"
-                        descripcion="Usa «Generar quincena» para traer los recurrentes de la anterior."
+                        descripcion="Usa «Generar quincena» para traer a los de «Personal y servicios»."
                       />
                     ) : (
                       <ul className="divide-y divide-tinta-100">
@@ -219,7 +249,13 @@ export default async function PaginaPagosFijos({
                             <Etiqueta tono={ESTADO_PAGO_FIJO[p.estado as EstadoPagoFijo].tono}>
                               {ESTADO_PAGO_FIJO[p.estado as EstadoPagoFijo].texto}
                             </Etiqueta>
-                            <AccionesPagoFijo pago={p} quincenas={quincenas} />
+                            <AccionesPagoFijo
+                              pago={p}
+                              quincenas={quincenas}
+                              periodicidad={
+                                (p.programado_id && periodicidadDe.get(p.programado_id)) || null
+                              }
+                            />
                           </li>
                         ))}
                       </ul>

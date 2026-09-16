@@ -7,6 +7,11 @@ import type { RolUsuario } from '@/types/database'
  * que no existan a la vista. Cada renglón responde una sola pregunta —«¿qué
  * puedo hacer hoy que ayer no?»— y se lee en voz alta sin tropezar.
  *
+ * Y corto. El título carga el mensaje y el texto son dos renglones, tres a lo
+ * mucho: quien abre esto está por ponerse a trabajar, no a leer. Los párrafos
+ * de las entregas de arriba se saltan enteros —el motivo, el porqué y el caso
+ * raro se cuentan cuando alguien pregunta, no antes—.
+ *
  * Las entregas van de la más nueva a la más vieja. La de arriba es la que se
  * abre; las anteriores quedan plegadas, porque quien ya las leyó no tiene por
  * qué volver a pasarles por encima y quien no, sigue teniendo dónde.
@@ -62,6 +67,37 @@ export type Entrega = {
 
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
+
+const DEL_16_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Se acabaron los pagos duplicados en las dos quincenas',
+    texto:
+      'Telmex, Telcel y contabilidad ya quedaron una vez al mes. Para los demás, al eliminar un pago te preguntamos si es sólo de esa quincena o si es de los de una vez al mes.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Pagos fijos',
+    titulo: 'Eliminar un pago ya se queda eliminado',
+    texto:
+      'Antes volvía a salir solo al recargar la pantalla. Si te equivocas, al pie de la quincena está su nombre para volver a traerlo.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina · Raya semanal',
+    titulo: 'Eliges entre qué obras se reparte el sueldo',
+    texto:
+      'Antes era una sola obra o todas. Ahora pones las que quieras con su porcentaje, y las semanas que siguen abiertas se acomodan solas.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina · Raya semanal',
+    titulo: 'El préstamo se ve y se descuenta desde aquí',
+    texto:
+      'Cada renglón de la semana dice lo que debe. El botón «Pagar» abre el recibo con la semana y sus préstamos ya marcados.',
+    roles: OFICINA,
+  },
+]
 
 const DEL_12_DE_SEPTIEMBRE: Novedad[] = [
   {
@@ -480,6 +516,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-16', fecha: '16 de septiembre de 2026', novedades: DEL_16_DE_SEPTIEMBRE },
   { version: '2026-09-12', fecha: '12 de septiembre de 2026', novedades: DEL_12_DE_SEPTIEMBRE },
   { version: '2026-09-10', fecha: '10 de septiembre de 2026', novedades: DEL_10_DE_SEPTIEMBRE },
   { version: '2026-09-08', fecha: '8 de septiembre de 2026', novedades: DEL_8_DE_SEPTIEMBRE },

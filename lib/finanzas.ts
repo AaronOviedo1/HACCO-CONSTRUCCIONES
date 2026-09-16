@@ -73,11 +73,23 @@ export const TIPO_PAGO_PROGRAMADO: Record<TipoPagoProgramado, string> = {
 /**
  * Cada cuándo sale un pago del catálogo. Los sueldos caen en las dos
  * quincenas; la renta y el internet, una vez al mes.
+ *
+ * Dice «una vez al mes» y no «sólo la 1ª» porque así es como se piden los
+ * cambios —«Telmex, telcel, y contabilidad son solo 1 vez al mes»—, y con la
+ * redacción anterior había que traducir de una frase a la otra para encontrar
+ * la opción. La mitad del mes va después, que es el detalle.
  */
 export const PERIODICIDAD_PAGO: Record<PeriodicidadPago, string> = {
-  quincenal: 'Cada quincena',
-  primera: 'Sólo la 1ª',
-  segunda: 'Sólo la 2ª',
+  quincenal: 'Cada quincena · dos veces al mes',
+  primera: 'Una vez al mes · el 15',
+  segunda: 'Una vez al mes · a fin de mes',
+}
+
+/** Lo mismo, para la etiqueta del renglón, donde no cabe la frase entera. */
+export const PERIODICIDAD_CORTA: Record<PeriodicidadPago, string> = {
+  quincenal: 'cada quincena',
+  primera: '1 vez al mes · el 15',
+  segunda: '1 vez al mes · fin de mes',
 }
 
 /** Si a un programado le toca salir en esa quincena. Espejo de `generar_quincena`. */

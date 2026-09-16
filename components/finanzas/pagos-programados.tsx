@@ -11,7 +11,7 @@ import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { fecha, pesos } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
 import {
-  CATEGORIAS_PAGO_FIJO, METODO_PAGO, METODO_PAGO_SIN_CAJA, PERIODICIDAD_PAGO,
+  CATEGORIAS_PAGO_FIJO, METODO_PAGO, METODO_PAGO_SIN_CAJA, PERIODICIDAD_CORTA, PERIODICIDAD_PAGO,
 } from '@/lib/finanzas'
 import {
   archivarPagoProgramado, eliminarPagoProgramado, guardarPagoProgramado, pagosPorCorregir,
@@ -168,9 +168,14 @@ function RenglonProgramado({
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-tinta-900">
           <span className={apagado ? 'text-tinta-500' : undefined}>{programado.beneficiario}</span>
           <Etiqueta tono="gris">{programado.categoria}</Etiqueta>
-          {programado.periodicidad !== 'quincenal' && (
-            <Etiqueta tono="azul">{PERIODICIDAD_PAGO[programado.periodicidad]}</Etiqueta>
-          )}
+          {/* Se dice siempre, también cuando es quincenal. Callarlo en el caso
+              común dejaba sin explicación lo que se ve en las quincenas: que
+              TELMEX salga dos veces al mes no se leía en ningún lado, y el
+              duplicado parecía un error de la pantalla en vez de un dato que
+              aquí mismo se cambia. */}
+          <Etiqueta tono={programado.periodicidad === 'quincenal' ? 'gris' : 'azul'}>
+            {PERIODICIDAD_CORTA[programado.periodicidad]}
+          </Etiqueta>
           {deBaja && <Etiqueta tono="rojo">dado de baja</Etiqueta>}
         </p>
         {(programado.descripcion || programado.notas) && (
@@ -218,6 +223,7 @@ function FormularioProgramado({
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [hecho, setHecho] = useState<string | null>(null)
 
   const [tipo, setTipo] = useState<TipoPagoProgramado>(
     programado?.tipo ?? tipoInicial ?? 'servicio',
@@ -265,8 +271,21 @@ function FormularioProgramado({
         propagar,
       )
       if (!r.ok) return setError(r.error)
-      onCerrar()
       router.refresh()
+
+      /*
+       * Pasar a una vez al mes se lleva por delante los pagos ya generados de
+       * la mitad del mes que dejó de tocarle, y eso hay que decirlo: es lo que
+       * la persona vino a arreglar, pero son renglones que desaparecen de otra
+       * pantalla sin que nadie los borrara ahí.
+       */
+      const limpiados = r.datos?.limpiados ?? 0
+      if (limpiados === 0) return onCerrar()
+      setHecho(
+        `Guardado: ${beneficiario.trim()} queda como «${PERIODICIDAD_PAGO[periodicidad].toLowerCase()}». ` +
+          `Se quitaron ${limpiados} ${limpiados === 1 ? 'pago' : 'pagos'} de las quincenas por venir a las que ya no le toca. ` +
+          'Lo pagado y los meses cerrados se quedaron como estaban.',
+      )
     })
 
   /*
@@ -441,7 +460,18 @@ function FormularioProgramado({
         <MensajeError mensaje={error} />
       </CuerpoDialogo>
 
-      {porCorregir ? (
+      {hecho ? (
+        <PieDialogo>
+          <TextoPie>{hecho}</TextoPie>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+          >
+            Listo
+          </button>
+        </PieDialogo>
+      ) : porCorregir ? (
         <PieDialogo>
           <TextoPie>
             Le cambiaste el monto de {pesos(programado?.monto ?? 0)} a {pesos(num(monto))}.

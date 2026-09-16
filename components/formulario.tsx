@@ -419,7 +419,18 @@ export function PieConBorrado({
   pendiente?: boolean
   puedeGuardar?: boolean
   guardar?: string
-  borrado?: { pregunta: string; onBorrar: () => void }
+  borrado?: {
+    pregunta: string
+    onBorrar: () => void
+    /** Cuando «Sí, eliminar» no dice lo que de verdad va a pasar. */
+    texto?: string
+    /**
+     * Una segunda salida, para cuando borrar no es la única respuesta posible.
+     * Va al final y en primario: es la que arregla el asunto de raíz, mientras
+     * que la roja arregla nada más lo que se está viendo.
+     */
+    alterna?: { texto: string; onClick: () => void }
+  }
 }) {
   const [confirmando, setConfirmando] = useState(false)
 
@@ -441,8 +452,18 @@ export function PieConBorrado({
           className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:bg-red-300"
         >
           <Trash2 size={15} />
-          Sí, eliminar
+          {borrado.texto ?? 'Sí, eliminar'}
         </button>
+        {borrado.alterna && (
+          <button
+            type="button"
+            onClick={borrado.alterna.onClick}
+            disabled={pendiente}
+            className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          >
+            {borrado.alterna.texto}
+          </button>
+        )}
       </PieDialogo>
     )
   }
