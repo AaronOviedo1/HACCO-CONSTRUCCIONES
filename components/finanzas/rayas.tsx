@@ -2,22 +2,147 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { CalendarPlus, Pencil, Plus } from 'lucide-react'
+import { CalendarPlus, HandCoins, Pencil, Plus, Wallet } from 'lucide-react'
 import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, NumeroCorto, Opciones,
-  PieConBorrado, Seleccion,
+  PieConBorrado, PieDialogo, Seleccion, TextoPie,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { DialogoPago, DialogoPrestamo } from '@/components/finanzas/nomina'
 import { fecha, pesos } from '@/lib/format'
 import { num, redondear } from '@/lib/cotizaciones'
 import { diaDeRaya, etiquetaSemana } from '@/lib/finanzas'
 import {
   cancelarRaya, generarRaya, guardarRaya, guardarSueldoSemanal,
 } from '@/app/admin/finanzas-acciones'
-import type { SueldoSemanal, VRayaSemanal } from '@/types/database'
+import type {
+  Deduccion, VNominaContrato, VPrenomina, VRayaSemanal, VSueldoSemanal,
+} from '@/types/database'
 
 type Persona = { id: string; nombre: string }
 type Obra = { id: string; nombre: string; ot_numero: string | null }
+
+/**
+ * Un renglón del reparto mientras se está capturando.
+ *
+ * El porcentaje viaja como texto y no como número: es lo que se está tecleando,
+ * y convertirlo en cada pulsación convertía «5» en 5 antes de poder escribir el
+ * «0» de «50».
+ */
+type Renglon = { obra_id: string; pct: string }
+
+/**
+ * Entre qué obras se reparte, en porcentaje.
+ *
+ * Lo usan las dos pantallas que reparten: la del trato —«entre estas tres anda
+ * Jorge»— y la de una semana suelta, para corregirla cuando esa semana no fue
+ * como las demás. Es el mismo gesto y tiene que verse y comportarse igual; si
+ * se escribiera dos veces, en la segunda corrección ya no coincidirían.
+ */
+function RepartoObras({
+  reparto, obras, onCambio,
+}: {
+  reparto: Renglon[]
+  obras: Obra[]
+  onCambio: (reparto: Renglon[]) => void
+}) {
+  /* Dos obras son 50 y 50; tres son 33.34, 33.33 y 33.33. El sobrante de la
+     división se le carga al primero para que la suma dé 100 clavado y no 99.99,
+     que se lee como un error de captura. */
+  const partesIguales = () => {
+    if (reparto.length === 0) return
+    const parte = redondear(100 / reparto.length)
+    onCambio(
+      reparto.map((r, i) => ({
+        ...r,
+        pct: String(i === 0 ? redondear(100 - parte * (reparto.length - 1)) : parte),
+      })),
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {reparto.map((r, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Seleccion
+            value={r.obra_id}
+            onChange={(e) =>
+              onCambio(reparto.map((x, j) => (j === i ? { ...x, obra_id: e.target.value } : x)))
+            }
+          >
+            <option value="">Elegir obra…</option>
+            {/* Una obra ya elegida en otro renglón no se ofrece: dos renglones
+                de la misma obra se suman en uno al guardar, y en pantalla
+                parecían dos cosas distintas. */}
+            {obras
+              .filter((o) => o.id === r.obra_id || !reparto.some((x) => x.obra_id === o.id))
+              .map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nombre}
+                </option>
+              ))}
+          </Seleccion>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={r.pct}
+            onChange={(e) =>
+              onCambio(reparto.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))
+            }
+            aria-label="Porcentaje del sueldo"
+            className="w-20 rounded-[14px] border border-tinta-300 bg-white px-3 py-3 text-right tabular-nums text-tinta-900 outline-none transition focus:border-haaco-600 lg:rounded-lg lg:py-2 lg:text-sm"
+          />
+          <span className="text-sm text-tinta-500">%</span>
+          <button
+            type="button"
+            onClick={() => onCambio(reparto.filter((_, j) => j !== i))}
+            aria-label="Quitar esta obra"
+            className="rounded-lg p-2 text-tinta-400 transition hover:bg-tinta-100 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onCambio([...reparto, { obra_id: '', pct: '' }])}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-haaco-700 transition hover:bg-haaco-50"
+        >
+          <Plus size={14} />
+          Agregar obra
+        </button>
+        {reparto.length > 1 && (
+          <button
+            type="button"
+            onClick={partesIguales}
+            className="rounded-lg px-2 py-1.5 text-sm font-medium text-tinta-600 transition hover:bg-tinta-100"
+          >
+            Partes iguales
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Cómo va el reparto, dicho en una línea bajo el campo. */
+function ayudaReparto(sumaPct: number, vacio: string): string {
+  if (sumaPct === 0) return vacio
+  if (sumaPct > 100) return `Va en ${sumaPct}% y no puede pasar de 100.`
+  if (sumaPct < 100) {
+    return `Repartido ${sumaPct}%; el ${redondear(100 - sumaPct)}% restante queda como gasto general.`
+  }
+  return 'Repartido al 100%.'
+}
+
+const renglonesDe = (reparto: { obra_id: string; pct: number }[] | null): Renglon[] =>
+  (reparto ?? []).map((r) => ({ obra_id: r.obra_id, pct: String(r.pct) }))
+
+const aGuardar = (reparto: Renglon[]) =>
+  reparto
+    .filter((x) => x.obra_id && num(x.pct) > 0)
+    .map((x) => ({ obra_id: x.obra_id, pct: num(x.pct) }))
 
 /**
  * La raya de la semana: lo que se le debe a quien cobra sueldo fijo.
@@ -27,13 +152,19 @@ type Obra = { id: string; nombre: string; ot_numero: string | null }
  * por trabajador.
  */
 export function PanelRayas({
-  rayas, sueldos, gente, obras, semana,
+  rayas, sueldos, gente, obras, semana, contratos, prenomina, deducciones,
 }: {
   rayas: VRayaSemanal[]
-  sueldos: SueldoSemanal[]
+  sueldos: VSueldoSemanal[]
   gente: Persona[]
   obras: Obra[]
   semana: string
+  /* Los tres siguientes son para poder pagar y descontar préstamos sin salir de
+     aquí: el recibo es uno solo por trabajador y puede llevar también sus obras
+     a destajo, así que el diálogo de pago necesita verlo todo. */
+  contratos: VNominaContrato[]
+  prenomina: VPrenomina[]
+  deducciones: Deduccion[]
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
@@ -57,7 +188,22 @@ export function PanelRayas({
 
   const deLaSemana = rayas.filter((r) => r.semana === semana)
   const porPagar = deLaSemana.reduce((s, r) => s + Number(r.disponible), 0)
-  const nombrePorId = new Map(gente.map((p) => [p.id, p.nombre]))
+
+  /*
+   * Lo que cada quien debe de préstamos, para poder verlo aquí.
+   *
+   *   «y tambien el poder realizar descuentos de prestamos desde esta opcion»
+   *
+   * El descuento se aplicaba —y se sigue aplicando— en el recibo, que es donde
+   * baja el efectivo que se entrega. Lo que faltaba era que desde la semana se
+   * viera que hay uno pendiente y se llegara al recibo de un toque: el sábado
+   * se paga mirando esta pantalla, y el préstamo no se asomaba por ningún lado.
+   */
+  const pendientes = deducciones.filter((d) => !d.saldado)
+  const prestamosDe = (trabajadorId: string) =>
+    pendientes
+      .filter((d) => d.trabajador_id === trabajadorId)
+      .reduce((s, d) => s + Number(d.monto), 0)
 
   return (
     <div className="space-y-4">
@@ -116,7 +262,16 @@ export function PanelRayas({
         ) : (
           <ul className="divide-y divide-tinta-100">
             {deLaSemana.map((r) => (
-              <RenglonRaya key={r.raya_id} raya={r} obras={obras} />
+              <RenglonRaya
+                key={r.raya_id}
+                raya={r}
+                obras={obras}
+                prestamos={prestamosDe(r.trabajador_id)}
+                contratos={contratos}
+                prenomina={prenomina}
+                deducciones={deducciones}
+                rayas={rayas}
+              />
             ))}
           </ul>
         )}
@@ -133,10 +288,19 @@ export function PanelRayas({
             {sueldos.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
                 <div className="min-w-0 flex-1 basis-full lg:basis-auto">
-                  <p className="text-sm font-medium text-tinta-900">
-                    {nombrePorId.get(s.trabajador_id) ?? 'Trabajador'}
+                  <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-tinta-900">
+                    {s.trabajador}
+                    {prestamosDe(s.trabajador_id) > 0 && (
+                      <Etiqueta tono="ambar">debe {pesos(prestamosDe(s.trabajador_id))}</Etiqueta>
+                    )}
                   </p>
-                  <p className="mt-0.5 text-xs text-tinta-500">
+                  {/* A qué obras se le carga, que es lo que se vino a elegir:
+                      sin verlo aquí no hay manera de saber si quedó como se
+                      quería sin volver a abrir el diálogo. */}
+                  <p className="mt-0.5 truncate text-xs text-tinta-500">
+                    {s.obras ?? 'Se reparte solo entre las obras donde tenga contrato'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-tinta-400">
                     {s.dias_base} días la semana
                     {Number(s.costo_haaco_pct) > 0 && ` · retiene ${s.costo_haaco_pct}%`}
                     {s.notas ? ` · ${s.notas}` : ''}
@@ -145,12 +309,12 @@ export function PanelRayas({
                 <span className="ml-auto font-medium tabular-nums text-tinta-900 lg:ml-0">
                   {pesos(s.monto_semanal)}
                 </span>
-                <BotonSueldo
-                  sueldo={s}
-                  gente={gente}
-                  obras={obras}
-                  nombre={nombrePorId.get(s.trabajador_id) ?? ''}
+                <BotonPrestamo
+                  prenomina={prenomina}
+                  trabajadorId={s.trabajador_id}
+                  nombre={s.trabajador}
                 />
+                <BotonSueldo sueldo={s} gente={gente} obras={obras} />
               </li>
             ))}
           </ul>
@@ -164,8 +328,51 @@ export function PanelRayas({
   )
 }
 
-function RenglonRaya({ raya, obras }: { raya: VRayaSemanal; obras: Obra[] }) {
+/** Apuntarle un préstamo a alguien sin salir de la raya. */
+function BotonPrestamo({
+  prenomina, trabajadorId, nombre,
+}: {
+  prenomina: VPrenomina[]
+  trabajadorId: string
+  nombre: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-tinta-200 bg-white px-3 text-sm font-medium text-tinta-700 transition hover:border-haaco-300 hover:bg-haaco-50 lg:min-h-9 lg:rounded-lg lg:px-2.5 lg:text-[13px]"
+      >
+        <HandCoins size={14} />
+        Préstamo
+      </button>
+      {abierto && (
+        <DialogoPrestamo
+          prenomina={prenomina}
+          trabajadorInicial={trabajadorId}
+          nombreInicial={nombre}
+          onCerrar={() => setAbierto(false)}
+        />
+      )}
+    </>
+  )
+}
+
+function RenglonRaya({
+  raya, obras, prestamos, contratos, rayas, prenomina, deducciones,
+}: {
+  raya: VRayaSemanal
+  obras: Obra[]
+  /** Lo que debe de préstamos sin saldar, para poder verlo antes de pagarle. */
+  prestamos: number
+  contratos: VNominaContrato[]
+  rayas: VRayaSemanal[]
+  prenomina: VPrenomina[]
+  deducciones: Deduccion[]
+}) {
   const [editando, setEditando] = useState(false)
+  const [pagando, setPagando] = useState(false)
   const completa = Number(raya.dias_trabajados) >= Number(raya.dias_base)
   const sinObra = Number(raya.pct_asignado) === 0
 
@@ -187,6 +394,7 @@ function RenglonRaya({ raya, obras }: { raya: VRayaSemanal; obras: Obra[] }) {
           )}
           {raya.estatus === 'cerrada' && <Etiqueta tono="verde">cerrada</Etiqueta>}
           {sinObra && <Etiqueta tono="ambar">sin obra</Etiqueta>}
+          {prestamos > 0 && <Etiqueta tono="ambar">debe {pesos(prestamos)}</Etiqueta>}
         </p>
         <p className="mt-0.5 truncate text-xs text-tinta-500">
           {raya.obras ?? 'No se cargó a ninguna obra: cuenta como gasto general.'}
@@ -207,8 +415,31 @@ function RenglonRaya({ raya, obras }: { raya: VRayaSemanal; obras: Obra[] }) {
         <Pencil size={14} />
         Editar
       </button>
+      {/* El sábado se paga mirando esta pantalla. El recibo se abre con la
+          semana y sus préstamos ya marcados, y ahí se descuentan: no hay un
+          segundo lugar donde se mueva ese dinero. */}
+      {Number(raya.disponible) > 0 && (
+        <button
+          type="button"
+          onClick={() => setPagando(true)}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-haaco-700 px-3 text-sm font-medium text-white transition hover:bg-haaco-800 lg:min-h-9 lg:rounded-lg lg:px-2.5 lg:text-[13px]"
+        >
+          <Wallet size={14} />
+          Pagar
+        </button>
+      )}
 
       {editando && <FormularioRaya raya={raya} obras={obras} onCerrar={() => setEditando(false)} />}
+      {pagando && (
+        <DialogoPago
+          contratos={contratos}
+          rayas={rayas}
+          prenomina={prenomina}
+          deducciones={deducciones}
+          trabajadorInicial={raya.trabajador_id}
+          onCerrar={() => setPagando(false)}
+        />
+      )}
     </li>
   )
 }
@@ -234,19 +465,12 @@ function FormularioRaya({
   const [notas, setNotas] = useState(raya.notas ?? '')
 
   /* El reparto se edita entero y se manda entero, como el recibo: una obra que
-     se quita deja de cargar. */
-  const [reparto, setReparto] = useState<{ obra_id: string; pct: string }[]>(() => {
-    const trozos = (raya.obras ?? '')
-      .split(' · ')
-      .map((t) => t.match(/^(.*) \(([\d.]+)%\)$/))
-      .filter(Boolean) as RegExpMatchArray[]
-    return trozos
-      .map((m) => ({
-        obra_id: obras.find((o) => o.nombre === m[1])?.id ?? '',
-        pct: m[2],
-      }))
-      .filter((r) => r.obra_id)
-  })
+     se quita deja de cargar. Sale de `obras_json`, que trae los ids; antes se
+     deshacía con una expresión regular el texto «COLOSSUS (50.00%) · Pomona
+     (50.00%)» y se buscaba cada obra por su nombre, lo que se rompía con dos
+     obras homónimas —«Casa Hernández», de dos años distintos— o con un nombre
+     que llevara « · ». */
+  const [reparto, setReparto] = useState<Renglon[]>(() => renglonesDe(raya.obras_json))
 
   const bruto = redondear(
     (Number(raya.monto_semanal) * num(dias)) / Number(raya.dias_base) + num(ajuste),
@@ -262,8 +486,7 @@ function FormularioRaya({
         dias_trabajados: num(dias),
         ajuste: num(ajuste),
         notas: notas.trim() || null,
-        obras: reparto.filter((x) => x.obra_id && num(x.pct) > 0)
-          .map((x) => ({ obra_id: x.obra_id, pct: num(x.pct) })),
+        obras: aGuardar(reparto),
       })
       if (!r.ok) return setError(r.error)
       onCerrar()
@@ -311,68 +534,11 @@ function FormularioRaya({
 
         <Campo
           etiqueta="A qué obras se le carga"
-          hijo={
-            <div className="space-y-2">
-              {reparto.map((r, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Seleccion
-                    value={r.obra_id}
-                    onChange={(e) =>
-                      setReparto((l) => l.map((x, j) => (j === i ? { ...x, obra_id: e.target.value } : x)))
-                    }
-                  >
-                    <option value="">Elegir obra…</option>
-                    {/* Una obra ya elegida en otro renglón no se ofrece: dos
-                        renglones de la misma obra se suman en uno al guardar,
-                        y en pantalla parecían dos cosas distintas. */}
-                    {obras
-                      .filter((o) => o.id === r.obra_id || !reparto.some((x) => x.obra_id === o.id))
-                      .map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.nombre}
-                        </option>
-                      ))}
-                  </Seleccion>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={r.pct}
-                    onChange={(e) =>
-                      setReparto((l) => l.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))
-                    }
-                    aria-label="Porcentaje de la semana"
-                    className="w-20 rounded-[14px] border border-tinta-300 bg-white px-3 py-3 text-right tabular-nums text-tinta-900 outline-none transition focus:border-haaco-600 lg:rounded-lg lg:py-2 lg:text-sm"
-                  />
-                  <span className="text-sm text-tinta-500">%</span>
-                  <button
-                    type="button"
-                    onClick={() => setReparto((l) => l.filter((_, j) => j !== i))}
-                    aria-label="Quitar esta obra"
-                    className="rounded-lg p-2 text-tinta-400 transition hover:bg-tinta-100 hover:text-red-700"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setReparto((l) => [...l, { obra_id: '', pct: '' }])}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-haaco-700 transition hover:bg-haaco-50"
-              >
-                <Plus size={14} />
-                Agregar obra
-              </button>
-            </div>
-          }
-          ayuda={
-            sumaPct === 0
-              ? 'Sin obras, la semana cuenta como gasto general de la empresa.'
-              : sumaPct > 100
-                ? `Va en ${sumaPct}% y no puede pasar de 100.`
-                : sumaPct < 100
-                  ? `Repartido ${sumaPct}%; el ${redondear(100 - sumaPct)}% restante queda como gasto general.`
-                  : 'Repartido al 100%.'
-          }
+          hijo={<RepartoObras reparto={reparto} obras={obras} onCambio={setReparto} />}
+          ayuda={ayudaReparto(
+            sumaPct,
+            'Sin obras, la semana cuenta como gasto general de la empresa.',
+          )}
         />
 
         <Campo
@@ -420,12 +586,11 @@ function FormularioRaya({
 
 // ---------------------------------------------------------------------------
 function BotonSueldo({
-  sueldo, gente, obras, nombre,
+  sueldo, gente, obras,
 }: {
-  sueldo: SueldoSemanal
+  sueldo: VSueldoSemanal
   gente: Persona[]
   obras: Obra[]
-  nombre: string
 }) {
   const [abierto, setAbierto] = useState(false)
   return (
@@ -441,7 +606,6 @@ function BotonSueldo({
       {abierto && (
         <FormularioSueldo
           sueldo={sueldo}
-          nombre={nombre}
           gente={gente}
           obras={obras}
           onCerrar={() => setAbierto(false)}
@@ -452,10 +616,9 @@ function BotonSueldo({
 }
 
 function FormularioSueldo({
-  sueldo, nombre, gente, obras, onCerrar,
+  sueldo, gente, obras, onCerrar,
 }: {
-  sueldo?: SueldoSemanal
-  nombre?: string
+  sueldo?: VSueldoSemanal
   gente: Persona[]
   obras: Obra[]
   onCerrar: () => void
@@ -463,13 +626,28 @@ function FormularioSueldo({
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [hecho, setHecho] = useState<string | null>(null)
 
   const [trabajador, setTrabajador] = useState(sueldo?.trabajador_id ?? '')
   const [monto, setMonto] = useState(String(sueldo?.monto_semanal ?? ''))
   const [dias, setDias] = useState(String(sueldo?.dias_base ?? 6))
   const [pct, setPct] = useState(String(sueldo?.costo_haaco_pct ?? 0))
-  const [obra, setObra] = useState(sueldo?.obra_id ?? '')
   const [notas, setNotas] = useState(sueldo?.notas ?? '')
+
+  /*
+   * Entre qué obras se reparte.
+   *
+   *   «se puede ajustar para poder seleccionar entre que obras se va a repartir
+   *    el sueldo, actualmente solo me permite seleccionar entre todas, o solo
+   *    una»
+   *
+   * Aquí había un desplegable de una sola obra, y por eso no había manera de
+   * decir lo de en medio, que es lo normal: anda en dos de las cinco, y no
+   * mitad y mitad. Es la misma lista de la raya, porque es lo mismo: lo que se
+   * escribe aquí es lo que sale cada lunes.
+   */
+  const [reparto, setReparto] = useState<Renglon[]>(() => renglonesDe(sueldo?.obras_json ?? null))
+  const sumaPct = reparto.reduce((s, r) => s + num(r.pct), 0)
 
   const guardar = () =>
     iniciar(async () => {
@@ -479,19 +657,31 @@ function FormularioSueldo({
         monto_semanal: num(monto),
         dias_base: Math.round(num(dias)) || 6,
         costo_haaco_pct: num(pct),
-        obra_id: obra || null,
+        obras: aGuardar(reparto),
         notas: notas.trim() || null,
       })
       if (!r.ok) return setError(r.error)
-      onCerrar()
       router.refresh()
+
+      /*
+       * Las semanas abiertas se reparten de nuevo con lo que se acaba de
+       * decidir, y eso hay que decirlo: son renglones que cambian en la tarjeta
+       * de arriba sin que nadie los tocara ahí. Si no cambió ninguna, no hay
+       * nada que contar y el diálogo se cierra como siempre.
+       */
+      const ajustadas = r.datos?.rayas_ajustadas ?? 0
+      if (ajustadas === 0) return onCerrar()
+      setHecho(
+        `Guardado. Se repartió de nuevo ${ajustadas === 1 ? 'la semana que sigue abierta' : `las ${ajustadas} semanas que siguen abiertas`} y sin pagar. ` +
+          'Las ya pagadas se quedaron como estaban; ésas se corrigen desde su propio renglón.',
+      )
     })
 
   return (
     <Dialogo
       abierto
       onCerrar={onCerrar}
-      titulo={sueldo ? `Sueldo de ${nombre}` : 'Poner a alguien a sueldo'}
+      titulo={sueldo ? `Sueldo de ${sueldo.trabajador}` : 'Poner a alguien a sueldo'}
       descripcion="Lo que cobra cada semana, aunque la obra vaya más rápido o más despacio."
     >
       <CuerpoDialogo>
@@ -534,18 +724,12 @@ function FormularioSueldo({
           }
         />
         <Campo
-          etiqueta="Obra de siempre"
-          hijo={
-            <Seleccion value={obra} onChange={(e) => setObra(e.target.value)}>
-              <option value="">Repartir entre sus obras</option>
-              {obras.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nombre}
-                </option>
-              ))}
-            </Seleccion>
-          }
-          ayuda="Sin obra fija, la semana se reparte sola entre las obras donde tenga contrato."
+          etiqueta="Entre qué obras se reparte"
+          hijo={<RepartoObras reparto={reparto} obras={obras} onCambio={setReparto} />}
+          ayuda={ayudaReparto(
+            sumaPct,
+            'Sin ninguna, cada semana se reparte sola entre las obras donde tenga contrato.',
+          )}
         />
         <div className="sm:col-span-1">
           <NumeroCorto
@@ -563,13 +747,26 @@ function FormularioSueldo({
         <MensajeError mensaje={error} />
       </CuerpoDialogo>
 
-      <PieConBorrado
-        onCerrar={onCerrar}
-        onGuardar={guardar}
-        pendiente={pendiente}
-        puedeGuardar={Boolean(trabajador) && num(monto) > 0}
-        guardar={sueldo ? 'Guardar el cambio' : 'Ponerlo a sueldo'}
-      />
+      {hecho ? (
+        <PieDialogo>
+          <TextoPie>{hecho}</TextoPie>
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+          >
+            Listo
+          </button>
+        </PieDialogo>
+      ) : (
+        <PieConBorrado
+          onCerrar={onCerrar}
+          onGuardar={guardar}
+          pendiente={pendiente}
+          puedeGuardar={Boolean(trabajador) && num(monto) > 0 && sumaPct <= 100}
+          guardar={sueldo ? 'Guardar el cambio' : 'Ponerlo a sueldo'}
+        />
+      )}
     </Dialogo>
   )
 }

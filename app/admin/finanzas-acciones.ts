@@ -8,8 +8,8 @@ import { quincenaDe, tocaEnQuincena } from '@/lib/finanzas'
 import { hoyHermosillo } from '@/lib/format'
 import type {
   AlcanceQuitarPago, EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago,
-  ResultadoPagoLote, ResultadoQuitarPago, TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza,
-  TipoPagoProgramado, TipoProducto,
+  ResultadoPagoLote, ResultadoQuitarPago, ResultadoSueldoSemanal, TipoDeduccion,
+  TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -633,31 +633,44 @@ export async function asegurarQuincenas(quincenas: string[]): Promise<Resultado<
 // ===========================================================================
 // RAYA SEMANAL · el sueldo fijo de los oficiales
 // ===========================================================================
-/** Pone a alguien a sueldo, o le cambia el monto cerrando el trato anterior. */
+/**
+ * Pone a alguien a sueldo, o le cambia el trato cerrando el anterior.
+ *
+ * El reparto entre obras viaja completo, igual que el de una semana: lo que no
+ * venga en la lista deja de cargar a esa obra. Sin lista, la raya lo sigue
+ * repartiendo sola entre las obras donde tenga contrato vivo, que es lo que
+ * hacía antes de que se pudiera elegir.
+ */
 export async function guardarSueldoSemanal(datos: {
   trabajador_id: string
   monto_semanal: number
   dias_base: number
   costo_haaco_pct: number
-  obra_id: string | null
+  obras: { obra_id: string; pct: number }[]
   notas: string | null
-}): Promise<Resultado> {
+}): Promise<Resultado<ResultadoSueldoSemanal>> {
   if (!datos.trabajador_id) return { ok: false, error: 'Falta decir de quién es el sueldo.' }
   if (datos.monto_semanal <= 0) return { ok: false, error: 'El sueldo tiene que ser mayor a cero.' }
 
+  const suma = datos.obras.reduce((s, o) => s + o.pct, 0)
+  if (suma > 100) {
+    return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
+  }
+
   const supabase = await staff()
-  const { error } = await supabase.rpc('guardar_sueldo_semanal', {
+  const { data, error } = await supabase.rpc('guardar_sueldo_semanal', {
     p_trabajador: datos.trabajador_id,
     p_monto: datos.monto_semanal,
     p_dias_base: datos.dias_base,
     p_pct: datos.costo_haaco_pct,
-    p_obra: datos.obra_id,
+    p_obras: datos.obras,
     p_notas: datos.notas,
   })
 
   if (error) return fallo(error)
   revalidatePath('/admin/nomina')
-  return { ok: true }
+  revalidatePath('/admin')
+  return { ok: true, datos: data as ResultadoSueldoSemanal }
 }
 
 /** Saca la raya de esa semana desde los sueldos dados de alta. */

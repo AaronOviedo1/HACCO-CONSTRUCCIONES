@@ -43,6 +43,53 @@ type Pagable = {
   disponible: number
 }
 
+/**
+ * Todo lo que se le puede abonar a alguien, venga del avance de una obra o de
+ * la raya de una semana.
+ *
+ * Los dos motores calculan distinto —uno por porcentaje de obra y el otro por
+ * días trabajados— pero a la hora de pagar se comportan igual, y con esto el
+ * diálogo, los totales y el recibo no tienen que saber de cuál vienen.
+ *
+ * Fuera del componente porque también hace falta antes del primer render, para
+ * dejar el abono ya capturado cuando el diálogo se abre desde el renglón de una
+ * semana: ahí quien lo abrió ya dijo a quién le va a pagar.
+ */
+function pagablesDe(
+  trabajadorId: string,
+  contratos: VNominaContrato[],
+  rayas: VRayaSemanal[],
+): Pagable[] {
+  return [
+    ...rayas
+      .filter((r) => r.trabajador_id === trabajadorId)
+      .map((r) => ({
+        clave: r.raya_id,
+        esRaya: true,
+        titulo: `Raya ${etiquetaSemana(r.semana)}`,
+        detalle: `${r.dias_trabajados} de ${r.dias_base} días · ${r.obras ?? 'sin obra'}`,
+        total: Number(r.total),
+        devengado: Number(r.devengado),
+        pagado: Number(r.pagado),
+        porPagar: Number(r.por_pagar),
+        disponible: Number(r.disponible),
+      })),
+    ...contratos
+      .filter((c) => c.trabajador_id === trabajadorId)
+      .map((c) => ({
+        clave: c.contrato_id,
+        esRaya: false,
+        titulo: c.obra,
+        detalle: `avance ${Number(c.avance_pct)}%`,
+        total: Number(c.total),
+        devengado: Number(c.devengado),
+        pagado: Number(c.pagado),
+        porPagar: Number(c.por_pagar),
+        disponible: Number(c.disponible),
+      })),
+  ]
+}
+
 export function PanelNomina({
   contratos, rayas, prenomina, deducciones,
 }: {
@@ -76,12 +123,10 @@ export function PanelNomina({
 
       {pagando && (
         <DialogoPago
-          // Un contrato ya saldado no se ofrece para abonar: lo que aparece en
-          // el diálogo es lo que todavía se le debe a alguien.
-          contratos={contratos.filter((c) => Number(c.por_pagar) > 0)}
-          rayas={rayas.filter((r) => Number(r.por_pagar) > 0 && r.estatus !== 'cancelada')}
-          prenomina={prenomina.filter((p) => Number(p.pendiente) > 0)}
-          deducciones={deducciones.filter((d) => !d.saldado)}
+          contratos={contratos}
+          rayas={rayas}
+          prenomina={prenomina}
+          deducciones={deducciones}
           onCerrar={() => setPagando(false)}
         />
       )}
@@ -94,61 +139,61 @@ export function PanelNomina({
 }
 
 // ---------------------------------------------------------------------------
-function DialogoPago({
-  contratos, rayas, prenomina, deducciones, onCerrar,
+export function DialogoPago({
+  contratos, rayas, prenomina, deducciones, trabajadorInicial, onCerrar,
 }: {
   contratos: VNominaContrato[]
   rayas: VRayaSemanal[]
   prenomina: VPrenomina[]
   deducciones: Deduccion[]
+  /**
+   * A quién se le va a pagar, cuando el diálogo se abre desde su renglón. El
+   * abono de lo devengado y sus préstamos vienen ya marcados: ahí el sábado son
+   * dos toques —abrir y firmar— en vez de elegir de nuevo lo que ya se eligió.
+   */
+  trabajadorInicial?: string
   onCerrar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [trabajadorId, setTrabajadorId] = useState(prenomina[0]?.trabajador_id ?? '')
+  /*
+   * Lo saldado no se ofrece: lo que aparece en el diálogo es lo que todavía se
+   * le debe a alguien. Se filtra aquí y no en quien lo abre, que eran las
+   * mismas cuatro líneas repetidas en cada sitio de llamada.
+   */
+  const vivos = contratos.filter((c) => Number(c.por_pagar) > 0)
+  const rayasVivas = rayas.filter((r) => Number(r.por_pagar) > 0 && r.estatus !== 'cancelada')
+  const pendientes = deducciones.filter((d) => !d.saldado)
+  // A quien se abrió desde su renglón se le deja aunque la prenómina no lo
+  // traiga: el diálogo no puede quedarse sin la persona que lo invocó.
+  const conSaldo = prenomina.filter(
+    (p) => Number(p.pendiente) > 0 || p.trabajador_id === trabajadorInicial,
+  )
+
+  const [trabajadorId, setTrabajadorId] = useState(
+    trabajadorInicial ?? conSaldo[0]?.trabajador_id ?? '',
+  )
   const [fecha, setFecha] = useState(hoyISO())
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
   const [notas, setNotas] = useState('')
-  const [capturas, setCapturas] = useState<Record<string, Captura>>({})
-  const [elegidas, setElegidas] = useState<string[]>([])
+  const [capturas, setCapturas] = useState<Record<string, Captura>>(() => {
+    if (!trabajadorInicial) return {}
+    const inicial: Record<string, Captura> = {}
+    for (const x of pagablesDe(trabajadorInicial, vivos, rayasVivas)) {
+      if (x.disponible > 0) inicial[x.clave] = { modo: 'monto', texto: String(x.disponible) }
+    }
+    return inicial
+  })
+  const [elegidas, setElegidas] = useState<string[]>(() =>
+    trabajadorInicial
+      ? pendientes.filter((d) => d.trabajador_id === trabajadorInicial).map((d) => d.id)
+      : [],
+  )
 
-  /*
-   * Al mismo trabajador se le puede deber por los dos lados: por el avance de
-   * sus obras y por la raya de la semana. Los dos se normalizan aquí a un
-   * mismo renglón pagable para que el diálogo, los totales y el recibo los
-   * traten igual — y para que quepan en un solo recibo, que es lo que se le
-   * entrega en la mano.
-   */
-  const suyos = contratos.filter((c) => c.trabajador_id === trabajadorId)
-  const susRayas = rayas.filter((r) => r.trabajador_id === trabajadorId)
-  const susDeducciones = deducciones.filter((d) => d.trabajador_id === trabajadorId)
-
-  const pagables: Pagable[] = [
-    ...susRayas.map((r) => ({
-      clave: r.raya_id,
-      esRaya: true,
-      titulo: `Raya ${etiquetaSemana(r.semana)}`,
-      detalle: `${r.dias_trabajados} de ${r.dias_base} días · ${r.obras ?? 'sin obra'}`,
-      total: Number(r.total),
-      devengado: Number(r.devengado),
-      pagado: Number(r.pagado),
-      porPagar: Number(r.por_pagar),
-      disponible: Number(r.disponible),
-    })),
-    ...suyos.map((c) => ({
-      clave: c.contrato_id,
-      esRaya: false,
-      titulo: c.obra,
-      detalle: `avance ${Number(c.avance_pct)}%`,
-      total: Number(c.total),
-      devengado: Number(c.devengado),
-      pagado: Number(c.pagado),
-      porPagar: Number(c.por_pagar),
-      disponible: Number(c.disponible),
-    })),
-  ]
+  const susDeducciones = pendientes.filter((d) => d.trabajador_id === trabajadorId)
+  const pagables = pagablesDe(trabajadorId, vivos, rayasVivas)
 
   // Lo que se le sigue debiendo a este trabajador antes de capturar el abono.
   const suSaldo = redondear(pagables.reduce((s, x) => s + x.porPagar, 0))
@@ -257,7 +302,7 @@ function DialogoPago({
       descripcion="Un recibo puede cubrir varias obras y la raya de la semana, todo del mismo trabajador."
     >
       <CuerpoDialogo>
-        {prenomina.length === 0 ? (
+        {conSaldo.length === 0 ? (
           <p className="rounded-lg bg-tinta-50 px-3 py-3 text-sm text-tinta-500 sm:col-span-2">
             No hay nadie con saldo pendiente: todos los contratos activos están pagados. Si falta
             pagar algo, revisa que el contrato tenga el monto correcto.
@@ -267,7 +312,7 @@ function DialogoPago({
             etiqueta="Trabajador"
             hijo={
               <Seleccion value={trabajadorId} onChange={(e) => cambiarTrabajador(e.target.value)}>
-                {prenomina.map((p) => (
+                {conSaldo.map((p) => (
                   <option key={p.trabajador_id} value={p.trabajador_id}>
                     {p.trabajador}
                     {p.es_externo ? ' (externo)' : ''} · disponible {pesos(p.disponible)} · pendiente{' '}
@@ -522,10 +567,12 @@ function ConmutadorUnidad({
  * préstamo ya aplicado a un recibo no se toca — se corrige el recibo.
  */
 export function BotonEditarPrestamo({
-  deduccion, prenomina,
+  deduccion, prenomina, nombre,
 }: {
   deduccion: Deduccion
   prenomina: VPrenomina[]
+  /** Cómo se llama quien lo debe; sale del padrón, no de la prenómina. */
+  nombre?: string
 }) {
   const [abierto, setAbierto] = useState(false)
 
@@ -546,6 +593,7 @@ export function BotonEditarPrestamo({
         <DialogoPrestamo
           prenomina={prenomina}
           deduccion={deduccion}
+          nombreInicial={nombre}
           onCerrar={() => setAbierto(false)}
         />
       )}
@@ -553,20 +601,36 @@ export function BotonEditarPrestamo({
   )
 }
 
-function DialogoPrestamo({
-  prenomina, deduccion, onCerrar,
+export function DialogoPrestamo({
+  prenomina, deduccion, trabajadorInicial, nombreInicial, onCerrar,
 }: {
   prenomina: VPrenomina[]
   /** Presente al corregir; ausente al registrar uno nuevo. */
   deduccion?: Deduccion
+  /** De quién es, cuando se abre desde su renglón en vez de desde la barra. */
+  trabajadorInicial?: string
+  /** Su nombre, para los casos en que la prenómina no lo traiga. */
+  nombreInicial?: string
   onCerrar: () => void
 }) {
   const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [trabajadorId, setTrabajadorId] = useState(
-    deduccion?.trabajador_id ?? prenomina[0]?.trabajador_id ?? '',
-  )
+
+  /*
+   * Un préstamo sobrevive a los contratos de quien lo debe, y a quien acaban de
+   * poner a sueldo todavía no le han armado ninguna semana: en los dos casos su
+   * dueño no viene en la prenómina. Sin un renglón propio, el desplegable se
+   * quedaba enseñando a otra persona y guardarlo le cambiaba de dueño el
+   * préstamo sin que nadie lo pidiera.
+   */
+  const deQuien = deduccion?.trabajador_id ?? trabajadorInicial
+  const opciones = prenomina.map((p) => ({ id: p.trabajador_id, nombre: p.trabajador }))
+  if (deQuien && !opciones.some((o) => o.id === deQuien)) {
+    opciones.unshift({ id: deQuien, nombre: nombreInicial ?? 'Este trabajador' })
+  }
+
+  const [trabajadorId, setTrabajadorId] = useState(deQuien ?? opciones[0]?.id ?? '')
   const [tipo, setTipo] = useState<TipoDeduccion>(deduccion?.tipo ?? 'prestamo')
   const [monto, setMonto] = useState(deduccion ? String(Number(deduccion.monto)) : '')
   const [fecha, setFecha] = useState(deduccion?.fecha ?? hoyISO())
@@ -610,9 +674,9 @@ function DialogoPrestamo({
           etiqueta="Trabajador"
           hijo={
             <Seleccion value={trabajadorId} onChange={(e) => setTrabajadorId(e.target.value)}>
-              {prenomina.map((p) => (
-                <option key={p.trabajador_id} value={p.trabajador_id}>
-                  {p.trabajador}
+              {opciones.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nombre}
                 </option>
               ))}
             </Seleccion>
