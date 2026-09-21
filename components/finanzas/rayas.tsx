@@ -8,9 +8,10 @@ import {
   PieConBorrado, PieDialogo, Seleccion, TextoPie,
 } from '@/components/formulario'
 import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
+import { FiltroSemana, SelectorFecha } from '@/components/filtro-fechas'
 import { DialogoPago, DialogoPrestamo } from '@/components/finanzas/nomina'
 import { fecha, pesos } from '@/lib/format'
-import { num, redondear } from '@/lib/cotizaciones'
+import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { diaDeRaya, etiquetaSemana } from '@/lib/finanzas'
 import {
   cancelarRaya, generarRaya, guardarRaya, guardarSueldoSemanal,
@@ -152,13 +153,18 @@ const aGuardar = (reparto: Renglon[]) =>
  * por trabajador.
  */
 export function PanelRayas({
-  rayas, sueldos, gente, obras, semana, contratos, prenomina, deducciones,
+  rayas, canceladas, sueldos, gente, obras, semana, semanaDeHoy,
+  contratos, prenomina, deducciones,
 }: {
   rayas: VRayaSemanal[]
+  /** Las canceladas de la semana que se está viendo: se enseñan, no se esconden. */
+  canceladas: VRayaSemanal[]
   sueldos: VSueldoSemanal[]
   gente: Persona[]
   obras: Obra[]
   semana: string
+  /** El lunes de la semana en curso, para el atajo de «Esta semana». */
+  semanaDeHoy: string
   /* Los tres siguientes son para poder pagar y descontar préstamos sin salir de
      aquí: el recibo es uno solo por trabajador y puede llevar también sus obras
      a destajo, así que el diálogo de pago necesita verlo todo. */
@@ -171,17 +177,41 @@ export function PanelRayas({
   const [aviso, setAviso] = useState<string | null>(null)
   const [nuevoSueldo, setNuevoSueldo] = useState(false)
 
+  /*
+   * Armar la semana, y decir la verdad de lo que pasó.
+   *
+   * El aviso tenía una sola respuesta para los tres casos en que no nace nada
+   * —ya estaban, estaban canceladas, o nadie estaba a sueldo entonces— y
+   * contestaba siempre «ya estaban armadas». Con eso, quien canceló una semana
+   * para rehacerla se quedaba mirando una lista vacía que le juraba estar
+   * llena, y quien quiso armar una semana de antes del alta no tenía cómo
+   * enterarse de que el trato empezaba después.
+   */
   const generar = () =>
     iniciar(async () => {
       setAviso(null)
       const r = await generarRaya(semana)
       if (!r.ok) return setAviso(r.error)
+
+      const { armadas = 0, rearmadas = 0, ya_estaban = 0, sin_sueldo = 0 } = r.datos ?? {}
+      const nacidas = armadas + rearmadas
+
       setAviso(
-        r.datos === 0
-          ? 'Ya estaban armadas las rayas de esa semana.'
-          : r.datos === 1
-            ? `Se armó una raya de la semana ${etiquetaSemana(semana)}.`
-            : `Se armaron ${r.datos} rayas de la semana ${etiquetaSemana(semana)}.`,
+        nacidas > 0
+          ? (nacidas === 1
+              ? `Se armó una raya de la semana ${etiquetaSemana(semana)}.`
+              : `Se armaron ${nacidas} rayas de la semana ${etiquetaSemana(semana)}.`) +
+            (rearmadas > 0
+              ? rearmadas === 1
+                ? ' Una estaba cancelada y volvió con el sueldo de hoy.'
+                : ` ${rearmadas} estaban canceladas y volvieron con el sueldo de hoy.`
+              : '')
+          : ya_estaban > 0
+            ? 'Ya estaban armadas las rayas de esa semana.'
+            : sin_sueldo > 0
+              ? `Nadie estaba a sueldo la semana ${etiquetaSemana(semana)}. ` +
+                'Si ya trabajaba entonces, edita su sueldo y adelanta la fecha de «a sueldo desde».'
+              : 'Todavía no hay nadie a sueldo. Ponlo con el botón de arriba.',
       )
       router.refresh()
     })
@@ -208,10 +238,12 @@ export function PanelRayas({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-tinta-600">
-          Semana {etiquetaSemana(semana)} · se raya el {fecha(diaDeRaya(semana))}
-          {deLaSemana.length > 0 && ` · faltan por pagar ${pesos(porPagar)}`}
-        </p>
+        {/* Con las flechas se llega a las semanas que quedaron pendientes: la
+            raya se arma y se paga donde se está parado, no sólo en la de hoy. */}
+        <FiltroSemana semana={semana} hoy={semanaDeHoy} />
+        {deLaSemana.length > 0 && (
+          <span className="text-sm text-tinta-600">faltan por pagar {pesos(porPagar)}</span>
+        )}
         <div className="ml-auto flex gap-2">
           <button
             type="button"
@@ -254,9 +286,11 @@ export function PanelRayas({
           <EstadoVacio
             titulo="Sin rayas esta semana"
             descripcion={
-              sueldos.length === 0
-                ? 'Primero pon a alguien a sueldo con el botón de arriba.'
-                : 'Usa «Armar la raya» para sacarla de los sueldos dados de alta.'
+              canceladas.length > 0
+                ? 'La que había se canceló. Con «Armar la raya» vuelve, con el sueldo de hoy.'
+                : sueldos.length === 0
+                  ? 'Primero pon a alguien a sueldo con el botón de arriba.'
+                  : 'Usa «Armar la raya» para sacarla de los sueldos dados de alta.'
             }
           />
         ) : (
@@ -272,6 +306,28 @@ export function PanelRayas({
                 deducciones={deducciones}
                 rayas={rayas}
               />
+            ))}
+          </ul>
+        )}
+
+        {/* Las canceladas de la semana, a la vista.
+            Escondidas, una semana cancelada era un callejón sin salida: no se
+            veía, y «Armar la raya» chocaba con ella sin poder decirlo. */}
+        {canceladas.length > 0 && (
+          <ul className="divide-y divide-tinta-100 border-t border-tinta-100 bg-tinta-50/60">
+            {canceladas.map((r) => (
+              <li key={r.raya_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-tinta-500">
+                  {r.trabajador}
+                  <Etiqueta tono="rojo">cancelada</Etiqueta>
+                </p>
+                <span className="ml-auto text-sm tabular-nums text-tinta-400 line-through">
+                  {pesos(r.total)}
+                </span>
+                <p className="basis-full text-xs text-tinta-500">
+                  Con «Armar la raya» vuelve, con el sueldo que esté vigente hoy.
+                </p>
+              </li>
             ))}
           </ul>
         )}
@@ -300,8 +356,12 @@ export function PanelRayas({
                   <p className="mt-0.5 truncate text-xs text-tinta-500">
                     {s.obras ?? 'Se reparte solo entre las obras donde tenga contrato'}
                   </p>
+                  {/* Desde cuándo cobra fijo es lo que decide qué semanas se le
+                      pueden armar, y no se veía en ningún lado: quien quería
+                      registrar una semana de antes no tenía cómo saber por qué
+                      salía vacía. */}
                   <p className="mt-0.5 text-xs text-tinta-400">
-                    {s.dias_base} días la semana
+                    {s.dias_base} días la semana · a sueldo desde el {fecha(s.vigencia_desde)}
                     {Number(s.costo_haaco_pct) > 0 && ` · retiene ${s.costo_haaco_pct}%`}
                     {s.notas ? ` · ${s.notas}` : ''}
                   </p>
@@ -633,6 +693,15 @@ function FormularioSueldo({
   const [dias, setDias] = useState(String(sueldo?.dias_base ?? 6))
   const [pct, setPct] = useState(String(sueldo?.costo_haaco_pct ?? 0))
   const [notas, setNotas] = useState(sueldo?.notas ?? '')
+  /*
+   * Desde cuándo cobra fijo.
+   *
+   * Era siempre «hoy», porque un sueldo se da de alta el día que empieza. Pero
+   * lo primero que hay que hacer con esta pantalla es alcanzar el pasado:
+   * semanas ya trabajadas y sin registrar, con un trato que para la base nació
+   * antier. Puesto hacia atrás, esas semanas se pueden armar.
+   */
+  const [desde, setDesde] = useState(sueldo?.vigencia_desde ?? hoyISO())
 
   /*
    * Entre qué obras se reparte.
@@ -659,6 +728,7 @@ function FormularioSueldo({
         costo_haaco_pct: num(pct),
         obras: aGuardar(reparto),
         notas: notas.trim() || null,
+        desde,
       })
       if (!r.ok) return setError(r.error)
       router.refresh()
@@ -707,6 +777,12 @@ function FormularioSueldo({
           etiqueta="Sueldo a la semana"
           ancho="medio"
           hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} />}
+        />
+        <Campo
+          etiqueta="A sueldo desde"
+          ancho="medio"
+          hijo={<SelectorFecha valor={desde} onCambio={setDesde} />}
+          ayuda="De aquí en adelante se le pueden armar sus semanas. Ponlo antes si le vas a registrar semanas ya trabajadas."
         />
         <Campo
           etiqueta="Días de la semana"

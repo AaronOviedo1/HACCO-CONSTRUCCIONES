@@ -36,15 +36,18 @@ export default async function PaginaNomina({
   // La semana que se está viendo: la de la URL, o la de hoy en Hermosillo. Con
   // `new Date()` en el servidor, que corre en UTC, el domingo a partir de las
   // cinco de la tarde ya enseñaba la semana siguiente.
+  const semanaDeHoy = semanaDe(hoyHermosillo())
   const semana = semanaUrl && /^\d{4}-\d{2}-\d{2}$/.test(semanaUrl)
     ? semanaDe(semanaUrl)
-    : semanaDe(hoyHermosillo())
+    : semanaDeHoy
 
   const supabase = await crearClienteServidor()
 
   const [
     { data: contratos }, { data: prenomina }, { data: pagos }, { data: deducciones },
-    { data: recibos }, { data: gente }, { data: rayas }, { data: sueldos }, { data: obrasVivas },
+    { data: recibos }, { data: gente },
+    { data: rayas, error: errorRayas }, { data: sueldos, error: errorSueldos },
+    { data: obrasVivas },
   ] = await Promise.all([
     supabase.from('v_nomina_contratos').select('*').order('trabajador'),
     supabase.from('v_prenomina').select('*').order('trabajador'),
@@ -81,6 +84,17 @@ export default async function PaginaNomina({
       .order('nombre'),
   ])
 
+  /*
+   * Si la consulta falla, que quede dicho en algún lado.
+   *
+   * Un error aquí se veía exactamente igual que no tener nada: «Sin rayas esta
+   * semana», sin una sola pista. Y es un fallo que sí pasa —una vista servida
+   * sin `grant`, PostgREST con la caché de esquema atrasada— y que cuesta una
+   * tarde encontrar desde la pantalla.
+   */
+  if (errorRayas) console.error('No se pudieron leer las rayas semanales:', errorRayas)
+  if (errorSueldos) console.error('No se pudieron leer los sueldos semanales:', errorSueldos)
+
   // Los recibos del mes nombran sus renglones de raya por la semana, y una
   // semana ya saldada no viene en la consulta de arriba.
   const rayasVistas = new Set((rayas ?? []).map((r) => r.raya_id))
@@ -91,8 +105,18 @@ export default async function PaginaNomina({
     ? await supabase.from('v_rayas_semanales').select('*').in('raya_id', faltanDeRecibos)
     : { data: [] }
 
+  /*
+   * `listaRayas` sigue sin las canceladas: es la que alimenta el diálogo de
+   * pago, y una raya cancelada no vale nada y no tiene por qué asomarse a un
+   * recibo. Pero en su propia semana sí se enseñan, aparte: esconderlas dejaba
+   * la pantalla vacía jurando que las rayas «ya estaban armadas», que es donde
+   * se atoró el cliente el 17 de septiembre.
+   */
   const listaRayas = [...(rayas ?? []), ...(rayasDeRecibos ?? [])].filter(
     (r) => r.estatus !== 'cancelada',
+  )
+  const canceladasDeLaSemana = (rayas ?? []).filter(
+    (r) => r.estatus === 'cancelada' && r.semana === semana,
   )
   const telefonos = new Map((gente ?? []).map((p) => [p.id, p.telefono]))
   const nombres = new Map((gente ?? []).map((p) => [p.id, p.nombre]))
@@ -291,10 +315,12 @@ export default async function PaginaNomina({
       {vista === 'rayas' ? (
         <PanelRayas
           rayas={listaRayas}
+          canceladas={canceladasDeLaSemana}
           sueldos={sueldos ?? []}
           gente={gente ?? []}
           obras={obrasVivas ?? []}
           semana={semana}
+          semanaDeHoy={semanaDeHoy}
           // Para poder pagar la semana y descontarle sus préstamos sin salir de
           // aquí: el recibo es uno solo por trabajador y puede llevar también
           // lo que traiga a destajo.

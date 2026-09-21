@@ -1391,6 +1391,24 @@ export type ResultadoSueldoSemanal = {
 }
 
 /**
+ * Qué hizo «Armar la raya».
+ *
+ * Antes era un número a secas, y un cero significaba tres cosas distintas: que
+ * ya estaban armadas, que estaban canceladas, o que nadie estaba a sueldo esa
+ * semana. La pantalla sólo sabía decir la primera, que era la equivocada.
+ */
+export type ResultadoGenerarRaya = {
+  /** Semanas que nacieron. */
+  armadas: number
+  /** Semanas canceladas que volvieron, con el trato de hoy. */
+  rearmadas: number
+  /** Las que ya estaban y se quedaron como estaban. */
+  ya_estaban: number
+  /** A sueldo hoy, pero no esa semana: su trato empieza después. */
+  sin_sueldo: number
+}
+
+/**
  * Hasta dónde llega un «eliminar» en la pantalla de quincenas.
  *
  *   `esta`    — sólo de esta quincena; la lista se queda como está.
@@ -1603,7 +1621,7 @@ export type Database = {
         Args: { p_programado: string; p_quincena: string }
         Returns: number
       }
-      generar_raya: { Args: { p_semana: string }; Returns: number }
+      generar_raya: { Args: { p_semana: string }; Returns: ResultadoGenerarRaya }
       repartir_raya: { Args: { p_raya: string; p_sueldo: string }; Returns: undefined }
       guardar_sueldo_semanal: {
         Args: {
@@ -1613,6 +1631,8 @@ export type Database = {
           p_pct: number
           p_obras: { obra_id: string; pct: number }[]
           p_notas: string | null
+          /** Desde cuándo cobra fijo. Hoy si no se dice. */
+          p_desde: string | null
         }
         Returns: ResultadoSueldoSemanal
       }

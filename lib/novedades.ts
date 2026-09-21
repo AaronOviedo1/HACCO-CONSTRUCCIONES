@@ -68,6 +68,30 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_21_DE_SEPTIEMBRE: Novedad[] = [
+  {
+    donde: 'Nómina · Raya semanal',
+    titulo: 'Ya puedes ir a las semanas de atrás',
+    texto:
+      'Con las flechas te paras en la semana que quieras y ahí mismo la armas y la pagas. «Esta semana» te regresa.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina · Raya semanal',
+    titulo: 'Una semana cancelada se vuelve a armar',
+    texto:
+      'Ahora se ve en su semana, y «Armar la raya» la trae de vuelta con el sueldo que esté vigente.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina · Raya semanal',
+    titulo: 'Dices desde cuándo está a sueldo',
+    texto:
+      'Al ponerlo a sueldo eliges la fecha. Adelántala hacia atrás y se le pueden armar las semanas que ya trabajó.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_16_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Pagos fijos',
@@ -516,6 +540,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-09-21', fecha: '21 de septiembre de 2026', novedades: DEL_21_DE_SEPTIEMBRE },
   { version: '2026-09-16', fecha: '16 de septiembre de 2026', novedades: DEL_16_DE_SEPTIEMBRE },
   { version: '2026-09-12', fecha: '12 de septiembre de 2026', novedades: DEL_12_DE_SEPTIEMBRE },
   { version: '2026-09-10', fecha: '10 de septiembre de 2026', novedades: DEL_10_DE_SEPTIEMBRE },

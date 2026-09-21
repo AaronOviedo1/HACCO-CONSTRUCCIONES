@@ -170,7 +170,8 @@ export function semanasDelMes(mes: string): string[] {
   return semanas
 }
 
-const sumarDias = (fecha: string, dias: number) => {
+/** El día que cae N días después —o antes, con negativo— de uno dado. */
+export const sumarDias = (fecha: string, dias: number) => {
   const d = new Date(`${fecha}T00:00:00`)
   return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias))
 }
