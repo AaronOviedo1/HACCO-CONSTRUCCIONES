@@ -108,3 +108,20 @@ export function resumenCobranza(filas: FilaCobranza[]): ResumenCobranza {
     anticiposPendientes: redondear(anticiposPendientes),
   }
 }
+
+/**
+ * Cómo se llama el pago en el papel que se le manda al cliente.
+ *
+ * Vive aquí y no en el diálogo porque el recibo se emite desde dos lados —al
+ * registrar el pago y después, sobre un pago viejo que no lo llevaba— y en los
+ * dos tiene que decir lo mismo. El concepto se puede escribir a mano encima;
+ * esto es nada más con lo que abre.
+ */
+export function conceptoDePago(
+  tipo: 'anticipo' | 'abono' | 'liquidacion',
+  folio: string | null,
+): string {
+  const que =
+    tipo === 'anticipo' ? 'Anticipo' : tipo === 'liquidacion' ? 'Liquidación' : 'Abono'
+  return folio ? `${que} de la cotización ${folio}` : que
+}

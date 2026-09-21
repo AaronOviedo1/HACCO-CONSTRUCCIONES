@@ -229,6 +229,102 @@ export function DocumentoRecibo({ datos }: { datos: DatosRecibo }) {
 }
 
 // ===========================================================================
+// RECIBO DE PAGO · el acuse que se le manda al cliente
+//
+// El de arriba es un contrato: esquema de pagos, fechas de obra y dos firmas.
+// Éste no. Es lo que pide el cliente el mismo día que deposita —«mándame mi
+// comprobante»— y por eso cabe en media cuartilla: cuánto recibimos, de qué
+// cotización, cómo lo pagó y cómo le queda la cuenta. Nada que firmar de su
+// parte: se le manda ya sellado por la empresa.
+// ===========================================================================
+export type DatosReciboPago = {
+  folio: string
+  fecha: string
+  cliente: string
+  tituloCortesia: string | null
+  domicilio: string | null
+  metodoPago: string
+  cotizacionFolio: string
+  concepto: string
+  monto: number
+  /** Lo cotizado, lo que lleva pagado con este pago dentro y lo que le falta. */
+  totalCotizacion: number
+  pagadoAcumulado: number
+  saldoPendiente: number
+  obra: string | null
+}
+
+export function DocumentoReciboPago({ datos }: { datos: DatosReciboPago }) {
+  const liquidado = datos.saldoPendiente <= 0
+
+  return (
+    <Document title={`Recibo de pago ${datos.folio}`} author={EMPRESA.nombre}>
+      <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
+        <Membrete />
+
+        <View style={e.encabezadoDoc}>
+          <Text style={e.titulo}>RECIBO DE PAGO</Text>
+          <View>
+            <Text style={e.folio}>{datos.folio}</Text>
+            <Text style={{ fontSize: 8, color: GRIS, textAlign: 'right' }}>
+              {EMPRESA.ciudad} a {fechaLarga(datos.fecha)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Lo primero que se busca al abrirlo es el monto. Va grande y arriba. */}
+        <View style={e.cajaVerde}>
+          <Text style={{ fontSize: 8.5, color: TINTA, letterSpacing: 0.6 }}>RECIBIMOS DE</Text>
+          <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 12, marginTop: 2 }}>
+            {`${datos.tituloCortesia ? `${datos.tituloCortesia} ` : ''}${datos.cliente}`}
+          </Text>
+          <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 22, color: VERDE, marginTop: 6 }}>
+            {pesos(datos.monto)}
+          </Text>
+          <Text style={e.letra}>({montoEnLetra(datos.monto)})</Text>
+        </View>
+
+        <Text style={e.seccion}>POR CONCEPTO DE</Text>
+        <Dato etiqueta="Concepto" valor={datos.concepto} fuerte />
+        <Dato etiqueta="No. de cotización" valor={datos.cotizacionFolio} />
+        {datos.obra ? <Dato etiqueta="Obra" valor={datos.obra} /> : null}
+        {datos.domicilio ? <Dato etiqueta="Domicilio" valor={datos.domicilio} /> : null}
+        <Dato etiqueta="Forma de pago" valor={datos.metodoPago} />
+        <Dato etiqueta="Fecha del pago" valor={fecha(datos.fecha)} />
+
+        <Text style={e.seccion}>CÓMO QUEDA LA CUENTA</Text>
+        <View style={e.caja}>
+          <Dato etiqueta="Total de la obra" valor={pesos(datos.totalCotizacion)} />
+          <Dato etiqueta="Pagado a la fecha" valor={pesos(datos.pagadoAcumulado)} />
+          <Dato
+            etiqueta="Saldo pendiente"
+            valor={liquidado ? `${pesos(0)} · Liquidado` : pesos(datos.saldoPendiente)}
+            fuerte
+          />
+        </View>
+
+        <Text style={[e.parrafo, { marginTop: 10 }]}>
+          {liquidado
+            ? `Con este pago queda liquidada la cotización ${datos.cotizacionFolio}. Agradecemos su preferencia.`
+            : `Este recibo ampara únicamente el pago señalado y se aplica a la cotización ${datos.cotizacionFolio}. Agradecemos su preferencia.`}
+        </Text>
+
+        <View style={{ alignItems: 'flex-end', marginTop: 26 }} wrap={false}>
+          <View style={[e.firma, { width: '52%' }]}>
+            <View style={e.lineaFirma} />
+            <Text style={e.nombreFirma}>{EMPRESA.nombre}</Text>
+            <Text style={e.cargoFirma}>Recibí por la empresa</Text>
+          </View>
+        </View>
+
+        <Pie documento={`Recibo de pago ${datos.folio}`} />
+      </Page>
+    </Document>
+  )
+}
+
+// ===========================================================================
 // CONTRATO POR OBRA DETERMINADA
 // ===========================================================================
 export type DatosContrato = {

@@ -5,33 +5,53 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
 import { Paperclip, Pencil, Plus, Receipt, ShieldCheck, TriangleAlert, Trash2, X } from 'lucide-react'
 import {
-  AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, Numero, Opciones, PieDialogo,
+  AreaTexto, Campo, Casilla, CuerpoDialogo, Dialogo, Entrada, MensajeError, Numero, Opciones,
+  PieDialogo,
 } from '@/components/formulario'
 import { Etiqueta, FilaAccion, Td } from '@/components/ui'
 import { SelectorFecha } from '@/components/filtro-fechas'
+import { AccionesReciboPago } from '@/components/finanzas/recibo-de-pago'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 import { fecha, montoEnLetra, pesos, tamanoMonto } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
+import { conceptoDePago } from '@/lib/cobranza'
 import { METODO_PAGO, METODO_PAGO_SIN_CAJA, TIPO_PAGO_COBRANZA } from '@/lib/finanzas'
-import { actualizarCobro, eliminarCobro, registrarCobro } from '@/app/admin/finanzas-acciones'
+import { PREF_RECIBO_COBRANZA } from '@/lib/preferencias'
+import {
+  actualizarCobro, eliminarCobro, emitirReciboPago, registrarCobro,
+} from '@/app/admin/finanzas-acciones'
 import type { MetodoPago, PagoCobranza, TipoPagoCobranza, VCobranza } from '@/types/database'
 
 type ObraSimple = { id: string; nombre: string; ot_numero: string | null; estatus: string }
 
-/** Folio del recibo que ya se le entregó al cliente, por pago. */
-type Recibos = Record<string, string>
+/** Un recibo ya emitido: lo que hace falta para nombrarlo y para abrirlo. */
+export type ReciboRef = { id: string; folio: string | null }
+
+/**
+ * Los recibos que ya se le entregaron al cliente, por pago.
+ *
+ * Son dos papeles distintos y un mismo pago puede llevar los dos: el
+ * recibo-contrato del anticipo —que se emite en la OT, con firmas— y el acuse
+ * simple que se manda por WhatsApp. Guardarlos en un solo campo hacía que
+ * emitir el acuse de un anticipo pareciera un duplicado del contrato.
+ */
+export type RecibosDelPago = { contrato?: ReciboRef; pago?: ReciboRef }
+type Recibos = Record<string, RecibosDelPago>
 
 export function AccionesCobranza({
   cobranza,
   pagos,
   obras,
   recibos,
+  telefono,
   variante = 'tabla',
 }: {
   cobranza: VCobranza
   pagos: PagoCobranza[]
   obras: ObraSimple[]
   recibos?: Recibos
+  /** El del cliente: sin él no se puede mandar el recibo a su chat. */
+  telefono?: string | null
   /** En el teléfono el pago es la acción principal de la tarjeta, no un icono. */
   variante?: 'tabla' | 'movil'
 }) {
@@ -68,6 +88,7 @@ export function AccionesCobranza({
           pagos={pagos}
           obras={obras}
           recibos={recibos}
+          telefono={telefono}
           onCerrar={() => setAbierto(false)}
         />
       )}
@@ -92,12 +113,14 @@ export function FilaCobranza({
   pagos,
   obras,
   recibos,
+  telefono,
   children,
 }: {
   cobranza: VCobranza
   pagos: PagoCobranza[]
   obras: ObraSimple[]
   recibos?: Recibos
+  telefono?: string | null
   children: ReactNode
 }) {
   const [abierto, setAbierto] = useState(false)
@@ -128,6 +151,7 @@ export function FilaCobranza({
             pagos={pagos}
             obras={obras}
             recibos={recibos}
+            telefono={telefono}
             onCerrar={() => setAbierto(false)}
           />
         )}
@@ -136,13 +160,28 @@ export function FilaCobranza({
   )
 }
 
+/**
+ * Cómo abre la casilla del recibo. Sin nada guardado, marcada: el caso común
+ * es que el cliente quiera su papel, y desmarcarla se queda para la próxima.
+ */
+function leerPreferenciaRecibo(): boolean {
+  try {
+    return localStorage.getItem(PREF_RECIBO_COBRANZA) !== '0'
+  } catch {
+    // Navegación privada o almacenamiento bloqueado: no poder recordarlo no
+    // impide emitir el recibo hoy.
+    return true
+  }
+}
+
 function DialogoCobranza({
-  cobranza, pagos, obras, recibos, onCerrar,
+  cobranza, pagos, obras, recibos, telefono, onCerrar,
 }: {
   cobranza: VCobranza
   pagos: PagoCobranza[]
   obras: ObraSimple[]
   recibos?: Recibos
+  telefono?: string | null
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -164,6 +203,29 @@ function DialogoCobranza({
   const [notas, setNotas] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
 
+  // El recibo del cliente. La casilla abre como se dejó la última vez: hay
+  // quien lo manda en todos los pagos y quien no lo usa nunca.
+  //
+  // Se lee al construir el estado y no en un efecto porque este diálogo nace
+  // de un clic: para cuando existe, el navegador ya está. Con un efecto, la
+  // casilla se pintaba marcada un instante antes de corregirse sola.
+  const [conRecibo, setConRecibo] = useState(leerPreferenciaRecibo)
+  const [concepto, setConcepto] = useState('')
+  /** Mientras nadie lo escriba a mano, el concepto sigue al tipo de pago. */
+  const [conceptoPropio, setConceptoPropio] = useState(false)
+  /** El acuse recién emitido, para ofrecerlo sin tener que ir a buscarlo. */
+  const [reciboNuevo, setReciboNuevo] = useState<(ReciboRef & { monto: number }) | null>(null)
+  const [emitiendo, setEmitiendo] = useState(false)
+
+  const cambiarConRecibo = (valor: boolean) => {
+    setConRecibo(valor)
+    try {
+      localStorage.setItem(PREF_RECIBO_COBRANZA, valor ? '1' : '0')
+    } catch {
+      // Igual que arriba: no poder recordarlo no impide emitir el recibo hoy.
+    }
+  }
+
   /** El pago que se está corrigiendo. Nulo mientras se da uno de alta. */
   const [pagoEditado, setPagoEditado] = useState<PagoCobranza | null>(null)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
@@ -178,6 +240,12 @@ function DialogoCobranza({
   )
   const reciboEmitido = pagoEditado ? recibos?.[pagoEditado.id] : undefined
   const idsObras = obras.map((o) => o.id)
+  // El acuse cuelga de la OT sólo cuando no hay duda de cuál es: con dos obras
+  // abiertas de la misma cotización, elegir una sería inventar.
+  const obraDelRecibo = obras.length === 1 ? obras[0].id : null
+  /** Con lo que abre el concepto: «Abono de la cotización F-475». */
+  const conceptoSugerido = conceptoDePago(tipo, cobranza.folio)
+  const conceptoFinal = conceptoPropio && concepto.trim() ? concepto : conceptoSugerido
 
   /** Los valores con los que abre el alta. Se usan al entrar y al cancelar. */
   const valoresDeAlta = () => {
@@ -187,11 +255,14 @@ function DialogoCobranza({
     setFechaPago(hoyISO())
     setNotas('')
     setArchivo(null)
+    setConcepto('')
+    setConceptoPropio(false)
   }
 
   const editar = (p: PagoCobranza) => {
     setError(null)
     setConfirmandoBorrado(false)
+    setReciboNuevo(null)
     setPagoEditado(p)
     setTipo(p.tipo)
     setMonto(String(p.monto))
@@ -248,22 +319,55 @@ function DialogoCobranza({
         notas: notas.trim() || null,
       }
 
-      const r = pagoEditado
-        ? await actualizarCobro(pagoEditado.id, datos, idsObras)
-        : await registrarCobro({ cotizacion_id: cobranza.cotizacion_id, ...datos })
-
-      if (!r.ok) return setError(r.error)
-
-      // Al dar de alta, cerrar es la señal de que quedó. Al corregir no: el
-      // diálogo se queda abierto para que el saldo de arriba se repinte con el
-      // número bueno, que es justo lo que se vino a ver.
+      // Al corregir, el diálogo se queda abierto para que el saldo de arriba se
+      // repinte con el número bueno, que es justo lo que se vino a ver.
       if (pagoEditado) {
+        const r = await actualizarCobro(pagoEditado.id, datos, idsObras)
+        if (!r.ok) return setError(r.error)
         cancelarEdicion()
         return router.refresh()
       }
-      onCerrar()
+
+      const r = await registrarCobro(
+        { cotizacion_id: cobranza.cotizacion_id, ...datos },
+        conRecibo ? { concepto: conceptoFinal, obra_id: obraDelRecibo } : undefined,
+      )
+      if (!r.ok) return setError(r.error)
+
+      // Sin recibo, cerrar es la señal de que el pago quedó, como siempre.
+      if (!conRecibo) {
+        onCerrar()
+        return router.refresh()
+      }
+
+      // Con recibo no se cierra: el papel es lo que se vino a buscar y aquí
+      // están los botones para verlo y mandárselo al cliente. El formulario se
+      // limpia de todos modos, para que nadie registre el mismo pago dos veces.
+      const monto2 = num(monto)
+      valoresDeAlta()
+      if (r.datos?.recibo) setReciboNuevo({ ...r.datos.recibo, monto: monto2 })
+      else if (r.datos?.avisoRecibo) {
+        setError(
+          `El pago quedó registrado, pero el recibo no se pudo emitir: ${r.datos.avisoRecibo}. ` +
+            'Tócalo en la lista de arriba para volver a intentarlo.',
+        )
+      }
       router.refresh()
     })
+
+  /** El acuse de un pago que ya estaba capturado, o que se registró sin él. */
+  const emitirAhora = async (pago: PagoCobranza) => {
+    setError(null)
+    setEmitiendo(true)
+    const r = await emitirReciboPago(pago.id, {
+      concepto: conceptoFinal,
+      obra_id: obraDelRecibo,
+    })
+    setEmitiendo(false)
+    if (!r.ok) return setError(r.error)
+    setReciboNuevo({ ...r.datos!, monto: Number(pago.monto) })
+    router.refresh()
+  }
 
   const borrar = () =>
     iniciar(async () => {
@@ -338,6 +442,11 @@ function DialogoCobranza({
                       <span className="text-tinta-500">{fecha(p.fecha)}</span>
                       <span className="hidden text-xs text-tinta-400 sm:inline">{METODO_PAGO[p.metodo]}</span>
                       {p.comprobante_path && <Paperclip size={13} className="shrink-0 text-tinta-400" />}
+                      {recibos?.[p.id]?.pago && (
+                        <span className="hidden shrink-0 font-mono text-[11px] text-haaco-700 sm:inline">
+                          {recibos[p.id].pago!.folio}
+                        </span>
+                      )}
                       {p.updated_at !== p.created_at && (
                         <span className="text-xs text-tinta-400">corregido</span>
                       )}
@@ -353,15 +462,77 @@ function DialogoCobranza({
           </div>
         )}
 
-        {reciboEmitido && (
+        {/* El recibo-contrato del anticipo se imprime en la OT —lleva firmas y
+            esquema de pagos—, así que aquí sólo se avisa de él. */}
+        {reciboEmitido?.contrato && (
           <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 sm:col-span-2">
             <TriangleAlert size={15} className="mt-0.5 shrink-0" />
             <span>
-              Este pago ya tiene el recibo <strong>{reciboEmitido}</strong>. Si le cambias el
-              monto, el que se le entregó al cliente deja de coincidir: vuelve a imprimirlo
-              desde la OT.
+              Este pago ya tiene el recibo-contrato <strong>{reciboEmitido.contrato.folio}</strong>.
+              Si le cambias el monto, el que se le entregó al cliente deja de coincidir: vuelve a
+              imprimirlo desde la OT.
             </span>
           </p>
+        )}
+
+        {/* El acuse de este pago: el que se le manda al cliente. Si ya existe
+            se ofrece, y si no, se emite sin salir de aquí —es el caso de los
+            pagos de antes y el de «ahora sí me lo pide»—. */}
+        {pagoEditado && !reciboNuevo && (
+          <div className="rounded-xl border border-tinta-200 px-3 py-2.5 sm:col-span-2">
+            {reciboEmitido?.pago ? (
+              <>
+                <p className="mb-2 text-sm text-tinta-700">
+                  Recibo de pago{' '}
+                  <strong className="font-mono text-haaco-700">{reciboEmitido.pago.folio}</strong>
+                  {' · '}
+                  <span className="text-tinta-500">
+                    si le cambias el monto, vuelve a enviárselo
+                  </span>
+                </p>
+                <AccionesReciboPago
+                  reciboId={reciboEmitido.pago.id}
+                  folio={reciboEmitido.pago.folio}
+                  cliente={cobranza.cliente}
+                  telefono={telefono}
+                  monto={Number(pagoEditado.monto)}
+                />
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-tinta-600">Este pago no tiene recibo.</p>
+                <button
+                  type="button"
+                  onClick={() => emitirAhora(pagoEditado)}
+                  disabled={emitiendo}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-haaco-200 bg-haaco-50 px-3 py-1.5 text-xs font-medium text-haaco-800 transition hover:bg-haaco-100 disabled:opacity-50"
+                >
+                  <Receipt size={14} />
+                  {emitiendo ? 'Emitiendo…' : 'Emitir recibo'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Recién emitido: el pago ya quedó y esto es lo que se hace con él. */}
+        {reciboNuevo && (
+          <div className="rounded-xl bg-haaco-50 px-4 py-3 ring-1 ring-haaco-200 sm:col-span-2">
+            <p className="flex items-center gap-2 text-sm font-medium text-haaco-900">
+              <ShieldCheck size={16} />
+              Recibo <span className="font-mono">{reciboNuevo.folio}</span> listo por{' '}
+              {pesos(reciboNuevo.monto)}
+            </p>
+            <div className="mt-2">
+              <AccionesReciboPago
+                reciboId={reciboNuevo.id}
+                folio={reciboNuevo.folio}
+                cliente={cobranza.cliente}
+                telefono={telefono}
+                monto={reciboNuevo.monto}
+              />
+            </div>
+          </div>
         )}
 
         <Campo
@@ -462,6 +633,38 @@ function DialogoCobranza({
           etiqueta="Notas"
           hijo={<AreaTexto rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />}
         />
+
+        {/* Sólo al dar de alta: el recibo de un pago ya capturado se emite en
+            el bloque de arriba, sobre el pago que se está viendo. */}
+        {!pagoEditado && (
+          <>
+            <Casilla
+              etiqueta="Generar el recibo para el cliente"
+              checked={conRecibo}
+              onChange={(e) => cambiarConRecibo(e.target.checked)}
+            />
+            {conRecibo ? (
+              <Campo
+                etiqueta="Concepto del recibo"
+                hijo={
+                  <Entrada
+                    value={conceptoPropio ? concepto : conceptoSugerido}
+                    onChange={(e) => {
+                      setConceptoPropio(true)
+                      setConcepto(e.target.value)
+                    }}
+                  />
+                }
+                ayuda="Es lo que va a leer el cliente en el papel."
+              />
+            ) : (
+              <p className="-mt-1 text-xs text-tinta-400 sm:col-span-2">
+                Así queda para la próxima. Si después te lo piden, el recibo se emite tocando el
+                pago en la lista de arriba.
+              </p>
+            )}
+          </>
+        )}
 
         {num(monto) > 0 && (
           <div className="rounded-lg bg-tinta-50 px-3 py-2.5 text-sm sm:col-span-2">
