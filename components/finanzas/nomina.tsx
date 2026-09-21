@@ -140,7 +140,7 @@ export function PanelNomina({
 
 // ---------------------------------------------------------------------------
 export function DialogoPago({
-  contratos, rayas, prenomina, deducciones, trabajadorInicial, onCerrar,
+  contratos, rayas, prenomina, deducciones, trabajadorInicial, rayaInicial, onCerrar,
 }: {
   contratos: VNominaContrato[]
   rayas: VRayaSemanal[]
@@ -152,6 +152,17 @@ export function DialogoPago({
    * dos toques —abrir y firmar— en vez de elegir de nuevo lo que ya se eligió.
    */
   trabajadorInicial?: string
+  /**
+   * Y qué semana, cuando se abrió desde el renglón de una.
+   *
+   * Sin esto, «Pagar» en la semana del 31 de agosto abría el recibo con las
+   * tres semanas que se le debían, precargadas y sumadas: quien viene a
+   * registrar el pago del sábado 5 se lo lleva todo a una sola fecha y un solo
+   * folio sin darse cuenta. El botón dice de quién es el pago; con esto dice
+   * también de cuándo. Las demás semanas siguen en la lista, en cero, por si
+   * de verdad se va a pagar todo junto.
+   */
+  rayaInicial?: string
   onCerrar: () => void
 }) {
   const router = useRouter()
@@ -182,6 +193,9 @@ export function DialogoPago({
     if (!trabajadorInicial) return {}
     const inicial: Record<string, Captura> = {}
     for (const x of pagablesDe(trabajadorInicial, vivos, rayasVivas)) {
+      // Desde el renglón de una semana se precarga esa y nada más. Desde
+      // «Pagar nómina», que es «págale todo a alguien», se precarga todo.
+      if (rayaInicial && x.clave !== rayaInicial) continue
       if (x.disponible > 0) inicial[x.clave] = { modo: 'monto', texto: String(x.disponible) }
     }
     return inicial

@@ -85,6 +85,13 @@ const DEL_21_DE_SEPTIEMBRE: Novedad[] = [
   },
   {
     donde: 'Nómina · Raya semanal',
+    titulo: 'Pagar una semana ya no arrastra las demás',
+    texto:
+      'El botón «Pagar» del renglón llena sólo esa semana, con su propia fecha. Si quieres pagar varias en un recibo, les escribes el monto.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Nómina · Raya semanal',
     titulo: 'Dices desde cuándo está a sueldo',
     texto:
       'Al ponerlo a sueldo eliges la fecha. Adelántala hacia atrás y se le pueden armar las semanas que ya trabajó.',
