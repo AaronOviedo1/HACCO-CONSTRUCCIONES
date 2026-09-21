@@ -497,6 +497,7 @@ function RenglonRaya({
           prenomina={prenomina}
           deducciones={deducciones}
           trabajadorInicial={raya.trabajador_id}
+          rayaInicial={raya.raya_id}
           onCerrar={() => setPagando(false)}
         />
       )}
