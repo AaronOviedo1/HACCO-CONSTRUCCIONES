@@ -8,8 +8,8 @@ import { quincenaDe, tocaEnQuincena } from '@/lib/finanzas'
 import { hoyHermosillo } from '@/lib/format'
 import type {
   AlcanceQuitarPago, EstadoPagoFijo, GastoSql, MetodoPago, PagoCxpLote, PeriodicidadPago,
-  ResultadoPagoLote, ResultadoQuitarPago, ResultadoSueldoSemanal, TipoDeduccion,
-  TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
+  ResultadoGenerarRaya, ResultadoPagoLote, ResultadoQuitarPago, ResultadoSueldoSemanal,
+  TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
 export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
@@ -648,6 +648,8 @@ export async function guardarSueldoSemanal(datos: {
   costo_haaco_pct: number
   obras: { obra_id: string; pct: number }[]
   notas: string | null
+  /** Desde cuándo cobra fijo: es lo que decide qué semanas se le pueden armar. */
+  desde: string | null
 }): Promise<Resultado<ResultadoSueldoSemanal>> {
   if (!datos.trabajador_id) return { ok: false, error: 'Falta decir de quién es el sueldo.' }
   if (datos.monto_semanal <= 0) return { ok: false, error: 'El sueldo tiene que ser mayor a cero.' }
@@ -665,6 +667,7 @@ export async function guardarSueldoSemanal(datos: {
     p_pct: datos.costo_haaco_pct,
     p_obras: datos.obras,
     p_notas: datos.notas,
+    p_desde: datos.desde,
   })
 
   if (error) return fallo(error)
@@ -673,15 +676,21 @@ export async function guardarSueldoSemanal(datos: {
   return { ok: true, datos: data as ResultadoSueldoSemanal }
 }
 
-/** Saca la raya de esa semana desde los sueldos dados de alta. */
-export async function generarRaya(semana: string): Promise<Resultado<number>> {
+/**
+ * Saca la raya de esa semana desde los sueldos dados de alta.
+ *
+ * Devuelve el desglose y no un número: una semana cancelada que vuelve, una que
+ * ya estaba y una en la que nadie estaba a sueldo no son lo mismo, y la
+ * pantalla tiene que poder decir cuál fue.
+ */
+export async function generarRaya(semana: string): Promise<Resultado<ResultadoGenerarRaya>> {
   const supabase = await staff()
   const { data, error } = await supabase.rpc('generar_raya', { p_semana: semana })
   if (error) return fallo(error)
 
   revalidatePath('/admin/nomina')
   revalidatePath('/admin')
-  return { ok: true, datos: data as number }
+  return { ok: true, datos: data as ResultadoGenerarRaya }
 }
 
 /**

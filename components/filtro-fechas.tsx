@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useLayoutEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { diaDeRaya, etiquetaSemana, semanaDe, sumarDias } from '@/lib/finanzas'
+import { fecha } from '@/lib/format'
 
 /**
  * Filtros de fecha de las pantallas de consulta.
@@ -15,6 +17,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
  * `FiltroMes` es el hermano para los cortes que por naturaleza son mensuales
  * (el cierre del contador, las quincenas de nómina): misma caja, pero se elige
  * mes y año en vez de días sueltos.
+ *
+ * `FiltroSemana` es el de la raya: dos flechas para moverse de lunes a lunes.
  */
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -607,5 +611,78 @@ export function FiltroMes({
         })}
       </div>
     </Desplegable>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Semana suelta (la raya de los pintores)
+//
+// La raya corre de lunes a sábado y una semana se nombra por su lunes, igual
+// que en la base. Aquí no hay calendario: el sábado que se está pagando es el
+// de hoy o uno de los de atrás, así que dos flechas llegan antes que un mes
+// desplegado. «Esta semana» borra el parámetro en vez de fijarlo, para que la
+// pantalla vuelva a seguir al calendario sola.
+// ---------------------------------------------------------------------------
+export function FiltroSemana({
+  semana,
+  hoy,
+  param = 'semana',
+}: {
+  /** El lunes de la semana que se está viendo. */
+  semana: string
+  /** El lunes de la semana en curso, calculado en el servidor con la hora de acá. */
+  hoy: string
+  param?: string
+}) {
+  const router = useRouter()
+  const params = useSearchParams()
+  const [pendiente, iniciar] = useTransition()
+
+  const ir = (lunes: string | null) => {
+    const nuevos = new URLSearchParams(params.toString())
+    if (lunes === null) nuevos.delete(param)
+    else nuevos.set(param, lunes)
+    iniciar(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
+  }
+
+  const flecha =
+    'flex min-h-11 w-11 items-center justify-center rounded-xl border border-tinta-300 bg-white text-tinta-600 transition hover:bg-tinta-50 disabled:opacity-50 lg:min-h-9 lg:w-9 lg:rounded-lg'
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => ir(semanaDe(sumarDias(semana, -7)))}
+        disabled={pendiente}
+        className={flecha}
+        aria-label="Semana anterior"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <button
+        type="button"
+        onClick={() => ir(semanaDe(sumarDias(semana, 7)))}
+        disabled={pendiente}
+        className={flecha}
+        aria-label="Semana siguiente"
+      >
+        <ChevronRight size={18} />
+      </button>
+
+      <span className="text-sm text-tinta-600">
+        Semana {etiquetaSemana(semana)} · se raya el {fecha(diaDeRaya(semana))}
+      </span>
+
+      {semana !== hoy && (
+        <button
+          type="button"
+          onClick={() => ir(null)}
+          disabled={pendiente}
+          className="inline-flex min-h-11 items-center rounded-xl border border-tinta-300 bg-white px-3 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 lg:min-h-9 lg:rounded-lg"
+        >
+          Esta semana
+        </button>
+      )}
+    </span>
   )
 }
