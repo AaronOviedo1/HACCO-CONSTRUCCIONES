@@ -135,8 +135,7 @@ const e = StyleSheet.create({
   cNumEncabezado: { width: 20 },
   cDesc: { flex: 1, paddingRight: 8, lineHeight: 1.1 },
   cDescEncabezado: { flex: 1, paddingRight: 8 },
-  cM2: { width: 52, textAlign: 'right' },
-  /** Más ancha que M² porque lleva el número y su unidad: «120 m²», «3 pza». */
+  /** Lleva el número y su unidad: «189.8 m²», «1 serv», «3 pza». */
   cCant: { width: 64, textAlign: 'right' },
   cPU: { width: 66, textAlign: 'right' },
   cImp: { width: 78, textAlign: 'right' },
@@ -245,13 +244,6 @@ export type DatosPdf = {
     precio_unitario: number
     importe: number
   }[]
-  /**
-   * Si todas las partidas se miden en metros cuadrados. Cuando lo son, la
-   * tabla sale como siempre (M² · P.U. · IMPORTE). Si no —herrería, «otros»—
-   * el precio unitario es un cálculo interno y al cliente sólo le corresponde
-   * ver la cantidad y el importe.
-   */
-  usaM2: boolean
   subtotal: number
   descuentoPct: number
   descuento: number
@@ -343,14 +335,8 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
           <View style={e.encabezadoTabla}>
             <Text style={e.cNumEncabezado}>#</Text>
             <Text style={e.cDescEncabezado}>DESCRIPCIÓN</Text>
-            {datos.usaM2 ? (
-              <>
-                <Text style={e.cM2}>M²</Text>
-                <Text style={e.cPU}>P.U.</Text>
-              </>
-            ) : (
-              <Text style={e.cCant}>CANT.</Text>
-            )}
+            <Text style={e.cCant}>CANT.</Text>
+            <Text style={e.cPU}>P.U.</Text>
             <Text style={e.cImp}>IMPORTE</Text>
           </View>
 
@@ -358,16 +344,10 @@ export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
             <View key={i} style={i % 2 === 1 ? [e.fila, e.filaAlterna] : e.fila} wrap={false}>
               <Text style={e.cNum}>{i + 1}</Text>
               <Text style={e.cDesc}>{p.descripcion}</Text>
-              {datos.usaM2 ? (
-                <>
-                  <Text style={e.cM2}>{p.m2 == null ? '—' : p.m2.toLocaleString('es-MX')}</Text>
-                  <Text style={e.cPU}>{pesos(p.precio_unitario)}</Text>
-                </>
-              ) : (
-                <Text style={e.cCant}>
-                  {(p.m2 ?? 1).toLocaleString('es-MX')} {abreviaUnidad(p.unidad)}
-                </Text>
-              )}
+              <Text style={e.cCant}>
+                {(p.m2 ?? 1).toLocaleString('es-MX')} {abreviaUnidad(p.unidad)}
+              </Text>
+              <Text style={e.cPU}>{pesos(p.precio_unitario)}</Text>
               <Text style={[e.cImp, e.importeFila]}>{pesos(p.importe)}</Text>
             </View>
           ))}
