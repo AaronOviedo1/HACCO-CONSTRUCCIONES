@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { REGLAS } from '@/lib/empresa'
+import { conceptoDePago } from '@/lib/cobranza'
 import { quincenaDe, tocaEnQuincena } from '@/lib/finanzas'
 import { hoyHermosillo } from '@/lib/format'
 import type {
@@ -144,29 +145,126 @@ export async function eliminarGasto(id: string): Promise<Resultado> {
 // ===========================================================================
 // COBRANZA
 // ===========================================================================
-export async function registrarCobro(pago: {
-  cotizacion_id: string
-  tipo: TipoPagoCobranza
-  monto: number
-  metodo: MetodoPago
-  fecha: string
-  comprobante_path: string | null
-  notas: string | null
-}): Promise<Resultado> {
+/** El acuse recién emitido: lo que hace falta para abrirlo y para nombrarlo. */
+export type ReciboEmitido = { id: string; folio: string | null }
+
+/**
+ * Da de alta un pago del cliente y, si se pidió, su recibo.
+ *
+ * El recibo va en la misma acción y no en un botón aparte porque el momento en
+ * que el cliente lo pide es justo éste: acaba de depositar y quiere su papel.
+ * Si el alta del recibo falla, el pago ya quedó —que es lo que mueve el saldo—
+ * y se avisa nada más de lo que faltó: el acuse se vuelve a intentar desde la
+ * lista de pagos.
+ */
+export async function registrarCobro(
+  pago: {
+    cotizacion_id: string
+    tipo: TipoPagoCobranza
+    monto: number
+    metodo: MetodoPago
+    fecha: string
+    comprobante_path: string | null
+    notas: string | null
+  },
+  recibo?: { concepto: string; obra_id: string | null },
+): Promise<Resultado<{ pagoId: string; recibo?: ReciboEmitido; avisoRecibo?: string }>> {
   if (pago.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
 
   const supabase = await staff()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { error } = await supabase
+  const { data: fila, error } = await supabase
     .from('pagos_cobranza')
     .insert({ ...pago, registrado_por: user?.id ?? null })
+    .select('id')
+    .single()
+
+  if (error) return fallo(error)
+
+  let emitidoOk: ReciboEmitido | undefined
+  let avisoRecibo: string | undefined
+  if (recibo) {
+    const { data: emitido, error: errorRecibo } = await supabase
+      .from('recibos')
+      .insert({
+        tipo: 'pago',
+        pago_id: fila.id,
+        cotizacion_id: pago.cotizacion_id,
+        obra_id: recibo.obra_id,
+        concepto: recibo.concepto.trim() || 'Pago del cliente',
+      })
+      .select('id, folio')
+      .single()
+
+    if (errorRecibo) avisoRecibo = errorRecibo.message
+    else emitidoOk = emitido
+  }
+
+  revalidatePath('/admin/cobranza')
+  revalidatePath('/admin')
+  if (recibo?.obra_id) revalidatePath(`/admin/obras/${recibo.obra_id}`)
+  return { ok: true, datos: { pagoId: fila.id, recibo: emitidoOk, avisoRecibo } }
+}
+
+/**
+ * El recibo de un pago que ya estaba capturado.
+ *
+ * Para los de antes —y para cuando se registró sin marcar la casilla y el
+ * cliente lo pide al día siguiente—. Un pago lleva un solo acuse: si ya lo
+ * tiene se devuelve ése, porque volver a emitirlo le daría al cliente dos
+ * folios distintos por el mismo dinero.
+ */
+export async function emitirReciboPago(
+  pagoId: string,
+  opciones: { concepto?: string; obra_id?: string | null } = {},
+): Promise<Resultado<ReciboEmitido>> {
+  const supabase = await staff()
+
+  const { data: existente } = await supabase
+    .from('recibos')
+    .select('id, folio')
+    .eq('pago_id', pagoId)
+    .eq('tipo', 'pago')
+    .maybeSingle()
+
+  if (existente) return { ok: true, datos: existente }
+
+  const { data: pago } = await supabase
+    .from('pagos_cobranza')
+    .select('id, cotizacion_id, tipo')
+    .eq('id', pagoId)
+    .maybeSingle()
+
+  if (!pago) return { ok: false, error: 'Ese pago ya no existe.' }
+
+  let concepto = opciones.concepto?.trim()
+  if (!concepto) {
+    const { data: cotizacion } = await supabase
+      .from('cotizaciones')
+      .select('folio')
+      .eq('id', pago.cotizacion_id)
+      .maybeSingle()
+    concepto = conceptoDePago(pago.tipo, cotizacion?.folio ?? null)
+  }
+
+  const { data: emitido, error } = await supabase
+    .from('recibos')
+    .insert({
+      tipo: 'pago',
+      pago_id: pago.id,
+      cotizacion_id: pago.cotizacion_id,
+      obra_id: opciones.obra_id ?? null,
+      concepto,
+    })
+    .select('id, folio')
+    .single()
 
   if (error) return fallo(error)
 
   revalidatePath('/admin/cobranza')
-  revalidatePath('/admin')
-  return { ok: true }
+  if (opciones.obra_id) revalidatePath(`/admin/obras/${opciones.obra_id}`)
+  return { ok: true, datos: emitido }
 }
 
 /**
@@ -226,6 +324,13 @@ export async function actualizarCobro(
 
 export async function eliminarCobro(id: string, obras: string[] = []): Promise<Resultado> {
   const supabase = await staff()
+
+  // El acuse de pago se va con el pago: un recibo que dice «recibimos $18,000»
+  // de un pago que se borró porque nunca entró no ampara nada, y al abrirlo
+  // saldría en ceros. El recibo-contrato del anticipo no se toca —ése es la
+  // obra, no el pago, y por eso su `pago_id` sólo se queda en nulo—.
+  await supabase.from('recibos').delete().eq('pago_id', id).eq('tipo', 'pago')
+
   const { error } = await supabase.from('pagos_cobranza').delete().eq('id', id)
   if (error) return fallo(error)
 

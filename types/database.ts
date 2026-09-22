@@ -32,6 +32,8 @@ export type CategoriaGasto =
 export type MetodoPago = 'efectivo' | 'caja_chica' | 'tarjeta_empresa' | 'transferencia' | 'cheque' | 'deposito'
 export type CondicionCompra = 'contado' | 'credito'
 export type TipoPagoCobranza = 'anticipo' | 'abono' | 'liquidacion'
+/** El recibo-contrato del anticipo, o el acuse simple que se manda por un pago. */
+export type TipoRecibo = 'contrato' | 'pago'
 export type TipoDeduccion = 'prestamo' | 'adelanto' | 'reembolso'
 export type EstadoPagoFijo = 'pagado' | 'pendiente' | 'vencido' | 'programado'
 export type TipoPagoProgramado = 'personal' | 'servicio'
@@ -748,6 +750,7 @@ export type Consecutivo = {
 
 export type Recibo = {
   id: string
+  tipo: TipoRecibo
   pago_id: string | null
   cotizacion_id: string
   obra_id: string | null

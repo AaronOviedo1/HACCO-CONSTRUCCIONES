@@ -70,6 +70,20 @@ const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
 const DEL_21_DE_SEPTIEMBRE: Novedad[] = [
   {
+    donde: 'Cobranza',
+    titulo: 'El recibo del cliente sale al registrar el pago',
+    texto:
+      'Al capturar el abono ya viene marcada la casilla del recibo. Queda con su folio y ahí mismo lo mandas a su WhatsApp.',
+    roles: OFICINA,
+  },
+  {
+    donde: 'Cobranza',
+    titulo: 'Y también para los pagos de antes',
+    texto:
+      'Si te lo piden al día siguiente, tocas el pago en la lista y ahí está «Emitir recibo».',
+    roles: OFICINA,
+  },
+  {
     donde: 'Nómina · Raya semanal',
     titulo: 'Ya puedes ir a las semanas de atrás',
     texto:

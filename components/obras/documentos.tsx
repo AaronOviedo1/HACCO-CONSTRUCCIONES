@@ -97,7 +97,9 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
                   >
                     <FileDown size={14} />
-                    Recibo-contrato
+                    {/* Los dos papeles caen en la misma lista: el contrato del
+                        anticipo y el acuse que Cobranza le manda al cliente. */}
+                    {r.tipo === 'pago' ? 'Recibo de pago' : 'Recibo-contrato'}
                   </a>
                 </li>
               ))}

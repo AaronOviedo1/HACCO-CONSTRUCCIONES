@@ -10,7 +10,7 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, FilaEnlace, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
-import { AccionesCobranza, FilaCobranza } from '@/components/finanzas/cobranza'
+import { AccionesCobranza, FilaCobranza, type RecibosDelPago } from '@/components/finanzas/cobranza'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { PuntoAbriendo } from '@/components/enlace-abriendo'
@@ -38,25 +38,35 @@ export default async function PaginaCobranza({
 
   const [
     { data: cobranza }, { data: pagos }, { data: obras }, { data: nombres }, { data: recibos },
-    { data: servicios },
+    { data: servicios }, { data: clientes },
   ] = await Promise.all([
     supabase.from('v_cobranza').select('*').order('fecha', { ascending: false }),
     supabase.from('pagos_cobranza').select('*').order('fecha'),
     supabase.from('obras').select('id, cotizacion_id, nombre, ot_numero, estatus'),
     supabase.from('cotizaciones').select('id, nombre_obra'),
-    supabase.from('recibos').select('folio, pago_id'),
+    supabase.from('recibos').select('id, folio, pago_id, tipo'),
     // Las reparaciones de portones se cobran aparte de las obras, pero es el
     // mismo dinero: entran en los totales de arriba y en su propio bloque.
     supabase.from('v_servicios').select('*').order('fecha_visita', { ascending: false }),
+    // Nada más para mandarle el recibo a su chat; el nombre ya viene en la vista.
+    supabase.from('clientes').select('id, telefono'),
   ])
 
   // Corregir el monto de un pago que ya tiene recibo entregado deja al papel
   // diciendo otra cosa. El aviso se arma aquí, con la tabla a la mano, para que
   // salga antes de guardar y no después.
-  const recibosPorPago: Record<string, string> = {}
+  //
+  // Los dos papeles se guardan por separado: el recibo-contrato del anticipo
+  // —que se imprime en la OT— y el acuse que se le manda al cliente por cada
+  // pago. Un mismo pago puede llevar los dos.
+  const recibosPorPago: Record<string, RecibosDelPago> = {}
   for (const r of recibos ?? []) {
-    if (r.pago_id) recibosPorPago[r.pago_id] = r.folio ?? 'sin folio'
+    if (!r.pago_id) continue
+    const suyos = (recibosPorPago[r.pago_id] ??= {})
+    suyos[r.tipo === 'pago' ? 'pago' : 'contrato'] = { id: r.id, folio: r.folio }
   }
+
+  const telefonos = new Map((clientes ?? []).map((c) => [c.id, c.telefono]))
 
   // Si la cotización todavía no abre OT, la tarjeta se titula con el nombre
   // de obra que traía la cotización.
@@ -315,6 +325,7 @@ export default async function PaginaCobranza({
                         pagos={porCotizacion.get(c.cotizacion_id) ?? []}
                         obras={suyas}
                         recibos={recibosPorPago}
+                        telefono={telefonos.get(c.cliente_id)}
                       />
                     </div>
                   </article>
@@ -406,6 +417,7 @@ export default async function PaginaCobranza({
                         pagos={suyos}
                         obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
                         recibos={recibosPorPago}
+                        telefono={telefonos.get(c.cliente_id)}
                       >
                         <Td>
                           <Link
@@ -499,6 +511,7 @@ export default async function PaginaCobranza({
                         pagos={porCotizacion.get(c.cotizacion_id) ?? []}
                         obras={obrasPorCotizacion.get(c.cotizacion_id) ?? []}
                         recibos={recibosPorPago}
+                        telefono={telefonos.get(c.cliente_id)}
                       >
                         <Td>
                           <Link
