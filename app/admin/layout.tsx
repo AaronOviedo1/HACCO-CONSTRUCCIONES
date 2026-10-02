@@ -1,3 +1,4 @@
+import { AvisoSuscripcion } from '@/components/admin/aviso-suscripcion'
 import { BarraLateral } from '@/components/admin/barra-lateral'
 import { BotonMas } from '@/components/movil/boton-mas'
 import { Novedades } from '@/components/novedades'
@@ -24,7 +25,11 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
       />
 
       <main className="min-w-0 flex-1 px-4 pb-[calc(var(--alto-tabs)+1rem)] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <div className="mx-auto max-w-7xl">
+          {/* Sólo Dirección, y sólo cuando el cobro de la app no entró. */}
+          <AvisoSuscripcion rol={perfil.rol} modo="impago" />
+          {children}
+        </div>
       </main>
 
       <BarraTabs pestanas={pestanasDe(perfil.rol)} />

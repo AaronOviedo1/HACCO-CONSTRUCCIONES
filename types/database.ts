@@ -67,6 +67,54 @@ export type Ajuste = {
   updated_at: string
 }
 
+/** Los estados de Stripe más `sin_tarjeta`, que es como nace la fila. */
+export type EstadoSuscripcionApp =
+  | 'sin_tarjeta'
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'paused'
+
+/** La mensualidad de la app según Stripe. Fila única; la escribe sólo el webhook. */
+export type SuscripcionApp = {
+  id: true
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  estado: EstadoSuscripcionApp
+  periodo_actual_fin: string | null
+  proximo_cobro: string | null
+  cancela_al_fin_periodo: boolean
+  monto_centavos: number | null
+  moneda: string | null
+  tarjeta_marca: string | null
+  tarjeta_ultimos4: string | null
+  ultimo_pago_en: string | null
+  ultimo_fallo_en: string | null
+  /** Desde cuándo se debe la factura que no se pudo cobrar. */
+  impago_desde: string | null
+  /** Dónde se paga esa factura, en Stripe, con cualquier tarjeta. */
+  factura_pendiente_url: string | null
+  updated_at: string
+}
+
+/** Memoria del webhook: los eventos de Stripe que ya se procesaron. */
+export type StripeEvento = {
+  id: string
+  tipo: string
+  creado: string
+  recibido: string
+}
+
+/** Lo que devuelve `bloqueo_app()`: si la app está en pausa y desde cuándo. */
+export type BloqueoApp = {
+  bloqueada: boolean
+  bloquea_el: string | null
+}
+
 export type Profile = {
   id: string
   nombre: string
@@ -1443,6 +1491,8 @@ export type Database = {
   public: {
     Tables: {
       ajustes: Tabla<Ajuste>
+      suscripcion_app: Tabla<SuscripcionApp>
+      stripe_eventos: Tabla<StripeEvento>
       profiles: Tabla<Profile>
       clientes: Tabla<Cliente>
       proveedores: Tabla<Proveedor>
@@ -1679,6 +1729,17 @@ export type Database = {
       avisos_de_recordatorios: { Args: Record<string, never>; Returns: AvisoRecordatorio[] }
       olvidar_suscripciones: { Args: { p_ids: string[] }; Returns: number }
       marcar_envio_push: { Args: { p_ids: string[] }; Returns: undefined }
+      /* La mensualidad de la app: la escribe el webhook de Stripe, la lee el proxy. */
+      registrar_suscripcion_app: {
+        Args: {
+          p_datos: Record<string, unknown>
+          p_evento_id?: string | null
+          p_tipo?: string | null
+          p_creado?: string | null
+        }
+        Returns: boolean
+      }
+      bloqueo_app: { Args: Record<string, never>; Returns: BloqueoApp[] }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

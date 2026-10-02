@@ -68,6 +68,23 @@ export type Entrega = {
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
 
+const DEL_2_DE_OCTUBRE: Novedad[] = [
+  {
+    donde: 'Suscripción',
+    titulo: 'La mensualidad de la app se cobra sola',
+    texto:
+      'En Más → Suscripción registras la tarjeta una sola vez y el cobro sale cada día 12. Hoy no se cobra nada: el primer cargo es el próximo 12.',
+    roles: ['admin'],
+  },
+  {
+    donde: 'Suscripción',
+    titulo: 'Si un cobro no entra, te avisa',
+    texto:
+      'Sale una franja roja con la fecha límite y un botón para pagar o cambiar la tarjeta. Si pasa una semana sin pago, la app se pone en pausa hasta que entre.',
+    roles: ['admin'],
+  },
+]
+
 const DEL_21_DE_SEPTIEMBRE: Novedad[] = [
   {
     donde: 'Cobranza',
@@ -561,6 +578,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 export const ENTREGAS: Entrega[] = [
+  { version: '2026-10-02', fecha: '2 de octubre de 2026', novedades: DEL_2_DE_OCTUBRE },
   { version: '2026-09-21', fecha: '21 de septiembre de 2026', novedades: DEL_21_DE_SEPTIEMBRE },
   { version: '2026-09-16', fecha: '16 de septiembre de 2026', novedades: DEL_16_DE_SEPTIEMBRE },
   { version: '2026-09-12', fecha: '12 de septiembre de 2026', novedades: DEL_12_DE_SEPTIEMBRE },
