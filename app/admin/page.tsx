@@ -22,6 +22,7 @@ import { CalendarioPagos } from '@/components/admin/calendario-pagos'
 import { TileResumen } from '@/components/admin/tile-resumen'
 import { VentasDelMes } from '@/components/admin/ventas-del-mes'
 import { AvisosDelDia } from '@/components/recordatorios/avisos-del-dia'
+import { AvisoSuscripcion } from '@/components/admin/aviso-suscripcion'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -310,6 +311,9 @@ export default async function Dashboard() {
         titulo={`Buen día, ${perfil.nombre.split(' ')[0]}`}
         descripcion="Qué se cotizó, qué está en obra, qué falta cobrar y qué falta pagar."
       />
+
+      {/* Mientras no haya tarjeta registrada, Dirección lo ve aquí al entrar. */}
+      <AvisoSuscripcion rol={perfil.rol} modo="invitacion" />
 
       {!bdLista && (
         <div className="mb-4 rounded-2xl border-[0.5px] border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

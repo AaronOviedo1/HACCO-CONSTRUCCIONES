@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Banknote, Boxes, ClipboardList, FileSpreadsheet, FileText, Hammer, HardHat, LayoutDashboard,
-  LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
+  Banknote, Boxes, ClipboardList, CreditCard, FileSpreadsheet, FileText, Hammer, HardHat,
+  LayoutDashboard, LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
 } from 'lucide-react'
 import { Membrete } from '@/components/marca'
 import { BotonNovedades } from '@/components/novedades'
@@ -30,6 +30,7 @@ const ICONOS: Record<string, LucideIcon> = {
   herramienta: Hammer,
   reporte: FileSpreadsheet,
   usuario: Users,
+  suscripcion: CreditCard,
 }
 
 function estaActiva(pathname: string, href: string) {

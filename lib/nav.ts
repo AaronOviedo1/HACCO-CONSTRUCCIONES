@@ -36,6 +36,7 @@ export const SECCIONES: Seccion[] = [
 
   { href: '/admin/reportes',           titulo: 'Reportes',          icono: 'reporte',     grupo: 'Sistema',   roles: ['admin', 'administracion', 'contador'] },
   { href: '/admin/usuarios',           titulo: 'Usuarios',          icono: 'usuario',     grupo: 'Sistema',   roles: ['admin'] },
+  { href: '/admin/suscripcion',        titulo: 'Suscripción',       icono: 'suscripcion', grupo: 'Sistema',   roles: ['admin'] },
 ]
 
 export const GRUPOS: Seccion['grupo'][] = ['Operación', 'Dinero', 'Catálogos', 'Sistema']
@@ -78,7 +79,7 @@ const DINERO = [
 ]
 const CATALOGOS = [
   '/admin/mas', '/admin/catalogo', '/admin/clientes', '/admin/herramientas',
-  '/admin/reportes', '/admin/usuarios',
+  '/admin/reportes', '/admin/usuarios', '/admin/suscripcion',
 ]
 /**
  * Lo operativo que no cabe en las cinco pestañas y vive en «Más». Aparte de

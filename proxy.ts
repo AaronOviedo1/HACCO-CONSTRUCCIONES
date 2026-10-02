@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { AUTOLOGIN_DEV } from '@/lib/supabase/autologin-dev'
 import { SUPABASE_CONFIGURADO, SUPABASE_LLAVE_PUBLICA, SUPABASE_URL } from '@/lib/supabase/entorno'
-import type { RolUsuario } from '@/types/database'
+import type { BloqueoApp, RolUsuario } from '@/types/database'
 
 const RUTA_POR_ROL: Record<RolUsuario, string> = {
   admin: '/admin',
@@ -24,6 +24,11 @@ export default async function proxy(request: NextRequest) {
   // Vercel lo pintaría verde y nadie se enteraría en semanas. Se protegen solas
   // con CRON_SECRET; el proxy nunca fue su seguridad.
   if (request.nextUrl.pathname.startsWith('/api/cron')) return NextResponse.next()
+
+  // El webhook de Stripe entra sin cookie y con su propia firma. Si pasara por
+  // aquí recibiría un 307 al login, Stripe lo contaría como fallo y lo
+  // reintentaría tres días sin que la fila se enterara de nada.
+  if (request.nextUrl.pathname === '/api/stripe/webhook') return NextResponse.next()
 
   // Sin llaves de Supabase todo el tráfico va a la pantalla de instalación.
   if (!SUPABASE_CONFIGURADO) {
@@ -90,11 +95,16 @@ export default async function proxy(request: NextRequest) {
     return redirigir(destino)
   }
 
-  const { data: perfil } = await supabase
-    .from('profiles')
-    .select('rol, activo')
-    .eq('id', user.id)
-    .maybeSingle<{ rol: RolUsuario; activo: boolean }>()
+  // El perfil y el candado de la mensualidad se piden a la vez: las dos
+  // consultas sólo necesitan al usuario, y así el candado no cuesta latencia.
+  const [{ data: perfil }, { data: bloqueo }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('rol, activo')
+      .eq('id', user.id)
+      .maybeSingle<{ rol: RolUsuario; activo: boolean }>(),
+    supabase.rpc('bloqueo_app').maybeSingle<BloqueoApp>(),
+  ])
 
   // Usuario autenticado sin perfil o dado de baja: se cierra la sesión
   if (!perfil || !perfil.activo) {
@@ -109,6 +119,30 @@ export default async function proxy(request: NextRequest) {
 
   // Ya con sesión, el login y la raíz llevan a su pantalla de inicio
   if (esPublica || ruta === '/') {
+    const destino = request.nextUrl.clone()
+    destino.pathname = inicio
+    destino.search = ''
+    return redirigir(destino)
+  }
+
+  // La mensualidad de la app lleva una semana sin pagarse: la app entera se
+  // pone en pausa. Dirección sólo llega a la pantalla donde se paga (y al
+  // portal de Stripe); a los demás les queda la pantalla que lo explica.
+  const bloqueada = bloqueo?.bloqueada === true
+  if (bloqueada) {
+    const permitida =
+      perfil.rol === 'admin'
+        ? ruta.startsWith('/admin/suscripcion') || ruta.startsWith('/api/stripe')
+        : ruta === '/bloqueada'
+    if (!permitida) {
+      const destino = request.nextUrl.clone()
+      destino.pathname = perfil.rol === 'admin' ? '/admin/suscripcion' : '/bloqueada'
+      destino.search = ''
+      return redirigir(destino)
+    }
+    return respuesta
+  }
+  if (ruta === '/bloqueada') {
     const destino = request.nextUrl.clone()
     destino.pathname = inicio
     destino.search = ''
