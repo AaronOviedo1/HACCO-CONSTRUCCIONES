@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { diaDeRaya, etiquetaSemana, semanaDe, sumarDias } from '@/lib/finanzas'
-import { fecha } from '@/lib/format'
+import { MESES_CORTOS, MESES_LARGOS, fecha, isoLocal } from '@/lib/format'
 
 /**
  * Filtros de fecha de las pantallas de consulta.
@@ -21,17 +21,10 @@ import { fecha } from '@/lib/format'
  * `FiltroSemana` es el de la raya: dos flechas para moverse de lunes a lunes.
  */
 
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-               'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                      'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 const CAJA =
   'inline-flex min-h-11 items-center gap-2 rounded-[12px] border-[0.5px] border-tinta-300 bg-white px-3.5 text-[15px] text-tinta-700 transition hover:border-haaco-400 lg:min-h-0 lg:rounded-lg lg:py-2 lg:text-sm'
-
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 const leer = (valor: string | null) => {
   if (!valor) return null
@@ -39,7 +32,7 @@ const leer = (valor: string | null) => {
   return Number.isFinite(a) && Number.isFinite(m) && Number.isFinite(d) ? new Date(a, m - 1, d) : null
 }
 
-const mismoDia = (a: Date, b: Date) => iso(a) === iso(b)
+const mismoDia = (a: Date, b: Date) => isoLocal(a) === isoLocal(b)
 const primeroDe = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const ultimoDe = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
 
@@ -60,7 +53,7 @@ function etiquetaRango(desde: Date | null, hasta: Date | null) {
   if (desde && hasta) {
     // Un mes completo se dice por su nombre, que es como lo pide la gente.
     if (mismoDia(desde, primeroDe(desde)) && mismoDia(hasta, ultimoDe(desde))) {
-      return `${MESES[desde.getMonth()]} de ${desde.getFullYear()}`
+      return `${MESES_LARGOS[desde.getMonth()]} de ${desde.getFullYear()}`
     }
     const mismoAnio = desde.getFullYear() === hasta.getFullYear()
     return `${desde.getDate()} ${MESES_CORTOS[desde.getMonth()]}${mismoAnio ? '' : ` ${desde.getFullYear()}`} – ${hasta.getDate()} ${MESES_CORTOS[hasta.getMonth()]} ${hasta.getFullYear()}`
@@ -238,9 +231,9 @@ export function FiltroRango({
 
   const aplicar = (d: Date | null, h: Date | null) => {
     const nuevos = new URLSearchParams(params.toString())
-    if (d) nuevos.set(paramDesde, iso(d))
+    if (d) nuevos.set(paramDesde, isoLocal(d))
     else nuevos.delete(paramDesde)
-    if (h) nuevos.set(paramHasta, iso(h))
+    if (h) nuevos.set(paramHasta, isoLocal(h))
     else nuevos.delete(paramHasta)
     setAbierto(false)
     iniciar(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
@@ -315,10 +308,10 @@ export function FiltroRango({
           <ChevronLeft size={18} />
         </button>
         <span className="text-sm font-semibold capitalize">
-          {MESES[ancla.getMonth()]} {ancla.getFullYear()}
+          {MESES_LARGOS[ancla.getMonth()]} {ancla.getFullYear()}
           <span className="hidden sm:inline">
             {' · '}
-            {MESES[(ancla.getMonth() + 1) % 12]}{' '}
+            {MESES_LARGOS[(ancla.getMonth() + 1) % 12]}{' '}
             {ancla.getMonth() === 11 ? ancla.getFullYear() + 1 : ancla.getFullYear()}
           </span>
         </span>
@@ -401,7 +394,7 @@ function Mes({
 
           return (
             <button
-              key={iso(dia)}
+              key={isoLocal(dia)}
               type="button"
               onClick={() => onTocar(dia)}
               className={`h-9 w-9 rounded-lg text-[13px] tabular-nums transition ${
@@ -450,7 +443,7 @@ export function SelectorFecha({
 
   const hoy = new Date()
   const etiqueta = elegida
-    ? `${elegida.getDate()} de ${MESES[elegida.getMonth()]} de ${elegida.getFullYear()}`
+    ? `${elegida.getDate()} de ${MESES_LARGOS[elegida.getMonth()]} de ${elegida.getFullYear()}`
     : 'Elegir fecha'
 
   if (disabled) {
@@ -478,7 +471,7 @@ export function SelectorFecha({
         <div className="mb-3 flex gap-1.5">
           <BotonAtajo
             onClick={() => {
-              onCambio(iso(hoy))
+              onCambio(isoLocal(hoy))
               setAbierto(false)
             }}
           >
@@ -488,7 +481,7 @@ export function SelectorFecha({
             onClick={() => {
               const ayer = new Date(hoy)
               ayer.setDate(ayer.getDate() - 1)
-              onCambio(iso(ayer))
+              onCambio(isoLocal(ayer))
               setAbierto(false)
             }}
           >
@@ -506,7 +499,7 @@ export function SelectorFecha({
             <ChevronLeft size={18} />
           </button>
           <span className="text-sm font-semibold capitalize">
-            {MESES[ancla.getMonth()]} {ancla.getFullYear()}
+            {MESES_LARGOS[ancla.getMonth()]} {ancla.getFullYear()}
           </span>
           <button
             type="button"
@@ -523,7 +516,7 @@ export function SelectorFecha({
           desde={elegida}
           hasta={elegida}
           onTocar={(d) => {
-            onCambio(iso(d))
+            onCambio(isoLocal(d))
             setAbierto(false)
           }}
         />
@@ -562,7 +555,7 @@ export function FiltroMes({
   return (
     <Desplegable
       titulo={titulo}
-      etiqueta={`${MESES[mesNum - 1]} de ${anio}`}
+      etiqueta={`${MESES_LARGOS[mesNum - 1]} de ${anio}`}
       activo
       abierto={abierto}
       onAbrir={() => {

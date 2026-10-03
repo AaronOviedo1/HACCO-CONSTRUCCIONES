@@ -1,17 +1,16 @@
 import 'server-only'
 import { crearClienteServidor } from '@/lib/supabase/server'
+import { redondear } from '@/lib/cotizaciones'
 import { etiquetaMes, rangoMes } from '@/lib/finanzas'
 import type {
   CategoriaGasto, EstatusCotizacion, MetodoPago, VCobranza, VCotizacion, VGasto,
   VObraConcentrado, VServicio,
 } from '@/types/database'
 
-const redondear = (n: number) => Math.round(n * 100) / 100
-
 /** Categorías que se consideran gasto de obra y no gasto general. */
 const DE_OBRA: CategoriaGasto[] = ['material', 'viaticos']
 
-export type MovimientoReporte = {
+type MovimientoReporte = {
   fecha: string
   concepto: string
   referencia: string

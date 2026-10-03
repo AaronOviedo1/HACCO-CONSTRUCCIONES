@@ -40,37 +40,29 @@ export default async function PaginaPagosFijos({
    * le toca, con su fecha a la vista: no hay nada que corregir, sólo que ver.
    */
   const { desde, hasta } = rangoMes(mes)
-  const { data } = await supabase
-    .from('pagos_fijos')
-    .select('*')
-    .gte('quincena', desde)
-    .lt('quincena', hasta)
-    .order('categoria')
-    .order('beneficiario')
-
-  const { data: catalogo } = await supabase
-    .from('v_pagos_programados')
-    .select('*')
-    .order('tipo')
-    .order('beneficiario')
-
-  const { data: personal } = await supabase
-    .from('profiles')
-    .select('id, nombre')
-    .eq('activo', true)
-    .order('nombre')
-
-  /*
-   * Lo que alguien sacó a mano de alguna quincena del mes. Hace falta aquí por
-   * dos razones: para no volver a pedir que se arme lo que la base no va a
-   * crear —el aviso de «armando» saldría en cada visita— y para dejar la vuelta
-   * atrás a la vista, que si no, quitar algo por error no tendría remedio.
-   */
-  const { data: omisiones } = await supabase
-    .from('pagos_fijos_omitidos')
-    .select('programado_id, quincena')
-    .gte('quincena', desde)
-    .lt('quincena', hasta)
+  const [{ data }, { data: catalogo }, { data: personal }, { data: omisiones }] = await Promise.all([
+    supabase
+      .from('pagos_fijos')
+      .select('*')
+      .gte('quincena', desde)
+      .lt('quincena', hasta)
+      .order('categoria')
+      .order('beneficiario'),
+    supabase.from('v_pagos_programados').select('*').order('tipo').order('beneficiario'),
+    supabase.from('profiles').select('id, nombre').eq('activo', true).order('nombre'),
+    /*
+     * Lo que alguien sacó a mano de alguna quincena del mes. Hace falta aquí
+     * por dos razones: para no volver a pedir que se arme lo que la base no va
+     * a crear —el aviso de «armando» saldría en cada visita— y para dejar la
+     * vuelta atrás a la vista, que si no, quitar algo por error no tendría
+     * remedio.
+     */
+    supabase
+      .from('pagos_fijos_omitidos')
+      .select('programado_id, quincena')
+      .gte('quincena', desde)
+      .lt('quincena', hasta),
+  ])
 
   const pagos = data ?? []
   const programados = catalogo ?? []

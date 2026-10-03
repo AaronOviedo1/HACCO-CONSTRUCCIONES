@@ -34,23 +34,6 @@ export function BotonNuevoCliente({ etiqueta = 'Nuevo cliente' }: { etiqueta?: s
   )
 }
 
-export function BotonEditarCliente({ cliente }: { cliente: Cliente }) {
-  const [abierto, setAbierto] = useState(false)
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-tinta-100 hover:text-tinta-800"
-        aria-label={`Editar ${cliente.nombre}`}
-      >
-        <Pencil size={15} />
-      </button>
-      {abierto && <FormularioCliente cliente={cliente} abierto onCerrar={() => setAbierto(false)} />}
-    </>
-  )
-}
-
 /**
  * El mismo cliente, en el teléfono.
  *

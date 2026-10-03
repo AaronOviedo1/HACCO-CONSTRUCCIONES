@@ -2,16 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { requerirRol, staff } from '@/lib/auth'
+import { redondear } from '@/lib/cotizaciones'
 import { REGLAS } from '@/lib/empresa'
 import { hoyHermosillo } from '@/lib/format'
 import { casilla, explicar, numero, opcional, texto, type EstadoAccion } from '@/lib/acciones'
 import type { EstadoHerramienta, TipoMovimiento, TipoProducto } from '@/types/database'
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
 
 // ===========================================================================
 // AJUSTES
@@ -118,8 +114,8 @@ export async function guardarProducto(_prev: EstadoAccion, d: FormData): Promise
 
   const costo = numero(d, 'costo') ?? 0
   // Si no capturan el IVA se calcula al 16%; el precio neto siempre es la suma.
-  const iva = numero(d, 'iva') ?? Math.round(costo * (REGLAS.ivaPct / 100) * 100) / 100
-  const neto = Math.round((costo + iva) * 100) / 100
+  const iva = numero(d, 'iva') ?? redondear(costo * (REGLAS.ivaPct / 100))
+  const neto = redondear(costo + iva)
 
   // A cómo estaba antes de este guardado: si el número cambió, es que alguien
   // preguntó y le dijeron otra cosa, y eso merece quedar escrito.

@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { PackageOpen, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -17,6 +18,13 @@ import {
 } from '@/app/admin/obras/acciones'
 import type { OrigenMaterial } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
+
+/**
+ * La pestaña de materiales de una OT (app/admin/obras/[id]): lo cotizado contra
+ * lo que de verdad se compró. `TablaMateriales` pinta cada lado;
+ * `FormularioMaterial` da de alta o corrige un renglón y
+ * `FormularioSalidaTaller` carga a la obra material que sale del inventario.
+ */
 
 export function PanelMateriales({ datos }: { datos: DatosObra }) {
   const router = useRouter()
@@ -545,7 +553,7 @@ function FormularioMaterial({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -553,7 +561,7 @@ function FormularioMaterial({
           type="button"
           onClick={guardar}
           disabled={pendiente || !material.trim()}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : renglon ? 'Guardar' : 'Agregar'}
         </button>
@@ -659,7 +667,7 @@ function FormularioSalidaTaller({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -667,7 +675,7 @@ function FormularioSalidaTaller({
           type="button"
           onClick={sacar}
           disabled={pendiente || !productoId || num(cantidad) <= 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Registrando…' : 'Registrar salida'}
         </button>

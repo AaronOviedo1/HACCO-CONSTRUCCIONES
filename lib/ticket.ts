@@ -3,7 +3,7 @@ import { REGLAS } from '@/lib/empresa'
 import type { CategoriaGasto, MetodoPago } from '@/types/database'
 
 /** Un artículo del ticket, ya cuadrado. */
-export type RenglonTicket = {
+type RenglonTicket = {
   descripcion: string
   piezas: number
   /**
@@ -144,7 +144,7 @@ export function cuadrarRenglones(
     )
     // Un solo redondeo sobre la cuenta completa: descuento, base e impuesto son
     // cifras intermedias y encadenar sus redondeos podría desviar un peso.
-    return { bases, impuestos, netos: leidos.map((r, i) => redondear(bases[i] + impuestos[i])) }
+    return { bases, impuestos, netos: leidos.map((_, i) => redondear(bases[i] + impuestos[i])) }
   }
 
   const hayDescuento = conDescuento ? leidos.some((r) => (r.descuento ?? 0) > 0) : descuentoPie > 0

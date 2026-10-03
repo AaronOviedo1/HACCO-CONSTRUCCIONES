@@ -1,5 +1,5 @@
 import { Membrete } from '@/components/marca'
-import { SUPABASE_CONFIGURADO } from '@/lib/config'
+import { SUPABASE_CONFIGURADO } from '@/lib/supabase/entorno'
 import { redirect } from 'next/navigation'
 
 const PASOS = [

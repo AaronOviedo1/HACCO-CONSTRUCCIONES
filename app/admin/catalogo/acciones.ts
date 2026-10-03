@@ -1,22 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
 import type { PrecioVigente } from '@/lib/precios'
 import type { OrigenPrecio } from '@/types/database'
 
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
-
-const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
-
 /** Un precio que se pagó alguna vez por este material. */
-export type ObservacionPrecio = {
+type ObservacionPrecio = {
   id: string
   fecha: string
   precio_neto: number

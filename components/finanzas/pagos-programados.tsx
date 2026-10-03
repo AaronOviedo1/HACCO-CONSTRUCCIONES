@@ -1,5 +1,7 @@
 'use client'
 
+import { CampoMetodoPago } from '@/components/finanzas/campo-metodo-pago'
+import { BOTON_PRIMARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Pencil, Plus } from 'lucide-react'
@@ -11,7 +13,7 @@ import { EstadoVacio, Etiqueta, Tarjeta } from '@/components/ui'
 import { fecha, pesos } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
 import {
-  CATEGORIAS_PAGO_FIJO, METODO_PAGO, METODO_PAGO_SIN_CAJA, PERIODICIDAD_CORTA, PERIODICIDAD_PAGO,
+  CATEGORIAS_PAGO_FIJO, METODO_PAGO, PERIODICIDAD_CORTA, PERIODICIDAD_PAGO,
 } from '@/lib/finanzas'
 import {
   archivarPagoProgramado, eliminarPagoProgramado, guardarPagoProgramado, pagosPorCorregir,
@@ -429,19 +431,7 @@ function FormularioProgramado({
           hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} />}
           ayuda="Es el que sale por omisión; se puede corregir quincena por quincena."
         />
-        <Campo
-          etiqueta="Método"
-          ancho="medio"
-          hijo={
-            <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO_SIN_CAJA).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
-          }
-        />
+        <CampoMetodoPago valor={metodo} onCambio={setMetodo} />
         <Campo
           etiqueta="Descripción"
           hijo={<Entrada value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />}
@@ -498,7 +488,7 @@ function FormularioProgramado({
             type="button"
             onClick={() => enviar(true)}
             disabled={pendiente}
-            className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+            className={BOTON_PRIMARIO}
           >
             {pendiente ? 'Guardando…' : 'Sí, corregirlos'}
           </button>

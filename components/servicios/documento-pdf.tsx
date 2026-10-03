@@ -3,7 +3,7 @@ import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fecha as fechaCorta, fechaLarga, horaCorta, pesos } from '@/lib/format'
-import { abreviaUnidad } from '@/lib/cotizaciones'
+import { abreviaUnidad, redondear } from '@/lib/cotizaciones'
 
 const VERDE = MARCA.verde
 const VERDE_MEDIO = MARCA.verdeMedio
@@ -251,7 +251,7 @@ export function DocumentoServicio({ datos }: { datos: DatosPdfServicio }) {
   const contacto = [EMPRESA.telefono, EMPRESA.correo].filter(Boolean).join(' · ')
   // El IVA se saca del total real y no se recalcula: así el papel no puede
   // desviarse ni un centavo de lo que dice la base.
-  const iva = Math.round((datos.total - datos.subtotal) * 100) / 100
+  const iva = redondear(datos.total - datos.subtotal)
 
   return (
     <Document

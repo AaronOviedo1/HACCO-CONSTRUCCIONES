@@ -1,7 +1,7 @@
-import { createElement, type ReactElement } from 'react'
-import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
+import { redondear } from '@/lib/cotizaciones'
+import { responderPdf } from '@/lib/pdf'
 import { DocumentoCotizacion, type DatosPdf } from '@/components/cotizaciones/documento-pdf'
 
 export const runtime = 'nodejs'
@@ -49,7 +49,7 @@ export async function GET(
     })),
     subtotal: cotizacion.subtotal,
     descuentoPct: cotizacion.descuento_pct,
-    descuento: Math.round(cotizacion.subtotal * (cotizacion.descuento_pct / 100) * 100) / 100,
+    descuento: redondear(cotizacion.subtotal * (cotizacion.descuento_pct / 100)),
     ivaPct: cotizacion.iva_pct,
     total: cotizacion.total,
     anticipoPct: cotizacion.anticipo_pct ?? 50,
@@ -57,17 +57,10 @@ export async function GET(
     terminos: cotizacion.terminos,
   }
 
-  // El componente devuelve un <Document>, pero TypeScript sólo ve su envoltura.
-  const documento = createElement(DocumentoCotizacion, { datos }) as unknown as ReactElement<DocumentProps>
-  const buffer = await renderToBuffer(documento)
-  const descargar = new URL(peticion.url).searchParams.has('descargar')
-  const archivo = `Cotizacion ${datos.folio} - ${datos.cliente}.pdf`.replace(/[/\\]/g, '-')
-
-  return new Response(new Uint8Array(buffer), {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `${descargar ? 'attachment' : 'inline'}; filename="${archivo}"`,
-      'Cache-Control': 'no-store',
-    },
-  })
+  return responderPdf(
+    DocumentoCotizacion,
+    { datos },
+    `Cotizacion ${datos.folio} - ${datos.cliente}.pdf`,
+    peticion,
+  )
 }

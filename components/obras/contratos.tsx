@@ -1,5 +1,7 @@
 'use client'
 
+import { useAccion } from '@/components/obras/usar-accion'
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { FileDown, PenLine, Plus, Trash2, UserRoundCog, Wrench, X } from 'lucide-react'
@@ -18,6 +20,18 @@ import {
 } from '@/app/admin/obras/acciones'
 import type { ContratoOficial, Profile } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
+
+/**
+ * La pestaña de contratos de mano de obra de una OT (app/admin/obras/[id]).
+ *
+ * `PanelContratos` lista los contratos de la obra; cada `TarjetaContrato` enseña
+ * el trato con su oficial, lo pagado y su pagaré de herramienta (`BloquePagare`).
+ * Los tres diálogos del final son las altas y cambios: `FormularioContrato`,
+ * `FormularioPagare` y `DialogoReasignar`, que le pasa la obra a otro oficial
+ * cortando el contrato en lo ya ejecutado.
+ *
+ * Todo lo que escribe pasa por `app/admin/obras/acciones.ts`.
+ */
 
 type Reparacion = { descripcion: string; importe: string }
 
@@ -153,7 +167,6 @@ function TarjetaContrato({
   onCorregirPagare: (pagare: DatosObra['pagares'][number]) => void
   onReasignar: () => void
 }) {
-  const router = useRouter()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -161,13 +174,7 @@ function TarjetaContrato({
   const reparaciones = leerReparaciones(contrato.reparaciones)
   const porCodigo = new Map(herramientas.map((h) => [h.id, h]))
 
-  const accion = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
-    iniciar(async () => {
-      setError(null)
-      const r = await fn()
-      if (!r.ok) return setError(r.error ?? 'No se pudo completar la operación.')
-      router.refresh()
-    })
+  const accion = useAccion(iniciar, setError)
 
   return (
     <Tarjeta>
@@ -751,7 +758,7 @@ function FormularioContrato({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -759,7 +766,7 @@ function FormularioContrato({
           type="button"
           onClick={guardar}
           disabled={pendiente || !trabajadorId}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : 'Guardar contrato'}
         </button>
@@ -894,7 +901,7 @@ function FormularioPagare({
           <button
             type="button"
             onClick={onCerrar}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            className={BOTON_SECUNDARIO}
           >
             Cancelar
           </button>
@@ -902,7 +909,7 @@ function FormularioPagare({
             type="button"
             onClick={guardar}
             disabled={pendiente || elegidas.length === 0}
-            className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+            className={BOTON_PRIMARIO}
           >
             {pendiente
               ? 'Guardando…'
@@ -1104,7 +1111,7 @@ function DialogoReasignar({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>

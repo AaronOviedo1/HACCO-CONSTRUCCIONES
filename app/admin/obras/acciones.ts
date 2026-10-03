@@ -2,27 +2,31 @@
 
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { requerirRol, staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
 import type {
   EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
   ResultadoBorradoObra, ResultadoCierre, ResultadoReapertura, ResultadoReasignacion,
   TipoAvance, TipoPagoCobranza,
 } from '@/types/database'
 
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
+/**
+ * Todo lo que se puede hacer sobre una orden de trabajo desde el panel, por
+ * secciones: la obra y su bitácora, conceptos, contratos de mano de obra,
+ * pagarés de herramienta, materiales, cronograma, póliza y solicitudes de
+ * material.
+ *
+ * Cada acción empieza por `staff()` (rol y cliente de Supabase), devuelve un
+ * `Resultado` y termina con `refrescar(obraId)`. Las operaciones que tocan
+ * varias tablas no se arman aquí: son funciones de Postgres que se llaman con
+ * `rpc`, para que corran en una sola transacción.
+ */
 
 function refrescar(obraId: string) {
   revalidatePath(`/admin/obras/${obraId}`)
   revalidatePath('/admin/obras')
   revalidatePath('/admin')
 }
-
-const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
 
 // ===========================================================================
 // OBRA
@@ -870,6 +874,5 @@ export async function cambiarEstatusSolicitud(
 
   if (error) return fallo(error)
   refrescar(obraId)
-  revalidatePath('/admin/obras')
   return { ok: true }
 }

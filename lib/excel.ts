@@ -78,7 +78,7 @@ function totalizar(hoja: ExcelJS.Worksheet, fila: number, valores: (string | num
   })
 }
 
-const aFecha = (v: string | null | undefined) => parsearFecha(v) ?? null
+const aFecha = (v: string | null | undefined) => parsearFecha(v)
 
 // ===========================================================================
 // HOJAS

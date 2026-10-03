@@ -34,7 +34,7 @@ export type PrecioVigente = {
 }
 
 /** De dónde salió el precio, dicho como se diría en voz alta. */
-export const ORIGEN_PRECIO: Record<Origen, string> = {
+const ORIGEN_PRECIO: Record<Origen, string> = {
   factura: 'factura',
   llamada: 'por teléfono',
   captura: 'capturado',

@@ -1,20 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
-import { horaCorta } from '@/lib/format'
+import { staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
+import { horaCorta, pesos } from '@/lib/format'
 import { proximoPreventivo } from '@/lib/servicios'
 import type { EstatusServicio, MetodoPago } from '@/types/database'
-
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
-
-const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
 
 /**
  * Un servicio se ve desde muchos lados: su propia pantalla, el tablero —donde
@@ -475,7 +466,7 @@ export async function eliminarServicio(id: string): Promise<Resultado> {
       ok: false,
       error: `No se puede eliminar: tiene ${pagos.length} ${
         pagos.length === 1 ? 'cobro registrado' : 'cobros registrados'
-      } por ${total.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}. Quítalos primero.`,
+      } por ${pesos(total)}. Quítalos primero.`,
     }
   }
 

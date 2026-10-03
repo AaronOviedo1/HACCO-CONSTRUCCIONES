@@ -16,9 +16,9 @@ export const maxDuration = 60
  * resuelve leyéndolo.
  *
  * Corre sin sesión, así que no hay RLS que lo cubra: la puerta es el
- * CRON_SECRET y los datos salen de RPCs `security definer` estrechas, igual que
- * la ronda de precios —`service_role` no tiene lectura sobre las tablas de este
- * esquema y no debería tenerla—. La excepción de `proxy.ts` para /api/cron ya
+ * CRON_SECRET y los datos salen de RPCs `security definer` estrechas
+ * —`service_role` no tiene lectura sobre las tablas de este esquema y no
+ * debería tenerla—. La excepción de `proxy.ts` para /api/cron ya
  * cubre esta ruta.
  *
  * Una suscripción que el servicio de push ya no reconoce (404 o 410) se da de

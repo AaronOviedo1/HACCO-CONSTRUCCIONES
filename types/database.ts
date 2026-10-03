@@ -1,9 +1,9 @@
 // ============================================================================
 // HaacoPro · Tipos de la base de datos
 //
-// Escritos a mano para que las consultas de Supabase estén tipadas desde el
-// primer día. Para regenerarlos contra el proyecto real:
-//   npm run tipos
+// Escritos a mano, no generados: cada migración que agrega o cambia una tabla,
+// vista o función trae aquí su tipo en el mismo cambio. Casi todos se exportan
+// aunque hoy nadie los importe: describen el esquema completo.
 // ============================================================================
 
 // ---------------------------------------------------------------------------

@@ -3,11 +3,19 @@
 // Moneda en pesos, fechas dd/mmm/aaaa y monto con letra para los recibos.
 // ============================================================================
 
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+export const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
                       'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+export const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                             'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+/**
+ * Una fecha como "2026-07-26", con el día calendario de la máquina que corre.
+ * Es el formato de los `date` de Postgres y de los `<input type="date">`.
+ * Para «hoy» en el servidor no sirve: ver `hoyHermosillo`.
+ */
+export const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 /**
  * El día de hoy en Hermosillo, pase lo que pase con el reloj del servidor.
@@ -117,11 +125,6 @@ export function tamanoMonto(valor: string, escala: 'kpi' | 'dato' = 'kpi'): stri
   const n = valor.length
   if (escala === 'dato') return n > 12 ? 'text-[12px]' : n > 10 ? 'text-[13px]' : 'text-sm'
   return n > 9 ? 'text-[15.5px]' : n > 7 ? 'text-[19px]' : 'text-[22px]'
-}
-
-/** 125.5 m² */
-export function metros(valor: number | null | undefined): string {
-  return `${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(Number(valor ?? 0))} m²`
 }
 
 // ---------------------------------------------------------------------------

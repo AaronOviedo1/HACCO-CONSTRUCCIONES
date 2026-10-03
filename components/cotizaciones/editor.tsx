@@ -40,6 +40,25 @@ import type {
   Cliente, EstatusCotizacion, Obra, Producto, Recordatorio, TextoProceso, TipoCotizacion,
 } from '@/types/database'
 
+/**
+ * El editor de una cotización, entero. Lo montan la pantalla de cotización
+ * nueva y la de una existente (app/admin/cotizaciones).
+ *
+ * `EditorCotizacion` es dueño del borrador: lo guarda como texto, calcula los
+ * totales con `lib/cotizaciones` y decide cuándo hay cambios sin guardar. Debajo
+ * hay un bloque por sección del documento, en el orden en que salen en el PDF:
+ *
+ *   BloqueProcesos    la descripción del trabajo, con la biblioteca de textos
+ *   BloquePartidas    los renglones que se cobran (tarjetas en teléfono, tabla en escritorio)
+ *   BloqueHerreria    el cotizador de herrería; cada ConceptoHerreria genera su partida
+ *   BloqueMateriales  el presupuesto de material, que al aprobar pasa a la obra
+ *   CampoTerminos     términos y condiciones
+ *
+ * Los bloques no guardan nada por su cuenta: reciben el borrador y avisan los
+ * cambios hacia arriba. Las cuentas tampoco viven aquí; si hay que tocar una
+ * suma o un redondeo, está en `lib/cotizaciones.ts`.
+ */
+
 type ObraLigada = Pick<Obra, 'id' | 'ot_numero' | 'nombre' | 'estatus'>
 
 /** Busca el último precio pagado de un material del borrador. */

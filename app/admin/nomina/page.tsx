@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, hoyHermosillo, pesos, pesosCortos, porcentaje } from '@/lib/format'
-import { agruparPorMes, mesActual, rangoMes, semanaDe } from '@/lib/finanzas'
+import { aPagarDeNomina, agruparPorMes, mesActual, rangoMes, semanaDe } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
@@ -159,10 +159,7 @@ export default async function PaginaNomina({
   const totalPorPagar = (prenomina ?? []).reduce((s, p) => s + Number(p.pendiente), 0)
 
   // Lo que de verdad sale de la caja esta semana: devengado menos préstamos.
-  const aPagarSemana = (prenomina ?? []).reduce(
-    (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
-    0,
-  )
+  const aPagarSemana = aPagarDeNomina(prenomina ?? [])
 
   // Los préstamos traen todo el historial: se separan por mes para leerlos.
   const mesesDeducciones = agruparPorMes(deducciones ?? [], (d) => d.fecha)
@@ -306,7 +303,6 @@ export default async function PaginaNomina({
           rayas={listaRayas}
           prenomina={prenomina ?? []}
           deducciones={deducciones ?? []}
-          mes={mes}
         />
       </nav>
 

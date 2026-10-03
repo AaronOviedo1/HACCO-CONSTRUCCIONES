@@ -100,12 +100,6 @@ export function BarraLateral({
                         >
                           <Icono size={17} className={activa ? 'text-haaco-300' : 'text-haaco-200/70'} />
                           <span className="flex-1">{seccion.titulo}</span>
-                          {seccion.pendiente && (
-                            <span
-                              className="h-1.5 w-1.5 rounded-full bg-amber-400"
-                              title="Módulo por construir"
-                            />
-                          )}
                         </Link>
                       </li>
                     )

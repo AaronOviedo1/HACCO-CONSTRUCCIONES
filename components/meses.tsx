@@ -160,7 +160,7 @@ export function SeccionMes({
 const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1)
 
 /** Renglón que abre el bloque de un mes dentro de una tabla. */
-export function FilaMes({
+function FilaMes({
   etiqueta,
   detalle,
   columnas,
@@ -218,7 +218,7 @@ export function FilaMes({
  * como banda dentro de la tarjeta-lista; sin ella es un título suelto entre
  * tarjetas apiladas.
  */
-export function TituloMes({
+function TituloMes({
   etiqueta,
   detalle,
   enTarjeta = false,

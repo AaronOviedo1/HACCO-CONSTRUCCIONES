@@ -6,17 +6,13 @@ export type Seccion = {
   icono: string
   roles: RolUsuario[]
   grupo: 'Operación' | 'Dinero' | 'Catálogos' | 'Sistema'
-  /** true mientras el módulo tenga base de datos pero todavía no interfaz. */
-  pendiente?: boolean
 }
 
 /**
- * Menú del panel administrativo.
- * La navegación completa existe desde el día uno para que Luis y Pati vean el
- * mapa entero; los módulos marcados como pendientes ya tienen su esquema y su
- * RLS, sólo les falta la pantalla.
+ * Menú del panel administrativo: una fila por pantalla, con los roles que la
+ * ven. Dar de alta un módulo nuevo empieza por agregar su fila aquí.
  */
-export const SECCIONES: Seccion[] = [
+const SECCIONES: Seccion[] = [
   { href: '/admin',                    titulo: 'Dashboard',         icono: 'panel',       grupo: 'Operación', roles: ['admin', 'administracion'] },
   { href: '/admin/cotizaciones',       titulo: 'Cotizaciones',      icono: 'cotizacion',  grupo: 'Operación', roles: ['admin', 'administracion'] },
   { href: '/admin/cotizar-rapido',     titulo: 'Cotización rápida', icono: 'rapido',      grupo: 'Operación', roles: ['admin', 'administracion'] },

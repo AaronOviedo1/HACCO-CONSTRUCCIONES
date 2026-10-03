@@ -439,7 +439,7 @@ try {
   const k446  = await contratar({ obra: o123, trabajador: T.jcb, otros: 5250, pct: 5, inicia: '2026-05-08', cerrado: true, trabajos: { vinilicas: ['interior'] } })
   const k330  = await contratar({ obra: h330, trabajador: T.abraham, otros: 25000, pct: 0, inicia: '2026-04-01', trabajos: { otros: ['herreria'] }, notas: 'Puerta con vidrios 330. Sin retención en el Excel. ' + APROX })
   const k321  = await contratar({ obra: h321, trabajador: T.enrique, otros: 12400, pct: 0, inicia: '2026-03-17', trabajos: { otros: ['herreria'] }, notas: 'Vistas Las Riberas VIGA 321. Sin retención en el Excel.' })
-  const k409e = await contratar({ obra: o126, trabajador: T.alejandro, otros: 8575, pct: 5, inicia: '2026-07-22', trabajos: { vinilicas: ['superficie_nueva', 'exterior'] }, notas: 'La Jolla ext. 1era parte' })
+  await contratar({ obra: o126, trabajador: T.alejandro, otros: 8575, pct: 5, inicia: '2026-07-22', trabajos: { vinilicas: ['superficie_nueva', 'exterior'] }, notas: 'La Jolla ext. 1era parte' })
   const k333  = await contratar({ obra: h333, trabajador: T.jesus, otros: 8500, pct: 0, inicia: '2026-04-10', trabajos: { otros: ['herreria'] }, notas: 'Cerco Bonaterra 333. Sin retención en el Excel. ' + APROX })
   const k403  = await contratar({ obra: h403, trabajador: T.jesus, otros: 61250, pct: 0, inicia: '2026-06-01', trabajos: { otros: ['herreria'] }, notas: 'Herrero encargado de obra (contrato PDF): vistas frontales y traseras $32,250, barandal terraza $9,500 y forrado de trabe $19,500. Entrega/instalación 16–20 jun 2026.' })
   const k443x = await contratar({ obra: h443, trabajador: T.jesus, otros: 16500, pct: 0, inicia: '2026-06-25', trabajos: { otros: ['herreria'] }, notas: 'Fabricación de puertas Los Lagos (Daniel Faz 443).' })

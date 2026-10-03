@@ -2,14 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { AUTOLOGIN_DEV } from '@/lib/supabase/autologin-dev'
 import { SUPABASE_CONFIGURADO, SUPABASE_LLAVE_PUBLICA, SUPABASE_URL } from '@/lib/supabase/entorno'
+import { RUTA_POR_ROL } from '@/lib/roles'
 import type { BloqueoApp, RolUsuario } from '@/types/database'
-
-const RUTA_POR_ROL: Record<RolUsuario, string> = {
-  admin: '/admin',
-  administracion: '/admin',
-  contador: '/admin/reportes',
-  cuadrilla: '/obra',
-}
 
 const RUTAS_PUBLICAS = ['/login', '/auth']
 

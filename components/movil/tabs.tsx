@@ -70,8 +70,15 @@ function indiceActivo(pathname: string, pestanas: Pestana[]) {
 function useMinimizarAlBajar(reinicio: unknown, umbral = 12) {
   const [minimizada, setMinimizada] = useState(false)
 
-  useEffect(() => {
+  // Cambiar de pantalla la devuelve entera. Se ajusta durante el render y no
+  // dentro del efecto, para no pintar un cuadro con la pastilla plegada.
+  const [reinicioVisto, setReinicioVisto] = useState(reinicio)
+  if (reinicioVisto !== reinicio) {
+    setReinicioVisto(reinicio)
     setMinimizada(false)
+  }
+
+  useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     let anterior = window.scrollY

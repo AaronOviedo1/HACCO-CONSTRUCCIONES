@@ -1,6 +1,6 @@
 import { requerirRol } from '@/lib/auth'
 import { EditorCotizacion } from '@/components/cotizaciones/editor'
-import { cargarCatalogos, cargarCotizacion, cargarSugerencias } from '../datos'
+import { cargarCatalogos, cargarCotizacion, sugerenciasSinEsperar } from '../datos'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,13 +12,8 @@ export default async function PaginaCotizacion({
   await requerirRol(['admin', 'administracion'])
   const { id } = await params
 
-  // Sin `await`: la promesa cruza al editor y se resuelve allá. El `catch` va
-  // aquí para que un fallo no viaje como rechazo suelto.
-  const sugerencias = cargarSugerencias().catch(() => ({
-    partidas: [],
-    materiales: [],
-    procesos: [],
-  }))
+  // Sin `await`: la promesa cruza al editor y se resuelve allá.
+  const sugerencias = sugerenciasSinEsperar()
 
   const [
     { cotizacion, borrador, obras, recordatorios },

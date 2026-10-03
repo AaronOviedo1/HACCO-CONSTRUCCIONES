@@ -1,5 +1,6 @@
 'use client'
 
+import { CampoMetodoPago } from '@/components/finanzas/campo-metodo-pago'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Check, CopyPlus, Pencil, Plus, Undo2 } from 'lucide-react'
@@ -11,7 +12,7 @@ import { FiltroMes, SelectorFecha } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import {
-  CATEGORIAS_PAGO_FIJO, ESTADO_PAGO_FIJO, METODO_PAGO_SIN_CAJA, etiquetaQuincena, quincenaDe,
+  CATEGORIAS_PAGO_FIJO, ESTADO_PAGO_FIJO, etiquetaQuincena, quincenaDe,
 } from '@/lib/finanzas'
 import {
   asegurarQuincenas, eliminarPagoFijo, generarQuincena, guardarPagoFijo, marcarPagoFijo,
@@ -20,6 +21,14 @@ import {
 import type {
   AlcanceQuitarPago, EstadoPagoFijo, MetodoPago, PagoFijo, PeriodicidadPago, ResultadoQuitarPago,
 } from '@/types/database'
+
+/**
+ * Las piezas con estado de Pagos fijos (app/admin/pagos-fijos): la barra de
+ * acciones, las acciones de cada renglón y el formulario de un pago.
+ * `AsegurarQuincenas` no pinta nada: al entrar pide a la base que arme las
+ * quincenas del mes a partir de la lista de pagos programados, y
+ * `OmitidosDeQuincena` enseña lo que alguien quitó a mano para poder regresarlo.
+ */
 
 export function BarraPagosFijos({ mes, quincenas }: { mes: string; quincenas: string[] }) {
   const router = useRouter()
@@ -387,19 +396,7 @@ function FormularioPagoFijo({
           ancho="medio"
           hijo={<Numero value={monto} onChange={(e) => setMonto(e.target.value)} />}
         />
-        <Campo
-          etiqueta="Método"
-          ancho="medio"
-          hijo={
-            <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO_SIN_CAJA).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
-          }
-        />
+        <CampoMetodoPago valor={metodo} onCambio={setMetodo} />
         <Campo
           etiqueta="Estado"
           ancho="medio"

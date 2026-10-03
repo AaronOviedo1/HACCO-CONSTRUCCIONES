@@ -12,8 +12,8 @@ import type { Database } from '@/types/database'
  *  1. Crear y borrar usuarios de Auth. Cualquier acción que lo use tiene que
  *     haber pasado antes por `requerirRol(['admin'])` — la llave no pregunta
  *     quién eres.
- *  2. Las tareas de la mañana —la ronda de precios y los recordatorios—, que
- *     corren sin nadie conectado. Ahí no hay sesión que valga, así que la
+ *  2. La tarea de la mañana —los recordatorios—, que corre sin nadie
+ *     conectado. Ahí no hay sesión que valga, así que la
  *     protección es el CRON_SECRET de la cabecera y una RPC estrecha
  *     `security definer`: la llave sólo ejecuta esa función, no consulta
  *     tablas a mano. De hecho no podría: `service_role` no tiene lectura

@@ -1,4 +1,6 @@
 import { REGLAS } from '@/lib/empresa'
+import { isoLocal } from '@/lib/format'
+import type { TonoEtiqueta } from '@/components/ui'
 import type {
   DocumentoCotizacionSql, EstatusCotizacion, MaterialSql, NivelPrecio, Producto, RubroMaterial,
   TipoCotizacion,
@@ -298,7 +300,7 @@ export function validar(borrador: BorradorCotizacion): string[] {
 // ---------------------------------------------------------------------------
 export const ESTATUS_COTIZACION: Record<
   EstatusCotizacion,
-  { texto: string; tono: 'gris' | 'azul' | 'verde' | 'ambar' | 'rojo' }
+  { texto: string; tono: TonoEtiqueta }
 > = {
   borrador: { texto: 'Borrador', tono: 'gris' },
   enviada: { texto: 'Enviada', tono: 'azul' },
@@ -360,7 +362,7 @@ export const tituloPartidas = (tipo: TipoCotizacion) =>
   : tipo === 'imper' ? 'Partidas de impermeabilización'
   : 'Partidas'
 
-export const LINEA_CALIDAD =
+const LINEA_CALIDAD =
   'Se utilizarán productos de la más alta calidad en el mercado, garantizando la durabilidad y el acabado del trabajo.'
 
 /**
@@ -471,10 +473,12 @@ export function pinturasPorMarca(productos: Producto[], { soloConTarifa = true }
   return [...grupos.entries()].map(([marca, pinturas]) => ({ marca, pinturas }))
 }
 
-/** Fecha de hoy en formato ISO, respetando el día local de Hermosillo. */
+/**
+ * Fecha de hoy en formato ISO, según el reloj de la máquina. En el navegador
+ * es el día de Hermosillo; en el servidor (UTC) usa `hoyHermosillo`.
+ */
 export function hoyISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return isoLocal(new Date())
 }
 
 /** Notas al pie del PDF, tal como salen hoy en la carta. */

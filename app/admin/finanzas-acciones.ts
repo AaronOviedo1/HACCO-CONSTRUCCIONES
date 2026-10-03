@@ -1,10 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
 import { REGLAS } from '@/lib/empresa'
 import { conceptoDePago } from '@/lib/cobranza'
+import { redondear } from '@/lib/cotizaciones'
 import { quincenaDe, tocaEnQuincena } from '@/lib/finanzas'
 import { hoyHermosillo } from '@/lib/format'
 import type {
@@ -13,14 +14,14 @@ import type {
   TipoDeduccion, TipoMovimientoCaja, TipoPagoCobranza, TipoPagoProgramado, TipoProducto,
 } from '@/types/database'
 
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
-
-const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
+/**
+ * Las acciones de los módulos de dinero, por secciones: gastos, cobranza,
+ * nómina, cuentas por pagar, pagos fijos y caja chica. Viven juntas porque se
+ * cruzan —un gasto a crédito abre una cuenta por pagar, un pago de caja mueve
+ * su saldo— y así se revalidan las mismas pantallas desde un solo lugar.
+ *
+ * Misma convención que el resto: `staff()` al entrar y `Resultado` al salir.
+ */
 
 // ===========================================================================
 // GASTOS
@@ -105,7 +106,7 @@ export async function agregarProductoAlCatalogo(datos: {
 
   const supabase = await staff()
   const costo = datos.costo || 0
-  const iva = Math.round(costo * (REGLAS.ivaPct / 100) * 100) / 100
+  const iva = redondear(costo * (REGLAS.ivaPct / 100))
 
   const { error } = await supabase.from('productos').insert({
     nombre: datos.nombre.trim(),
@@ -113,7 +114,7 @@ export async function agregarProductoAlCatalogo(datos: {
     tipo: datos.tipo,
     costo,
     iva,
-    precio_neto: Math.round((costo + iva) * 100) / 100,
+    precio_neto: redondear(costo + iva),
     proveedor_id: datos.proveedor_id,
   })
 

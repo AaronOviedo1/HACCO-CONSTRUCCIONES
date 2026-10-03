@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
-import { rangoDeUrl } from '@/lib/finanzas'
+import { rangoDeUrl, saldoDeCaja } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
 } from '@/components/ui'
@@ -34,10 +34,7 @@ export default async function PaginaCajaChica({
   )
 
   // El saldo es histórico: no se corta por mes.
-  const saldo = movimientos.reduce(
-    (s, m) => s + (m.tipo === 'entrada' ? Number(m.monto) : -Number(m.monto)),
-    0,
-  )
+  const saldo = saldoDeCaja(movimientos)
   const entradas = delPeriodo.filter((m) => m.tipo === 'entrada').reduce((s, m) => s + Number(m.monto), 0)
   const salidas = delPeriodo.filter((m) => m.tipo === 'salida').reduce((s, m) => s + Number(m.monto), 0)
 

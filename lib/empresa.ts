@@ -4,7 +4,6 @@
  */
 export const EMPRESA = {
   nombre: process.env.NEXT_PUBLIC_EMPRESA_NOMBRE ?? 'HAACO PRO RECUBRIMIENTOS',
-  marca: 'HaacoPro',
   director: process.env.NEXT_PUBLIC_EMPRESA_DIRECTOR ?? 'Lic. Luis Enrique Inda Franco',
   ciudad: process.env.NEXT_PUBLIC_EMPRESA_CIUDAD ?? 'Hermosillo, Sonora',
   telefono: process.env.NEXT_PUBLIC_EMPRESA_TELEFONO ?? '',
@@ -21,6 +20,4 @@ export const REGLAS = {
   utilidadHerreriaPct: 35,
   vigenciaCotizacionDias: 30,
   garantiaDias: 365,
-  interesOrdinarioPagarePct: 10,
-  interesMoratorioPagarePct: 20,
 } as const

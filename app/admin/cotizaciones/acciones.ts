@@ -1,19 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
 import { aPayload, validar, type BorradorCotizacion } from '@/lib/cotizaciones'
+import { pesos } from '@/lib/format'
 import type {
   Cotizacion, EstatusCotizacion, ObraNuevaSql, ResultadoAprobacion,
 } from '@/types/database'
-
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
 
 function refrescar(id?: string) {
   revalidatePath('/admin/cotizaciones')
@@ -35,7 +29,7 @@ export async function guardarCotizacion(
     p_datos: aPayload(borrador),
   })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar(data as string)
   return { ok: true, datos: { id: data as string } }
@@ -57,7 +51,7 @@ export async function guardarTerminosPorDefecto(terminos: string): Promise<Resul
     .from('ajustes')
     .upsert({ clave: 'terminos_cotizacion', valor: texto }, { onConflict: 'clave' })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar()
   return { ok: true }
@@ -67,7 +61,7 @@ export async function guardarTerminosPorDefecto(terminos: string): Promise<Resul
 export async function duplicarCotizacion(id: string): Promise<Resultado<{ id: string }>> {
   const supabase = await staff()
   const { data, error } = await supabase.rpc('duplicar_cotizacion', { p_id: id })
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar()
   return { ok: true, datos: { id: data as string } }
@@ -94,7 +88,7 @@ export async function aprobarCotizacion(
     p_anticipo_pct: anticipoPct,
   })
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar(id)
   revalidatePath('/admin/obras')
@@ -115,7 +109,7 @@ export async function cambiarEstatus(
   if (estatus === 'rechazada') parche.fecha_resolucion = hoy
 
   const { error } = await supabase.from('cotizaciones').update(parche).eq('id', id)
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar(id)
   return { ok: true }
@@ -144,12 +138,12 @@ export async function eliminarCotizacion(id: string): Promise<Resultado> {
       ok: false,
       error: `No se puede eliminar: tiene ${cobros.length} ${
         cobros.length === 1 ? 'cobro registrado' : 'cobros registrados'
-      } por ${total.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}. Quítalos primero desde Cobranza.`,
+      } por ${pesos(total)}. Quítalos primero desde Cobranza.`,
     }
   }
 
   const { error } = await supabase.from('cotizaciones').delete().eq('id', id)
-  if (error) return { ok: false, error: error.message }
+  if (error) return fallo(error)
 
   refrescar()
   return { ok: true }

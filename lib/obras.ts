@@ -65,7 +65,7 @@ export const GRUPOS_TRABAJOS: GrupoTrabajos[] = [
   },
 ]
 
-export type TrabajosContrato = Record<string, string[]>
+type TrabajosContrato = Record<string, string[]>
 export type ReparacionContrato = { descripcion: string; importe: number }
 
 /** Lista legible de los trabajos marcados, para el PDF y las tarjetas. */

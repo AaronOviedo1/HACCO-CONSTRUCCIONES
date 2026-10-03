@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
@@ -14,6 +15,12 @@ import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { registrarPago } from '@/app/admin/obras/acciones'
 import type { MetodoPago, TipoPagoCobranza } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
+
+/**
+ * La pestaña de documentos de una OT (app/admin/obras/[id]): los PDFs que se le
+ * entregan al cliente y los cobros de la cotización, con `DialogoPago` para
+ * registrar uno desde la propia obra.
+ */
 
 const METODOS: { valor: MetodoPago; texto: string }[] = [
   { valor: 'transferencia', texto: 'Transferencia' },
@@ -472,7 +479,7 @@ function DialogoPago({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -480,7 +487,7 @@ function DialogoPago({
           type="button"
           onClick={guardar}
           disabled={pendiente || num(monto) <= 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Registrando…' : generar ? 'Registrar y generar recibo' : 'Registrar pago'}
         </button>

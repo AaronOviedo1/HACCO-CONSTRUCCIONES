@@ -65,7 +65,6 @@
    * pestañas le pasa `--n` a su cápsula.
    */
   --animate-surge: surge 420ms var(--ease-suave) var(--retraso, 0ms) both;
-  --animate-pulso: pulso 1.6s ease-in-out infinite;
   --animate-girar: girar 0.7s linear infinite;
   --animate-destello: destello 2.2s ease-out infinite;
 
@@ -143,11 +142,6 @@
 @utility tipo-display {
   font-family: var(--fuente-display), ui-sans-serif, system-ui, sans-serif;
   font-variation-settings: "wdth" 125;
-}
-
-/* Hairline de iOS: el borde de 1px se ve tosco en pantallas retina. */
-@utility borde-fino {
-  border-width: 0.5px;
 }
 
 /* Carruseles de chips: se deslizan con el dedo, sin barra a la vista. */

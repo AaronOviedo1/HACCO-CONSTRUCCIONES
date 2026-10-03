@@ -37,7 +37,7 @@ export async function crearTrabajador(_prev: EstadoAccion, d: FormData): Promise
 
   const conAcceso = casilla(d, 'con_acceso')
   const rol = (texto(d, 'rol') || 'cuadrilla') as RolUsuario
-  const oficio = (opcional(d, 'oficio') as OficioTrabajador | null) ?? null
+  const oficio = opcional(d, 'oficio') as OficioTrabajador | null
   const telefono = opcional(d, 'telefono')
 
   const correo = conAcceso ? texto(d, 'correo').toLowerCase() : correoInterno(nombre)
@@ -108,7 +108,7 @@ export async function guardarTrabajador(
       telefono: opcional(d, 'telefono'),
       correo: opcional(d, 'correo'),
       rol,
-      oficio: (opcional(d, 'oficio') as OficioTrabajador | null) ?? null,
+      oficio: opcional(d, 'oficio') as OficioTrabajador | null,
       es_externo: casilla(d, 'es_externo'),
       con_acceso: casilla(d, 'con_acceso'),
       activo,
@@ -148,26 +148,6 @@ export async function eliminarTrabajador(_prev: EstadoAccion, d: FormData): Prom
   const { error } = await admin.auth.admin.deleteUser(id)
   if (error) return { error: error.message }
 
-  refrescar()
-  return { ok: true, id }
-}
-
-/** Da de baja o reactiva sin abrir el formulario completo. */
-export async function alternarActivo(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {
-  const { supabase, perfil } = await direccion()
-
-  const id = texto(d, 'id')
-  const activo = casilla(d, 'activo')
-  if (!id) return { error: 'Falta el usuario.' }
-  if (id === perfil.id && !activo) return { error: 'No puedes darte de baja a ti mismo.' }
-
-  if (!activo) {
-    const problema = await conContratosVivos(supabase, id)
-    if (problema) return { error: problema }
-  }
-
-  const { error } = await supabase.from('profiles').update({ activo }).eq('id', id)
-  if (error) return { error: explicar(error) }
   refrescar()
   return { ok: true, id }
 }
