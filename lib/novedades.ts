@@ -577,7 +577,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 ]
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
-export const ENTREGAS: Entrega[] = [
+const ENTREGAS: Entrega[] = [
   { version: '2026-10-02', fecha: '2 de octubre de 2026', novedades: DEL_2_DE_OCTUBRE },
   { version: '2026-09-21', fecha: '21 de septiembre de 2026', novedades: DEL_21_DE_SEPTIEMBRE },
   { version: '2026-09-16', fecha: '16 de septiembre de 2026', novedades: DEL_16_DE_SEPTIEMBRE },

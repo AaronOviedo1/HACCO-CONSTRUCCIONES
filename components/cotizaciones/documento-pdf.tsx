@@ -3,7 +3,7 @@ import { MarcaAguaPdf, MembretePdf } from '@/components/documentos/marca-pdf'
 import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fechaLarga, pesos } from '@/lib/format'
-import { abreviaUnidad, notasCotizacion } from '@/lib/cotizaciones'
+import { abreviaUnidad, notasCotizacion, redondear } from '@/lib/cotizaciones'
 
 const VERDE = MARCA.verde
 const VERDE_MEDIO = MARCA.verdeMedio
@@ -257,12 +257,12 @@ export type DatosPdf = {
 
 export function DocumentoCotizacion({ datos }: { datos: DatosPdf }) {
   const tratamiento = datos.tituloCortesia ? `${datos.tituloCortesia} ` : ''
-  const anticipo = Math.round(datos.total * (datos.anticipoPct / 100) * 100) / 100
+  const anticipo = redondear(datos.total * (datos.anticipoPct / 100))
   const contacto = [EMPRESA.telefono, EMPRESA.correo].filter(Boolean).join(' · ')
   // El IVA se saca del total real, no se recalcula: así el PDF no puede
   // desviarse ni un centavo de lo que dice la base de datos.
-  const base = Math.round((datos.subtotal - datos.descuento) * 100) / 100
-  const iva = Math.round((datos.total - base) * 100) / 100
+  const base = redondear(datos.subtotal - datos.descuento)
+  const iva = redondear(datos.total - base)
 
   return (
     <Document

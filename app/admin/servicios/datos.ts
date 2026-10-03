@@ -23,7 +23,7 @@ export async function cargarCatalogosServicio() {
 /**
  * El servicio completo para su pantalla.
  *
- * Cuatro consultas cortas y el cruce en JS: la vista ya trae al cliente y al
+ * Cinco consultas cortas y el cruce en JS: la vista ya trae al cliente y al
  * técnico resueltos, y lo demás cuelga por su propio id.
  */
 export async function cargarServicio(id: string) {

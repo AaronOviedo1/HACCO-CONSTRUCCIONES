@@ -1,18 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { staff } from '@/lib/auth'
+import { fallo, type Resultado } from '@/lib/acciones'
 import type { Recordatorio } from '@/types/database'
-
-export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
-
-async function staff() {
-  await requerirRol(['admin', 'administracion'])
-  return crearClienteServidor()
-}
-
-const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
 
 type Ligas = {
   cotizacion_id?: string | null

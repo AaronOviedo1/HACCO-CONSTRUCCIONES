@@ -22,5 +22,3 @@ export const NOMBRE_ROL: Record<RolUsuario, string> = {
   cuadrilla: 'Cuadrilla',
   contador: 'Contador',
 }
-
-export const esStaff = (rol: RolUsuario) => rol === 'admin' || rol === 'administracion'

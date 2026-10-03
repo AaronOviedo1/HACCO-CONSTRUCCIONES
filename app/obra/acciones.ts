@@ -3,9 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
+import type { Resultado } from '@/lib/acciones'
 import type { TipoAvance } from '@/types/database'
-
-export type Resultado = { ok: true } | { ok: false; error: string }
 
 /**
  * La cuadrilla sube la foto directo a Storage desde el navegador (la política

@@ -87,7 +87,7 @@ export function FilaTrabajadorMovil({
  * queda para el alta que salió mal, y la acción lo rechaza en cuanto la persona
  * tiene algo a su nombre.
  */
-export function FormularioTrabajador({
+function FormularioTrabajador({
   trabajador,
   onCerrar,
 }: {

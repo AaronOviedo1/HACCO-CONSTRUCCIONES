@@ -1,5 +1,7 @@
 'use client'
 
+import { useAccion } from '@/components/obras/usar-accion'
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { CalendarClock, Check, ListChecks, Plus, Trash2 } from 'lucide-react'
@@ -19,10 +21,17 @@ import {
 import type { CronogramaTarea, EstatusTarea } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
+/**
+ * La pestaña de cronograma de una OT (app/admin/obras/[id]). Las tareas, con sus
+ * subtareas, pesan en el avance global de la obra —que a su vez mueve la
+ * nómina—. `FilaTarea` pinta cada una, `FormularioTarea` la crea o la edita y
+ * `DialogoRecorrer` adelanta o atrasa de un golpe, los días que se le digan,
+ * las tareas a partir de una fecha.
+ */
+
 const DIA = 86_400_000
 
 export function PanelCronograma({ datos }: { datos: DatosObra }) {
-  const router = useRouter()
   // La tarea que se edita, 'nueva' para una de primer nivel, o { padre } para
   // colgarle una subtarea a una existente.
   const [editando, setEditando] = useState<
@@ -56,13 +65,7 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
     return { inicio, fin, dias }
   }, [datos.tareas])
 
-  const accion = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
-    iniciar(async () => {
-      setError(null)
-      const r = await fn()
-      if (!r.ok) return setError(r.error ?? 'No se pudo completar la operación.')
-      router.refresh()
-    })
+  const accion = useAccion(iniciar, setError)
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -494,7 +497,7 @@ function FormularioTarea({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -502,7 +505,7 @@ function FormularioTarea({
           type="button"
           onClick={guardar}
           disabled={pendiente || !nombre.trim()}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : 'Guardar'}
         </button>
@@ -578,7 +581,7 @@ function DialogoRecorrer({ obraId, onCerrar }: { obraId: string; onCerrar: () =>
           type="button"
           onClick={() => recorrer(1)}
           disabled={pendiente}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           + {Math.abs(num(dias))} días
         </button>

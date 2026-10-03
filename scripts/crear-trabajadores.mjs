@@ -23,7 +23,7 @@ const CONTRASENA = process.env.CONTRASENA_TRABAJADORES ?? 'HaacoPro2026!'
 
 // Nombres tal como aparecen en «4. NÓMINAS PINTORES 2026» — datos-reales.mjs
 // los busca por nombre exacto.
-export const TRABAJADORES = [
+const TRABAJADORES = [
   { correo: 'jorge.ascacio@haacopro.local',      nombre: 'Jorge Alejandro Ascacio',   oficio: 'pintor' },
   { correo: 'jesus.ramos@haacopro.local',        nombre: 'Jesús Ramos',               oficio: 'herrero' },
   { correo: 'yasxen.leyva@haacopro.local',       nombre: 'Yasxen Leyva',              oficio: 'otro', es_externo: true },

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ICONO } from '@/lib/nav'
 
 /**
@@ -50,8 +50,14 @@ export function BotonMas() {
   const pathname = usePathname()
   const [abierto, setAbierto] = useState(false)
 
-  // Navegar cierra el menú; si no, al volver atrás seguiría desplegado.
-  useEffect(() => setAbierto(false), [pathname])
+  // Navegar cierra el menú; si no, al volver atrás seguiría desplegado. Se
+  // ajusta durante el render y no en un efecto: así la pantalla nueva nunca
+  // llega a pintarse con el menú abierto.
+  const [rutaVista, setRutaVista] = useState(pathname)
+  if (rutaVista !== pathname) {
+    setRutaVista(pathname)
+    setAbierto(false)
+  }
 
   if (SIN_BOTON.some((p) => pathname.startsWith(p))) return null
 

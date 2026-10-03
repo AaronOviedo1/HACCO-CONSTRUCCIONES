@@ -5,6 +5,17 @@ import { MARCA } from '@/lib/marca'
 import { fecha, fechaLarga, montoEnLetra, pesos } from '@/lib/format'
 import { GRUPOS_TRABAJOS, textoPagare, type ReparacionContrato } from '@/lib/obras'
 
+/**
+ * Los documentos que se firman o se entregan, en PDF: recibo-contrato de
+ * anticipo, recibo de pago, contrato por obra determinada, pagaré de
+ * herramienta y póliza de garantía. Cada uno recibe sus datos ya resueltos
+ * desde su ruta en app/api y aquí sólo se dibuja.
+ *
+ * Comparten el membrete, el pie fijo y los estilos de arriba. Ojo con
+ * `lineHeight`: va texto por texto, nunca en la `Page` —ahí hace desaparecer el
+ * pie fijo de react-pdf—.
+ */
+
 const VERDE = MARCA.verde
 const VERDE_CLARO = MARCA.verdeClaro
 const TINTA = MARCA.tinta

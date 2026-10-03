@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
@@ -14,6 +15,12 @@ import {
   abonarCuentaPorPagar, abonarLoteCuentasPorPagar, eliminarCuentaPorPagar, guardarCuentaPorPagar,
 } from '@/app/admin/finanzas-acciones'
 import type { Proveedor, VCuentaPorPagar } from '@/types/database'
+
+/**
+ * Las piezas con estado de Cuentas por pagar: los botones que abren cada
+ * diálogo y los diálogos mismos (alta de cuenta, abono a una factura y pago de
+ * varias facturas de un proveedor de una vez). La tabla vive en `tabla-cxp.tsx`.
+ */
 
 export function BotonNuevaCxp({ proveedores }: { proveedores: Proveedor[] }) {
   const [abierto, setAbierto] = useState(false)
@@ -224,7 +231,7 @@ function DialogoAbono({ cuenta, onCerrar }: { cuenta: VCuentaPorPagar; onCerrar:
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -232,7 +239,7 @@ function DialogoAbono({ cuenta, onCerrar }: { cuenta: VCuentaPorPagar; onCerrar:
           type="button"
           onClick={guardar}
           disabled={pendiente || num(monto) <= 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Registrando…' : 'Registrar pago'}
         </button>
@@ -368,7 +375,7 @@ export function DialogoPagoLote({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -376,7 +383,7 @@ export function DialogoPagoLote({
           type="button"
           onClick={pagar}
           disabled={pendiente || total <= 0 || excedidas.length > 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Registrando…' : `Pagar ${pesos(total)}`}
         </button>
@@ -529,7 +536,7 @@ function FormularioCxp({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -537,7 +544,7 @@ function FormularioCxp({
           type="button"
           onClick={guardar}
           disabled={pendiente || !proveedorId || !folio.trim()}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : 'Guardar'}
         </button>

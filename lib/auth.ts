@@ -6,7 +6,7 @@ import type { Profile, RolUsuario } from '@/types/database'
 // Las etiquetas y rutas de cada rol viven en lib/roles.ts, que no depende del
 // servidor: así los formularios del navegador las pueden usar. Se reexportan
 // aquí porque es donde las busca el resto de la app.
-export { NOMBRE_ROL, RUTA_POR_ROL, esStaff } from '@/lib/roles'
+export { NOMBRE_ROL, RUTA_POR_ROL } from '@/lib/roles'
 
 /** Perfil del usuario de la sesión actual, o null si no hay sesión. */
 export async function obtenerPerfil(): Promise<Profile | null> {
@@ -36,4 +36,13 @@ export async function requerirRol(roles: RolUsuario[]): Promise<Profile> {
   const perfil = await requerirPerfil()
   if (!roles.includes(perfil.rol)) redirect(RUTA_POR_ROL[perfil.rol])
   return perfil
+}
+
+/**
+ * La guarda con la que empieza toda acción del panel: exige Dirección o
+ * Administración y entrega el cliente de Supabase con la sesión de quien pide.
+ */
+export async function staff() {
+  await requerirRol(['admin', 'administracion'])
+  return crearClienteServidor()
 }

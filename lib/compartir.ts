@@ -12,7 +12,7 @@
  */
 
 /** Diez dígitos mexicanos con lada de país. Vacío si no hay nada que marcar. */
-export function telefonoWhatsApp(telefono: string | null | undefined): string {
+function telefonoWhatsApp(telefono: string | null | undefined): string {
   const digitos = (telefono ?? '').replace(/\D/g, '')
   if (digitos.length === 0) return ''
   return digitos.length === 10 ? `52${digitos}` : digitos

@@ -20,7 +20,7 @@ import type {
 // ---------------------------------------------------------------------------
 // Disparadores
 // ---------------------------------------------------------------------------
-export function BotonNuevo({
+function BotonNuevo({
   etiqueta,
   children,
 }: {
@@ -48,7 +48,7 @@ export function BotonNuevo({
   )
 }
 
-export function BotonEditar({
+function BotonEditar({
   titulo,
   children,
 }: {
@@ -236,7 +236,7 @@ function Formulario({
 // ---------------------------------------------------------------------------
 // PROVEEDOR
 // ---------------------------------------------------------------------------
-export function FormularioProveedor({
+function FormularioProveedor({
   proveedor,
   abierto,
   onCerrar,
@@ -278,7 +278,7 @@ export function FormularioProveedor({
 // ---------------------------------------------------------------------------
 // PRODUCTO / INSUMO
 // ---------------------------------------------------------------------------
-export function FormularioProducto({
+function FormularioProducto({
   producto,
   proveedores,
   esInsumo = false,
@@ -485,7 +485,7 @@ export function BotonMovimiento({
 // ---------------------------------------------------------------------------
 // TEXTO DE PROCESO
 // ---------------------------------------------------------------------------
-export function FormularioTexto({
+function FormularioTexto({
   texto,
   abierto,
   onCerrar,
@@ -520,7 +520,7 @@ export function FormularioTexto({
 // ---------------------------------------------------------------------------
 // HERRAMIENTA
 // ---------------------------------------------------------------------------
-export function FormularioHerramienta({
+function FormularioHerramienta({
   herramienta,
   abierto,
   onCerrar,

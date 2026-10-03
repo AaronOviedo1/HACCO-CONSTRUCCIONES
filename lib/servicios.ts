@@ -1,7 +1,7 @@
 import { redondear } from '@/lib/cotizaciones'
 import type { FilaCobranza } from '@/lib/cobranza'
 import type { TonoEtiqueta } from '@/components/ui'
-import type { EstatusServicio, TipoServicio, VServicio } from '@/types/database'
+import type { EstatusServicio, TipoServicio } from '@/types/database'
 
 /**
  * Los cálculos de las reparaciones, en un solo lugar.
@@ -145,7 +145,7 @@ export const TIPO_SERVICIO: Record<TipoServicio, { texto: string; tono: TonoEtiq
 }
 
 /** Cada cuánto se vuelve a revisar un portón, según lo que hace la empresa. */
-export const MESES_ENTRE_PREVENTIVOS = 6
+const MESES_ENTRE_PREVENTIVOS = 6
 
 /**
  * El día del siguiente preventivo, contando desde el trabajo que acaba de
@@ -162,13 +162,3 @@ export function proximoPreventivo(desde: string): string {
   return `${destino.getFullYear()}-${m}-${d}`
 }
 
-/** Las visitas que tocan hoy o que se pasaron sin atender. */
-export function citasPendientes(filas: VServicio[], hoy: string): VServicio[] {
-  return filas
-    .filter((s) => s.estatus === 'agendado' && s.fecha_visita <= hoy)
-    .sort((a, b) =>
-      `${a.fecha_visita} ${a.hora_visita ?? '99'}`.localeCompare(
-        `${b.fecha_visita} ${b.hora_visita ?? '99'}`,
-      ),
-    )
-}

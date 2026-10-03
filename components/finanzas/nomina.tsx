@@ -1,5 +1,7 @@
 'use client'
 
+import { CampoMetodoPago } from '@/components/finanzas/campo-metodo-pago'
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { HandCoins, Pencil, Wallet } from 'lucide-react'
@@ -9,7 +11,7 @@ import {
 import { SelectorFecha } from '@/components/filtro-fechas'
 import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
-import { METODO_PAGO_SIN_CAJA, TIPO_DEDUCCION, etiquetaSemana } from '@/lib/finanzas'
+import { TIPO_DEDUCCION, etiquetaSemana } from '@/lib/finanzas'
 import { eliminarDeduccion, guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
 import { Etiqueta } from '@/components/ui'
 import type {
@@ -97,7 +99,6 @@ export function PanelNomina({
   rayas: VRayaSemanal[]
   prenomina: VPrenomina[]
   deducciones: Deduccion[]
-  mes: string
 }) {
   const [pagando, setPagando] = useState(false)
   const [prestando, setPrestando] = useState(false)
@@ -342,19 +343,7 @@ export function DialogoPago({
           ancho="medio"
           hijo={<SelectorFecha valor={fecha} onCambio={setFecha} />}
         />
-        <Campo
-          etiqueta="Método"
-          ancho="medio"
-          hijo={
-            <Seleccion value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPago)}>
-              {Object.entries(METODO_PAGO_SIN_CAJA).map(([valor, texto]) => (
-                <option key={valor} value={valor}>
-                  {texto}
-                </option>
-              ))}
-            </Seleccion>
-          }
-        />
+        <CampoMetodoPago valor={metodo} onCambio={setMetodo} />
 
         <div className="sm:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -526,7 +515,7 @@ export function DialogoPago({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -534,7 +523,7 @@ export function DialogoPago({
           type="button"
           onClick={guardar}
           disabled={pendiente || totales.subtotal <= 0}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Registrando…' : 'Pagar y generar recibo'}
         </button>
@@ -740,7 +729,7 @@ export function DialogoPrestamo({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -748,7 +737,7 @@ export function DialogoPrestamo({
           type="button"
           onClick={guardar}
           disabled={pendiente || num(monto) <= 0 || !trabajadorId}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : deduccion ? 'Guardar' : 'Registrar'}
         </button>

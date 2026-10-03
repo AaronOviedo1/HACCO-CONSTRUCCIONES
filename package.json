@@ -28,7 +28,6 @@
     "precios:sembrar": "node --env-file=.env.local scripts/sembrar-precios.mjs",
     "usuarios:demo": "node --env-file=.env.local scripts/crear-usuarios-demo.mjs",
     "usuarios:reales": "node --env-file=.env.local scripts/crear-trabajadores.mjs",
-    "tipos": "npx supabase gen types typescript --linked > types/supabase.ts",
     "bd:push:cli": "npx supabase db push"
   },
   "dependencies": {

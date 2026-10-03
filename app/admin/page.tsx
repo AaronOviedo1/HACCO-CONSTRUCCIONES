@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
-import { fecha, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
-import { ESTATUS_COTIZACION } from '@/lib/cotizaciones'
+import { MESES_CORTOS, fecha, hoyHermosillo, pesos, pesosCortos } from '@/lib/format'
+import { ESTATUS_COTIZACION, hoyISO } from '@/lib/cotizaciones'
 import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
 import { comoCobranza, serviciosCobrables, vendidoServicios } from '@/lib/servicios'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import {
-  CATEGORIA_GASTO, antiguedadCobranza, etiquetaMes, mesActual, rangoMes, semanasDePago,
+  CATEGORIA_GASTO, aPagarDeNomina, antiguedadCobranza, etiquetaMes, mesActual, rangoMes, semanasDePago,
 } from '@/lib/finanzas'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th,
@@ -27,8 +27,6 @@ import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/dat
 
 export const dynamic = 'force-dynamic'
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-
 /** Color con el que se pinta cada estatus de obra en la barra de composición. */
 const COLOR_TONO = {
   verde: 'var(--color-haaco-800)',
@@ -45,7 +43,7 @@ function ultimosSeisMeses() {
     const d = new Date(hoy.getFullYear(), hoy.getMonth() - 5 + i, 1)
     return {
       clave: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      m: MESES[d.getMonth()],
+      m: MESES_CORTOS[d.getMonth()],
     }
   })
 }
@@ -63,8 +61,7 @@ export default async function Dashboard() {
   const { desde: desdeSeis } = rangoMes(ventana[0].clave)
   // Hoy en día calendario local: `toISOString` se va a UTC y en Hermosillo
   // adelanta la fecha siete horas antes de tiempo.
-  const ahora = new Date()
-  const hoyIso = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
+  const hoyIso = hoyISO()
 
   const [
     historico, obras, cobranza, cxp, gastosSeis, pagosSeis, nominaSeis, prenomina,
@@ -234,10 +231,7 @@ export default async function Dashboard() {
   const montoUrgente = urgentes.reduce((s, c) => s + Number(c.saldo ?? 0), 0)
 
   const nomina = prenomina.data ?? []
-  const aPagarNomina = nomina.reduce(
-    (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
-    0,
-  )
+  const aPagarNomina = aPagarDeNomina(nomina)
 
   // ---- lo que hay que desembolsar las próximas seis semanas ---------------
   const porPagar = (cxp.data ?? []).filter(

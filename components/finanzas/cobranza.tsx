@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
@@ -25,7 +26,7 @@ import type { MetodoPago, PagoCobranza, TipoPagoCobranza, VCobranza } from '@/ty
 type ObraSimple = { id: string; nombre: string; ot_numero: string | null; estatus: string }
 
 /** Un recibo ya emitido: lo que hace falta para nombrarlo y para abrirlo. */
-export type ReciboRef = { id: string; folio: string | null }
+type ReciboRef = { id: string; folio: string | null }
 
 /**
  * Los recibos que ya se le entregaron al cliente, por pago.
@@ -761,7 +762,7 @@ function DialogoCobranza({
             <button
               type="button"
               onClick={() => setConfirmandoBorrado(false)}
-              className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+              className={BOTON_SECUNDARIO}
             >
               No, conservar
             </button>
@@ -790,7 +791,7 @@ function DialogoCobranza({
             <button
               type="button"
               onClick={pagoEditado ? cancelarEdicion : onCerrar}
-              className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+              className={BOTON_SECUNDARIO}
             >
               {pagoEditado ? 'Cancelar' : 'Cerrar'}
             </button>
@@ -798,7 +799,7 @@ function DialogoCobranza({
               type="button"
               onClick={guardar}
               disabled={pendiente || subiendo || num(monto) <= 0}
-              className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+              className={BOTON_PRIMARIO}
             >
               {subiendo
                 ? 'Subiendo…'

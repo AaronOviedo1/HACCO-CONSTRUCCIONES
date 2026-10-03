@@ -18,7 +18,7 @@ import { etiquetaEscala } from './escala'
 export const ANCHO = 620
 export const ALTO = 190
 /** Lo que se reserva a la izquierda del trazo para las cifras del eje. */
-export const CANAL = 58
+const CANAL = 58
 
 /**
  * El lienzo de una gráfica de columnas: el dibujo y las cifras del eje.
@@ -89,7 +89,7 @@ export function Lienzo({
 }
 
 /** Sangría que cuadra lo que va debajo del lienzo con la primera columna. */
-export const SANGRIA_CANAL = `${(CANAL / (ANCHO + CANAL + 5)) * 100}%`
+const SANGRIA_CANAL = `${(CANAL / (ANCHO + CANAL + 5)) * 100}%`
 
 /**
  * Las líneas horizontales de fondo. Sólidas y de un solo paso de gris: si se

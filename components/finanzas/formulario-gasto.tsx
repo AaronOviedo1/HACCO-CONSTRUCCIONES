@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_SECUNDARIO } from '@/components/clases'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useRef, useState, useTransition } from 'react'
 import { Camera, Loader2, Pencil, Plus, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react'
@@ -772,7 +773,7 @@ function FormularioGasto({
                   setProductoId(s.producto_id ?? productoDe(s.texto))
                   if (s.monto && !num(monto)) {
                     mio('importe')
-                    setMonto(String(Math.round(s.monto * (num(piezas) || 1) * 100) / 100))
+                    setMonto(String(redondear(s.monto * (num(piezas) || 1))))
                   }
                   if (s.proveedor_id && !proveedorId) {
                     mio('proveedor')
@@ -1318,7 +1319,7 @@ export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcio
             <button
               type="button"
               onClick={() => setConfirmando(false)}
-              className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+              className={BOTON_SECUNDARIO}
             >
               Conservar
             </button>

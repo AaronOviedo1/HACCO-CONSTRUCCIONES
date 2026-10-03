@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { Banknote, Paperclip, Pencil, Trash2 } from 'lucide-react'
@@ -282,7 +283,7 @@ export function DialogoCobro({
                 <button
                   type="button"
                   onClick={() => setConfirmando(false)}
-                  className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                  className={BOTON_SECUNDARIO}
                 >
                   No, conservar
                 </button>
@@ -312,7 +313,7 @@ export function DialogoCobro({
               <button
                 type="button"
                 onClick={() => (editado ? valoresDeAlta() : setAbierto(false))}
-                className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+                className={BOTON_SECUNDARIO}
               >
                 {editado ? 'Dejarlo como estaba' : 'Cancelar'}
               </button>

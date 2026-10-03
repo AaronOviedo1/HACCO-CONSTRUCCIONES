@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { ChevronDown } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { tamanoMonto } from '@/lib/format'
@@ -134,14 +133,12 @@ export function Indicador({
   valor,
   nota,
   tono = 'neutro',
-  href,
   className = '',
 }: {
   etiqueta: string
   valor: string
   nota?: string
   tono?: 'neutro' | 'verde' | 'ambar' | 'rojo'
-  href?: string
   className?: string
 }) {
   const tonos = {
@@ -155,8 +152,10 @@ export function Indicador({
   // tamaño lo dicta lo que mide el número.
   const tamano = tamanoMonto(valor)
 
-  const contenido = (
-    <>
+  return (
+    <div
+      className={`block rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-3.5 py-3.5 shadow-tarjeta lg:rounded-xl lg:px-4 ${className}`}
+    >
       <div className="text-[10.5px] font-semibold uppercase leading-tight tracking-[0.07em] text-tinta-500 lg:text-xs lg:font-medium lg:tracking-wide">
         {etiqueta}
       </div>
@@ -166,18 +165,7 @@ export function Indicador({
         {valor}
       </div>
       {nota && <div className="mt-1 text-[11px] leading-snug text-tinta-400 lg:text-xs">{nota}</div>}
-    </>
-  )
-
-  const clases =
-    `block rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-3.5 py-3.5 shadow-tarjeta lg:rounded-xl lg:px-4 ${className}`
-
-  return href ? (
-    <Link href={href} className={`${clases} transition active:bg-tinta-50 lg:hover:border-haaco-400 lg:hover:bg-haaco-50`}>
-      {contenido}
-    </Link>
-  ) : (
-    <div className={clases}>{contenido}</div>
+    </div>
   )
 }
 
@@ -260,26 +248,15 @@ export function Td({
 }
 
 // ---------------------------------------------------------------------------
-// Separadores de mes
-//
-// Se mudaron a components/meses.tsx cuando aprendieron a plegarse: llevan
-// estado y tienen que correr en el cliente. Se siguen exportando desde aquí
-// porque es donde los busca todo el mundo, y sin envolverlos en
-// <MesesPlegables> se pintan exactamente igual que antes.
-// ---------------------------------------------------------------------------
-export { FilaMes, TituloMes } from '@/components/meses'
-
-// ---------------------------------------------------------------------------
 // Renglones que se tocan enteros
 //
-// Mismo caso que los separadores: escuchan el toque, así que corren en el
-// cliente y viven aparte, pero se exportan desde aquí porque es donde se
+// Escuchan el toque, así que corren en el cliente y viven aparte, pero se exportan desde aquí porque es donde se
 // buscan las piezas de tabla.
 // ---------------------------------------------------------------------------
 export { FilaAccion, FilaEnlace } from '@/components/fila-tocable'
 
 // ---------------------------------------------------------------------------
-// Estados vacíos y módulos por construir
+// Estados vacíos
 // ---------------------------------------------------------------------------
 export function EstadoVacio({
   titulo,
@@ -296,39 +273,6 @@ export function EstadoVacio({
       {descripcion && <p className="mx-auto mt-1 max-w-md text-sm text-tinta-500">{descripcion}</p>}
       {accion && <div className="mt-4 flex justify-center">{accion}</div>}
     </div>
-  )
-}
-
-export function ModuloPendiente({
-  titulo,
-  descripcion,
-  incluye,
-}: {
-  titulo: string
-  descripcion: string
-  incluye: string[]
-}) {
-  return (
-    <>
-      <EncabezadoPagina titulo={titulo} descripcion={descripcion} />
-      <Tarjeta>
-        <div className="px-5 py-6">
-          <Etiqueta tono="ambar">Módulo por construir</Etiqueta>
-          <p className="mt-4 text-sm text-tinta-600">
-            La base de datos de este módulo ya está creada y protegida con RLS. Falta la
-            interfaz, que incluirá:
-          </p>
-          <ul className="mt-3 space-y-1.5 text-sm text-tinta-600">
-            {incluye.map((punto) => (
-              <li key={punto} className="flex gap-2">
-                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-haaco-500" />
-                <span>{punto}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Tarjeta>
-    </>
   )
 }
 

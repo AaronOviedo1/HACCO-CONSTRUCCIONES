@@ -17,6 +17,16 @@
 
 export type EstadoAccion = { error?: string; ok?: boolean; id?: string }
 
+/**
+ * Lo que devuelve una acción que se llama directo desde un componente (sin
+ * `useActionState`): o salió bien, con sus datos si los hay, o trae el motivo.
+ * Mismo cuidado que con `EstadoAccion`: se importa desde aquí, no se reexporta.
+ */
+export type Resultado<T = undefined> = { ok: true; datos?: T } | { ok: false; error: string }
+
+/** El error de Supabase, tal cual, como `Resultado` fallido. */
+export const fallo = (error: { message: string }): Resultado<never> => ({ ok: false, error: error.message })
+
 export const texto = (d: FormData, campo: string) => String(d.get(campo) ?? '').trim()
 
 export const opcional = (d: FormData, campo: string) => texto(d, campo) || null

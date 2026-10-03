@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Unlock } from 'lucide-react'
@@ -140,7 +141,7 @@ function DialogoReabrir({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>

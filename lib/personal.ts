@@ -6,7 +6,7 @@
  * y cuatro dígitos, para que dos tocayos no choquen y para que al mirar la
  * tabla de usuarios se entienda de un vistazo que ese correo no es de nadie.
  */
-export const DOMINIO_INTERNO = 'haacopro.local'
+const DOMINIO_INTERNO = 'haacopro.local'
 
 export function correoInterno(nombre: string): string {
   const base =
@@ -21,7 +21,3 @@ export function correoInterno(nombre: string): string {
   const sufijo = String(Math.floor(Math.random() * 10000)).padStart(4, '0')
   return `${base}.${sufijo}@${DOMINIO_INTERNO}`
 }
-
-/** Un correo que la app se inventó: no sirve para escribirle a nadie. */
-export const esCorreoInterno = (correo: string | null) =>
-  Boolean(correo?.endsWith(`@${DOMINIO_INTERNO}`))

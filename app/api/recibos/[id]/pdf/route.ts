@@ -10,6 +10,11 @@ import type { MetodoPago } from '@/types/database'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+/**
+ * No es `METODO_PAGO` de lib/finanzas a propósito: el recibo lo lee el cliente
+ * y lleva la redacción formal («Transferencia electrónica», «Depósito
+ * bancario»), mientras que las pantallas usan la corta.
+ */
 const METODO: Record<MetodoPago, string> = {
   efectivo: 'Efectivo',
   caja_chica: 'Caja chica', // en cobros no se ofrece; el tipo pide el mapa completo

@@ -1,7 +1,6 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useTransition } from 'react'
+import { useFiltroUrl } from '@/components/usar-filtro-url'
 import { X } from 'lucide-react'
 import { BuscadorTabla } from '@/components/buscador'
 import { FiltroRango } from '@/components/filtro-fechas'
@@ -16,16 +15,7 @@ export function FiltrosGastos({
 }: {
   obras: { id: string; nombre: string; ot_numero: string | null }[]
 }) {
-  const router = useRouter()
-  const params = useSearchParams()
-  const [, iniciar] = useTransition()
-
-  const fijar = (clave: string, valor: string) => {
-    const nuevos = new URLSearchParams(params.toString())
-    if (valor) nuevos.set(clave, valor)
-    else nuevos.delete(clave)
-    iniciar(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
-  }
+  const { params, fijar, limpiar } = useFiltroUrl()
 
   const hayFiltros = ['obra', 'categoria', 'metodo', 'q', 'desde', 'hasta'].some((k) => params.get(k))
 
@@ -76,7 +66,7 @@ export function FiltrosGastos({
       {hayFiltros && (
         <button
           type="button"
-          onClick={() => iniciar(() => router.replace('?', { scroll: false }))}
+          onClick={limpiar}
           className="col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-tinta-500 transition hover:bg-tinta-100 lg:col-span-1 lg:min-h-0 lg:py-2"
         >
           <X size={14} />

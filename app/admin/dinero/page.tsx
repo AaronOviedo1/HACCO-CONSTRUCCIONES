@@ -4,7 +4,7 @@ import { requerirRol } from '@/lib/auth'
 import { pesosCortos } from '@/lib/format'
 import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
 import { comoCobranza, serviciosCobrables } from '@/lib/servicios'
-import { vencimientosPorSemana } from '@/lib/finanzas'
+import { aPagarDeNomina, saldoDeCaja, vencimientosPorSemana } from '@/lib/finanzas'
 import { EncabezadoPagina, Tarjeta } from '@/components/ui'
 import { BarrasSemanas, Tile } from '@/components/movil/piezas'
 
@@ -41,16 +41,10 @@ export default async function PaginaDinero() {
   const urgentes = activas.filter((c) => c.estado === 'vencida' || c.estado === 'urgente')
   const montoUrgente = urgentes.reduce((s, c) => s + c.saldo, 0)
 
-  const aPagarNomina = (prenomina ?? []).reduce(
-    (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
-    0,
-  )
+  const aPagarNomina = aPagarDeNomina(prenomina ?? [])
   const contratos = (prenomina ?? []).length
 
-  const saldoCaja = (caja ?? []).reduce(
-    (s, m) => s + (m.tipo === 'entrada' ? Number(m.monto) : -Number(m.monto)),
-    0,
-  )
+  const saldoCaja = saldoDeCaja(caja ?? [])
 
   return (
     <>

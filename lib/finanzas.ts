@@ -1,9 +1,16 @@
-import { hoyHermosillo, parsearFecha } from '@/lib/format'
+import { MESES_CORTOS, MESES_LARGOS, hoyHermosillo, isoLocal, parsearFecha } from '@/lib/format'
 import type { TonoEtiqueta } from '@/components/ui'
 import type {
   CategoriaGasto, CondicionCompra, EstadoCxp, EstadoPagoFijo, MetodoPago, PeriodicidadPago,
-  TipoDeduccion, TipoPagoCobranza, TipoPagoProgramado,
+  TipoDeduccion, TipoPagoCobranza,
 } from '@/types/database'
+
+/**
+ * Lo que comparten las pantallas de dinero y que no necesita ni React ni la
+ * base: las etiquetas de cada enumeración, el calendario de la empresa
+ * (quincenas el 15 y fin de mes, semanas de lunes a sábado de raya), los rangos
+ * de fechas que viajan en la URL y las sumas que se enseñan en más de un sitio.
+ */
 
 export const CATEGORIA_GASTO: Record<CategoriaGasto, string> = {
   material: 'Material',
@@ -65,11 +72,6 @@ export const ESTADO_PAGO_FIJO: Record<EstadoPagoFijo, { texto: string; tono: Ton
   programado: { texto: 'Programado', tono: 'gris' },
 }
 
-export const TIPO_PAGO_PROGRAMADO: Record<TipoPagoProgramado, string> = {
-  personal: 'Personal',
-  servicio: 'Servicio',
-}
-
 /**
  * Cada cuándo sale un pago del catálogo. Los sueldos caen en las dos
  * quincenas; la renta y el internet, una vez al mes.
@@ -112,20 +114,17 @@ export const CATEGORIAS_PAGO_FIJO = [
 // ---------------------------------------------------------------------------
 // Quincenas: la empresa paga el día 15 y el último día de cada mes.
 // ---------------------------------------------------------------------------
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
 /** La quincena a la que pertenece una fecha: el 15 o el fin de mes. */
 export function quincenaDe(fecha: Date | string): string {
   const d = typeof fecha === 'string' ? new Date(`${fecha}T00:00:00`) : fecha
-  if (d.getDate() <= 15) return iso(new Date(d.getFullYear(), d.getMonth(), 15))
-  return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+  if (d.getDate() <= 15) return isoLocal(new Date(d.getFullYear(), d.getMonth(), 15))
+  return isoLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0))
 }
 
 /** Las quincenas del mes indicado (formato "aaaa-mm"). */
 export function quincenasDelMes(mes: string): string[] {
   const [anio, m] = mes.split('-').map(Number)
-  return [iso(new Date(anio, m - 1, 15)), iso(new Date(anio, m, 0))]
+  return [isoLocal(new Date(anio, m - 1, 15)), isoLocal(new Date(anio, m, 0))]
 }
 
 export function etiquetaQuincena(quincena: string): string {
@@ -147,33 +146,19 @@ export function semanaDe(fecha: Date | string): string {
   const d = typeof fecha === 'string' ? new Date(`${fecha}T00:00:00`) : new Date(fecha)
   // getDay(): 0 es domingo. El domingo pertenece a la semana que va terminando.
   const alLunes = d.getDay() === 0 ? -6 : 1 - d.getDay()
-  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + alLunes))
+  return isoLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate() + alLunes))
 }
 
 /** El sábado en que se raya esa semana. */
 export function diaDeRaya(lunes: string): string {
   const d = new Date(`${lunes}T00:00:00`)
-  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 5))
-}
-
-/** Los lunes cuya semana de trabajo cae, aunque sea en parte, dentro del mes. */
-export function semanasDelMes(mes: string): string[] {
-  const [anio, m] = mes.split('-').map(Number)
-  const finDeMes = new Date(anio, m, 0)
-  const semanas: string[] = []
-
-  for (let lunes = semanaDe(iso(new Date(anio, m - 1, 1)));
-       lunes <= iso(finDeMes);
-       lunes = semanaDe(sumarDias(lunes, 7))) {
-    semanas.push(lunes)
-  }
-  return semanas
+  return isoLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 5))
 }
 
 /** El día que cae N días después —o antes, con negativo— de uno dado. */
 export const sumarDias = (fecha: string, dias: number) => {
   const d = new Date(`${fecha}T00:00:00`)
-  return iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias))
+  return isoLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias))
 }
 
 /** "del 7 al 12 de septiembre", o con los dos meses si la semana los cruza. */
@@ -181,8 +166,8 @@ export function etiquetaSemana(lunes: string): string {
   const [a1, m1, d1] = lunes.split('-').map(Number)
   const [a2, m2, d2] = diaDeRaya(lunes).split('-').map(Number)
 
-  if (m1 === m2 && a1 === a2) return `del ${d1} al ${d2} de ${MESES_LARGOS_MIN[m1 - 1]}`
-  return `del ${d1} de ${MESES_LARGOS_MIN[m1 - 1]} al ${d2} de ${MESES_LARGOS_MIN[m2 - 1]}`
+  if (m1 === m2 && a1 === a2) return `del ${d1} al ${d2} de ${MESES_LARGOS[m1 - 1]}`
+  return `del ${d1} de ${MESES_LARGOS[m1 - 1]} al ${d2} de ${MESES_LARGOS[m2 - 1]}`
 }
 
 /**
@@ -199,7 +184,7 @@ export function mesActual(): string {
 /** Primer día del mes y primer día del siguiente, para filtrar rangos. */
 export function rangoMes(mes: string): { desde: string; hasta: string } {
   const [anio, m] = mes.split('-').map(Number)
-  return { desde: iso(new Date(anio, m - 1, 1)), hasta: iso(new Date(anio, m, 1)) }
+  return { desde: isoLocal(new Date(anio, m - 1, 1)), hasta: isoLocal(new Date(anio, m, 1)) }
 }
 
 /**
@@ -229,7 +214,7 @@ export function rangoDeUrl(
   const siguiente = hastaElegido
     ? (() => {
         const [a, m, d] = hastaElegido.split('-').map(Number)
-        return iso(new Date(a, m - 1, d + 1))
+        return isoLocal(new Date(a, m - 1, d + 1))
       })()
     : null
 
@@ -241,11 +226,8 @@ export function rangoDeUrl(
   }
 }
 
-const MESES_LARGOS_MIN = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-
 /** "julio de 2026", "del 1 al 15 de julio" o "desde el 3 de agosto". */
-export function etiquetaRangoLegible(desde: string | null, hasta: string | null): string {
+function etiquetaRangoLegible(desde: string | null, hasta: string | null): string {
   const partes = (v: string) => v.split('-').map(Number)
 
   if (desde && hasta) {
@@ -253,23 +235,21 @@ export function etiquetaRangoLegible(desde: string | null, hasta: string | null)
     const [a2, m2, d2] = partes(hasta)
     const finDeMes = new Date(a1, m1, 0).getDate()
     if (a1 === a2 && m1 === m2 && d1 === 1 && d2 === finDeMes) {
-      return `${MESES_LARGOS_MIN[m1 - 1]} de ${a1}`
+      return `${MESES_LARGOS[m1 - 1]} de ${a1}`
     }
-    if (a1 === a2 && m1 === m2) return `del ${d1} al ${d2} de ${MESES_LARGOS_MIN[m1 - 1]}`
-    return `del ${d1} de ${MESES_LARGOS_MIN[m1 - 1]} al ${d2} de ${MESES_LARGOS_MIN[m2 - 1]} de ${a2}`
+    if (a1 === a2 && m1 === m2) return `del ${d1} al ${d2} de ${MESES_LARGOS[m1 - 1]}`
+    return `del ${d1} de ${MESES_LARGOS[m1 - 1]} al ${d2} de ${MESES_LARGOS[m2 - 1]} de ${a2}`
   }
 
   const solo = desde ?? hasta
   if (!solo) return 'todo el histórico'
   const [a, m, d] = partes(solo)
-  return `${desde ? 'desde' : 'hasta'} el ${d} de ${MESES_LARGOS_MIN[m - 1]} de ${a}`
+  return `${desde ? 'desde' : 'hasta'} el ${d} de ${MESES_LARGOS[m - 1]} de ${a}`
 }
 
 export function etiquetaMes(mes: string): string {
   const [anio, m] = mes.split('-').map(Number)
-  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-  return `${meses[m - 1]} de ${anio}`
+  return `${MESES_LARGOS[m - 1]} de ${anio}`
 }
 
 /**
@@ -300,8 +280,6 @@ export function agruparPorMes<T>(
 export function vencimientosPorSemana(
   cuentas: { vencimiento: string | null; saldo: number }[],
 ): { etiqueta: string; monto: number; texto: string }[] {
-  const cortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
 
@@ -320,7 +298,7 @@ export function vencimientosPorSemana(
       .reduce((s, c) => s + c.saldo, 0)
 
     return {
-      etiqueta: `${desde.getDate()} ${cortos[desde.getMonth()]}`,
+      etiqueta: `${desde.getDate()} ${MESES_CORTOS[desde.getMonth()]}`,
       monto,
       texto: monto > 0 ? `$${Math.round(monto / 1000)}k` : '—',
     }
@@ -340,8 +318,6 @@ export function semanasDePago(
   fuentes: { clave: string; pagos: { fecha: string | null; monto: number }[] }[],
   cuantas = 6,
 ): { etiqueta: string; total: number; partes: Record<string, number> }[] {
-  const cortos = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
   const hoy = new Date()
   hoy.setHours(0, 0, 0, 0)
 
@@ -363,7 +339,7 @@ export function semanasDePago(
     }
 
     return {
-      etiqueta: `${desde.getDate()} ${cortos[desde.getMonth()]}`,
+      etiqueta: `${desde.getDate()} ${MESES_CORTOS[desde.getMonth()]}`,
       total: Object.values(partes).reduce((s, v) => s + v, 0),
       partes,
     }
@@ -371,7 +347,7 @@ export function semanasDePago(
 }
 
 /** Los cuatro tramos de antigüedad, del más sano al más rancio. */
-export const TRAMOS_MORA = [
+const TRAMOS_MORA = [
   { clave: 'sano', etiqueta: 'Menos de 30 días', hasta: 30 },
   { clave: 'medio', etiqueta: 'De 30 a 60 días', hasta: 60 },
   { clave: 'viejo', etiqueta: 'De 60 a 90 días', hasta: 90 },
@@ -411,4 +387,30 @@ export function tonoCobranza(pctPendiente: number): TonoEtiqueta {
   if (pctPendiente <= 0) return 'verde'
   if (pctPendiente <= 50) return 'azul'
   return 'ambar'
+}
+
+// ---------------------------------------------------------------------------
+// Números que se enseñan en más de una pantalla
+//
+// El tablero, Dinero, Nómina y Caja chica muestran estas dos cifras. Viven
+// aquí por la misma razón que `lib/cobranza`: si cada pantalla hace su propia
+// suma, tarde o temprano dejan de coincidir.
+// ---------------------------------------------------------------------------
+
+/** Lo que de verdad sale de la caja en nómina: lo devengado menos los préstamos, sin bajar de cero por persona. */
+export function aPagarDeNomina(
+  prenomina: { disponible: number | string | null; deducciones: number | string | null }[],
+): number {
+  return prenomina.reduce(
+    (s, p) => s + Math.max(0, Number(p.disponible) - Number(p.deducciones)),
+    0,
+  )
+}
+
+/** El saldo de la caja chica: entradas menos todo lo demás. Es histórico, no se corta por mes. */
+export function saldoDeCaja(movimientos: { tipo: string; monto: number | string }[]): number {
+  return movimientos.reduce(
+    (s, m) => s + (m.tipo === 'entrada' ? Number(m.monto) : -Number(m.monto)),
+    0,
+  )
 }

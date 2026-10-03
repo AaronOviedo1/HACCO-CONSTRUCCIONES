@@ -1,5 +1,6 @@
 'use client'
 
+import { BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition, type ReactNode } from 'react'
 import { CalendarPlus, CheckCircle2, ClipboardList, Undo2, Wrench, X } from 'lucide-react'
@@ -109,7 +110,7 @@ export function DialogoDiagnostico({
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            className={BOTON_SECUNDARIO}
           >
             Cancelar
           </button>
@@ -181,7 +182,7 @@ export function AccionesResolucion({ servicio }: { servicio: VServicio }) {
           <button
             type="button"
             onClick={() => setAbierto(null)}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            className={BOTON_SECUNDARIO}
           >
             Cancelar
           </button>
@@ -258,7 +259,7 @@ export function DialogoReparado({ servicio }: { servicio: VServicio }) {
           <button
             type="button"
             onClick={() => setAbierto(false)}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            className={BOTON_SECUNDARIO}
           >
             Cancelar
           </button>
@@ -375,7 +376,7 @@ export function AccionesSecundarias({ servicio }: { servicio: VServicio }) {
           <button
             type="button"
             onClick={() => setCancelando(false)}
-            className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            className={BOTON_SECUNDARIO}
           >
             No, conservar
           </button>

@@ -9,9 +9,6 @@ import type { ReactNode } from 'react'
  * `lg:` para no estorbar a la vista de escritorio, que sigue siendo de tablas.
  */
 
-/** Paleta de las gráficas: el verde de marca abriendo hacia el claro. */
-export const PALETA = ['#145836', '#1b6f42', '#2d8a56', '#4ea474', '#7fc19b', '#aedac0']
-
 // ---------------------------------------------------------------------------
 // Cabecera de pantalla apilada (detalle)
 // ---------------------------------------------------------------------------
@@ -263,95 +260,6 @@ export function BotonGrande({
 }
 
 // ---------------------------------------------------------------------------
-// Aviso de confirmación
-// ---------------------------------------------------------------------------
-export function AvisoLogrado({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex items-center gap-2.5 rounded-[14px] border-[0.5px] border-haaco-200 bg-haaco-50 p-3 text-[14.5px] font-semibold text-haaco-800">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden>
-        <path
-          d="M5 13l4.5 4.5L19 7"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      {children}
-    </p>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Donut de composición
-// ---------------------------------------------------------------------------
-export function Donut({
-  partes,
-  centro,
-  pie,
-}: {
-  partes: { n: string; v: number }[]
-  centro: string
-  pie: string
-}) {
-  const total = partes.reduce((s, p) => s + p.v, 0)
-  const r = 46
-  const circunferencia = 2 * Math.PI * r
-  const fracciones = partes.map((p) => (total > 0 ? p.v / total : 0))
-
-  const segmentos = partes.map((p, i) => {
-    // Cada arco arranca donde terminó la suma de los anteriores.
-    const inicio = fracciones.slice(0, i).reduce((s, f) => s + f, 0)
-    return {
-      ...p,
-      color: PALETA[i % PALETA.length],
-      dash: `${Math.max(0, fracciones[i] * circunferencia - 1.5).toFixed(1)} ${circunferencia.toFixed(1)}`,
-      offset: (-inicio * circunferencia).toFixed(1),
-      pct: `${Math.round(fracciones[i] * 100)}%`,
-    }
-  })
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="relative h-28 w-28 shrink-0">
-        <svg width="112" height="112" viewBox="0 0 112 112" className="-rotate-90" aria-hidden>
-          {segmentos.map((s) => (
-            <circle
-              key={s.n}
-              cx="56"
-              cy="56"
-              r={r}
-              fill="none"
-              stroke={s.color}
-              strokeWidth="18"
-              strokeDasharray={s.dash}
-              strokeDashoffset={s.offset}
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-          <span className="text-[15px] font-bold -tracking-[0.4px]">{centro}</span>
-          <span className="mt-1 text-[9px] uppercase tracking-[0.07em] text-tinta-400">{pie}</span>
-        </div>
-      </div>
-      <ul className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {segmentos.map((s) => (
-          <li key={s.n} className="flex items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
-              style={{ background: s.color }}
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1 truncate text-xs text-tinta-700">{s.n}</span>
-            <span className="text-[11.5px] font-semibold tabular-nums text-tinta-600">{s.pct}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Barras de vencimientos por semana
 // ---------------------------------------------------------------------------
 export function BarrasSemanas({
@@ -429,17 +337,5 @@ export function FilaLista({
     </Link>
   ) : (
     <div className={clases}>{cuerpo}</div>
-  )
-}
-
-/** Enlace de cierre de una tarjeta-lista: «Ver todo →». */
-export function PieTarjeta({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="flex min-h-[46px] items-center px-4 text-[14.5px] font-semibold text-haaco-700"
-    >
-      {children}
-    </Link>
   )
 }

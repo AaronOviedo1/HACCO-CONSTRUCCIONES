@@ -51,7 +51,13 @@ export async function cargarCatalogos() {
  * cotización se sintiera lento. Va aparte a propósito, para que la pantalla
  * salga primero y esto llegue después.
  */
-export async function cargarSugerencias(): Promise<SugerenciasCotizacion> {
+export function sugerenciasSinEsperar(): Promise<SugerenciasCotizacion> {
+  // El `catch` va aquí para que un fallo no viaje como rechazo suelto: quien
+  // llama pasa la promesa tal cual al componente y se resuelve allá.
+  return cargarSugerencias().catch(() => ({ partidas: [], materiales: [], procesos: [] }))
+}
+
+async function cargarSugerencias(): Promise<SugerenciasCotizacion> {
   const supabase = await crearClienteServidor()
   const [{ data: partidasPrevias }, { data: materialesPrevios }, { data: procesosPrevios }] =
     await Promise.all([

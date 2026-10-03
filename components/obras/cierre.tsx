@@ -1,5 +1,7 @@
 'use client'
 
+import { useAccion } from '@/components/obras/usar-accion'
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO } from '@/components/clases'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { AlertTriangle, Check, Lock, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
@@ -18,6 +20,16 @@ import {
 } from '@/app/admin/obras/acciones'
 import type { ResultadoCierre } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
+
+/**
+ * La pestaña de cierre de una OT (app/admin/obras/[id]).
+ *
+ * `PanelCierre` enseña qué falta para cerrar —cada `Requisito`: conceptos sin
+ * atender, saldo del cliente, mano de obra por pagar, herramienta sin devolver—
+ * y permite cerrar aun así, forzando; `DialogoDiagnostico` enseña lo que
+ * contestó la base al intentarlo. De aquí salen también la póliza de garantía
+ * (`FormularioPoliza`) y el borrado de la obra (`DialogoBorrarObra`).
+ */
 
 type AreaPoliza = { area: string; pintura: string; color: string; codigo: string }
 
@@ -44,13 +56,7 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
 
   const listo = sinAtender.length === 0 && saldo <= 0 && moPendiente <= 0
 
-  const accion = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
-    iniciar(async () => {
-      setError(null)
-      const r = await fn()
-      if (!r.ok) return setError(r.error ?? 'No se pudo completar la operación.')
-      router.refresh()
-    })
+  const accion = useAccion(iniciar, setError)
 
   const cerrar = (forzar: boolean) =>
     iniciar(async () => {
@@ -523,7 +529,7 @@ function DialogoBorrarObra({ datos, onCerrar }: { datos: DatosObra; onCerrar: ()
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -699,7 +705,7 @@ function FormularioPoliza({
         <button
           type="button"
           onClick={onCerrar}
-          className="rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          className={BOTON_SECUNDARIO}
         >
           Cancelar
         </button>
@@ -707,7 +713,7 @@ function FormularioPoliza({
           type="button"
           onClick={guardar}
           disabled={pendiente}
-          className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
+          className={BOTON_PRIMARIO}
         >
           {pendiente ? 'Guardando…' : 'Guardar póliza'}
         </button>
