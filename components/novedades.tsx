@@ -15,6 +15,19 @@ const marcarVistas = () => {
 }
 
 /**
+ * Si a este rol le falta ver la entrega de hoy en este aparato. Lo pregunta
+ * el recordatorio de pago para no salir encimado con esta hoja.
+ */
+export function hayNovedadesPorVer(rol: RolUsuario): boolean {
+  if (entregasDe(rol).length === 0) return false
+  try {
+    return localStorage.getItem(CLAVE) !== VERSION_NOVEDADES
+  } catch {
+    return false
+  }
+}
+
+/**
  * Lo nuevo de esta versión, la primera vez que alguien entra después de que
  * subió.
  *
