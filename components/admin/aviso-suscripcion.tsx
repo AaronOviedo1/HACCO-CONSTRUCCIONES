@@ -4,7 +4,8 @@ import { RecordatorioPago } from '@/components/admin/recordatorio-pago'
 import { fechaLarga, hoyHermosillo } from '@/lib/format'
 import { conImpago, sinSuscripcion } from '@/lib/stripe/estado'
 import { stripeConfigurado } from '@/lib/stripe/cliente'
-import { DIA_DE_COBRO, RECORDATORIO_DESDE } from '@/lib/stripe/fechas'
+import { DIA_DE_COBRO, DIAS_DE_GRACIA, RECORDATORIO_DESDE } from '@/lib/stripe/fechas'
+import { crearClienteAdmin } from '@/lib/supabase/admin'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import type { BloqueoApp, RolUsuario } from '@/types/database'
 
@@ -13,12 +14,15 @@ import type { BloqueoApp, RolUsuario } from '@/types/database'
  *
  * Roja en todo el panel cuando el cobro del 12 no entró, con la fecha en que
  * la app se pondría en pausa; discreta y sólo en el tablero mientras no haya
- * tarjeta registrada. A los demás roles no les sale nada: la suscripción no
- * es asunto suyo, y la consulta ni se hace.
+ * tarjeta registrada.
  *
  * El modo `impago` carga además con el recordatorio que sale encima al entrar
  * (`RecordatorioPago`), para los dos pendientes: sin tarjeta y cobro fallido.
  * Va aquí y no en un componente aparte porque es la misma lectura de la fila.
+ *
+ * Las franjas son sólo de Dirección. El recordatorio le sale también a
+ * Administración, que no paga pero sí se queda sin app si nadie lo hace; al
+ * contador y a la cuadrilla no les sale nada, y la consulta ni se hace.
  */
 export async function AvisoSuscripcion({
   rol,
@@ -31,19 +35,27 @@ export async function AvisoSuscripcion({
    */
   modo: 'impago' | 'invitacion'
 }) {
-  if (rol !== 'admin' || !stripeConfigurado()) return null
+  if (!stripeConfigurado()) return null
+  const esDireccion = rol === 'admin'
+  // A Administración sólo le toca el recordatorio, y ése cuelga del layout.
+  if (!esDireccion && !(rol === 'administracion' && modo === 'impago')) return null
 
   const supabase = await crearClienteServidor()
+  // La fila sólo la puede leer Dirección (RLS). Para Administración se lee
+  // con la llave de servicio, aquí en el servidor, y de ella sólo sale al
+  // navegador lo que dice el recordatorio: pendiente o no, y hasta cuándo.
+  const lector = esDireccion ? supabase : crearClienteAdmin()
+  if (!lector) return null
+
   const [{ data: fila }, { data: bloqueo }] = await Promise.all([
-    supabase.from('suscripcion_app').select('estado, impago_desde').eq('id', true).maybeSingle(),
+    lector.from('suscripcion_app').select('estado, impago_desde').eq('id', true).maybeSingle(),
     supabase.rpc('bloqueo_app'),
   ])
   if (!fila) return null
   const candado: BloqueoApp | undefined = bloqueo?.[0]
 
   // El recordatorio sólo cuelga del layout: en el tablero saldría dos veces.
-  const hoy = hoyHermosillo()
-  const recordar = modo === 'impago' && hoy >= RECORDATORIO_DESDE
+  const recordar = modo === 'impago' && hoyHermosillo() >= RECORDATORIO_DESDE
 
   if (modo === 'impago' && conImpago(fila.estado)) {
     const fecha = candado?.bloquea_el ? fechaLarga(candado.bloquea_el) : null
@@ -52,27 +64,29 @@ export async function AvisoSuscripcion({
         {recordar && (
           <RecordatorioPago
             rol={rol}
-            hoy={hoy}
             caso="impago"
             diaDeCobro={DIA_DE_COBRO}
-            fechaPausa={fecha}
+            diasDeGracia={DIAS_DE_GRACIA}
+            fechaBloqueo={fecha}
           />
         )}
-        <Link
-          href="/admin/suscripcion"
-          className="mb-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 transition hover:bg-red-100 lg:rounded-xl"
-        >
-          <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />
-          <span>
-            <strong className="font-semibold">No se pudo cobrar la mensualidad de la app.</strong>{' '}
-            {candado?.bloqueada
-              ? 'La app está en pausa hasta que se pague.'
-              : fecha
-                ? `Si el ${fecha} sigue sin pagarse, la app se pone en pausa.`
-                : 'Revisa la tarjeta antes de que la app se ponga en pausa.'}{' '}
-            <span className="underline">Ver cómo pagar</span>
-          </span>
-        </Link>
+        {esDireccion && (
+          <Link
+            href="/admin/suscripcion"
+            className="mb-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 transition hover:bg-red-100 lg:rounded-xl"
+          >
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />
+            <span>
+              <strong className="font-semibold">No se pudo cobrar la mensualidad de la app.</strong>{' '}
+              {candado?.bloqueada
+                ? 'La app está en pausa hasta que se pague.'
+                : fecha
+                  ? `Si el ${fecha} sigue sin pagarse, la app se pone en pausa.`
+                  : 'Revisa la tarjeta antes de que la app se ponga en pausa.'}{' '}
+              <span className="underline">Ver cómo pagar</span>
+            </span>
+          </Link>
+        )}
       </>
     )
   }
@@ -81,10 +95,10 @@ export async function AvisoSuscripcion({
     return (
       <RecordatorioPago
         rol={rol}
-        hoy={hoy}
         caso="sin_tarjeta"
         diaDeCobro={DIA_DE_COBRO}
-        fechaPausa={null}
+        diasDeGracia={DIAS_DE_GRACIA}
+        fechaBloqueo={null}
       />
     )
   }

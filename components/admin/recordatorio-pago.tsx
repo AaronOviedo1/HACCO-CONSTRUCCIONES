@@ -7,61 +7,67 @@ import { AlertTriangle, CreditCard, X } from 'lucide-react'
 import { hayNovedadesPorVer } from '@/components/novedades'
 import type { RolUsuario } from '@/types/database'
 
-const CLAVE = 'haaco:recordatorio-pago'
 const DESTINO = '/admin/suscripcion'
 
+/** 7 → «séptimo». Fuera de la tabla, el número con su º. */
+const ORDINALES: Record<number, string> = {
+  3: 'tercer',
+  5: 'quinto',
+  7: 'séptimo',
+  10: 'décimo',
+  15: 'decimoquinto',
+}
+
 /**
- * El recordatorio de la mensualidad, al entrar.
+ * El recordatorio de la mensualidad, cada vez que se entra a la app.
  *
- * La franja del tablero se deja de ver al segundo día; esto sale encima, una
- * vez al día y por aparato, mientras la mensualidad siga sin resolverse: o no
- * hay tarjeta registrada, o el cobro del 12 no entró. En cuanto se resuelve,
- * el servidor deja de mandarlo y no hay nada que apagar aquí.
+ * La franja del tablero se deja de ver al segundo día; esto sale encima
+ * mientras la mensualidad siga sin resolverse: o no hay tarjeta registrada, o
+ * el cobro del 12 no entró. En cuanto se resuelve, el servidor deja de
+ * mandarlo y no hay nada que apagar aquí.
  *
- * Como el aviso de novedades, la marca vive en el navegador y espera un
- * momento antes de salir. Si ese día también toca enseñar novedades, se
- * espera a la siguiente pantalla: dos hojas encimadas se cierran sin leer
- * ninguna.
+ * «Cada vez que se entra» es cada vez que la app se abre o se recarga, no cada
+ * pantalla: lo cerrado se recuerda en estado, que vive lo que vive el layout,
+ * y no en el navegador. Así al moverse por el panel no vuelve a salir, y al
+ * abrir la app de nuevo sí.
+ *
+ * Espera un momento antes de salir, como el aviso de novedades, y si ese día
+ * también toca enseñar novedades se espera a la siguiente pantalla: dos hojas
+ * encimadas se cierran sin leer ninguna.
+ *
+ * A Dirección le ofrece ir a pagar. A Administración sólo le avisa: la
+ * pantalla de Suscripción no es suya.
  */
 export function RecordatorioPago({
   rol,
-  hoy,
   caso,
   diaDeCobro,
-  fechaPausa,
+  diasDeGracia,
+  fechaBloqueo,
 }: {
   rol: RolUsuario
-  /** La fecha de hoy en Hermosillo, dicha por el servidor: 2026-10-13. */
-  hoy: string
   caso: 'sin_tarjeta' | 'impago'
   diaDeCobro: number
-  /** Cuándo se pondría en pausa la app, ya escrita: «19 de octubre de 2026». */
-  fechaPausa: string | null
+  diasDeGracia: number
+  /** Cuándo se bloquearía la app, ya escrita: «19 de octubre de 2026». */
+  fechaBloqueo: string | null
 }) {
   const [abierto, setAbierto] = useState(false)
+  const [cerrado, setCerrado] = useState(false)
   const ruta = usePathname()
   // En la pantalla donde se paga, el recordatorio sale sobrando.
   const enDestino = ruta.startsWith(DESTINO)
 
   useEffect(() => {
-    if (enDestino) return
-    try {
-      if (localStorage.getItem(CLAVE) === hoy) return
-    } catch {
-      // Sin almacenamiento no hay forma de saber si ya salió hoy: mejor nada
-      // que el mismo aviso en cada pantalla.
-      return
-    }
+    if (cerrado || enDestino) return
     if (hayNovedadesPorVer(rol)) return
     const t = setTimeout(() => setAbierto(true), 900)
     return () => clearTimeout(t)
-  }, [enDestino, hoy, rol, ruta])
+  }, [cerrado, enDestino, rol, ruta])
 
   const cerrar = () => {
     setAbierto(false)
-    try {
-      localStorage.setItem(CLAVE, hoy)
-    } catch {}
+    setCerrado(true)
   }
 
   useEffect(() => {
@@ -69,9 +75,7 @@ export function RecordatorioPago({
     const alTeclear = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       setAbierto(false)
-      try {
-        localStorage.setItem(CLAVE, hoy)
-      } catch {}
+      setCerrado(true)
     }
     document.addEventListener('keydown', alTeclear)
     document.body.style.overflow = 'hidden'
@@ -79,11 +83,13 @@ export function RecordatorioPago({
       document.removeEventListener('keydown', alTeclear)
       document.body.style.overflow = ''
     }
-  }, [abierto, hoy])
+  }, [abierto])
 
   if (!abierto || enDestino) return null
 
   const impago = caso === 'impago'
+  const paga = rol === 'admin'
+  const ordinal = ORDINALES[diasDeGracia] ?? `${diasDeGracia}º`
 
   return (
     // z-[60]: por encima del «+» flotante del teléfono, igual que las novedades.
@@ -128,11 +134,18 @@ export function RecordatorioPago({
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-tinta-600">
               {impago
-                ? fechaPausa
-                  ? `El cargo del día ${diaDeCobro} no entró. Si el ${fechaPausa} sigue sin pagarse, la app se pone en pausa para todos.`
-                  : `El cargo del día ${diaDeCobro} no entró. Revisa la tarjeta antes de que la app se ponga en pausa.`
-                : `La mensualidad de HaacoPro se cobra el día ${diaDeCobro} de cada mes y todavía no hay una tarjeta registrada. Regístrala una vez y de ahí en adelante se cobra sola.`}
+                ? `El cargo del día ${diaDeCobro} no entró.`
+                : `La mensualidad de HaacoPro se cobra el día ${diaDeCobro} de cada mes y todavía no hay una tarjeta registrada.`}
             </p>
+            <p className="mt-2 text-sm font-medium leading-relaxed text-tinta-900">
+              El acceso a la app se bloquea al {ordinal} día sin pago
+              {fechaBloqueo ? `: el ${fechaBloqueo}.` : '.'}
+            </p>
+            {!paga && (
+              <p className="mt-2 text-sm leading-relaxed text-tinta-600">
+                El pago lo hace Dirección, en Más → Suscripción.
+              </p>
+            )}
           </div>
 
           <button
@@ -146,22 +159,34 @@ export function RecordatorioPago({
         </div>
 
         <div className="flex flex-col gap-2 border-t-[0.5px] border-tinta-150 bg-tinta-50 px-5 py-3 pb-seguro sm:flex-row-reverse sm:pb-3">
-          <Link
-            href={DESTINO}
-            onClick={cerrar}
-            className={`w-full rounded-[14px] px-4 py-3 text-center text-[15.5px] font-semibold text-white transition sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium ${
-              impago ? 'bg-red-700 hover:bg-red-800' : 'bg-haaco-700 hover:bg-haaco-800'
-            }`}
-          >
-            {impago ? 'Ver cómo pagar' : 'Registrar tarjeta'}
-          </Link>
-          <button
-            type="button"
-            onClick={cerrar}
-            className="w-full rounded-[14px] px-4 py-3 text-[15.5px] font-medium text-tinta-600 transition hover:bg-tinta-100 sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm"
-          >
-            Recordármelo mañana
-          </button>
+          {paga ? (
+            <>
+              <Link
+                href={DESTINO}
+                onClick={cerrar}
+                className={`w-full rounded-[14px] px-4 py-3 text-center text-[15.5px] font-semibold text-white transition sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium ${
+                  impago ? 'bg-red-700 hover:bg-red-800' : 'bg-haaco-700 hover:bg-haaco-800'
+                }`}
+              >
+                {impago ? 'Ver cómo pagar' : 'Registrar tarjeta'}
+              </Link>
+              <button
+                type="button"
+                onClick={cerrar}
+                className="w-full rounded-[14px] px-4 py-3 text-[15.5px] font-medium text-tinta-600 transition hover:bg-tinta-100 sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm"
+              >
+                Ahora no
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={cerrar}
+              className="w-full rounded-[14px] bg-haaco-700 px-4 py-3 text-[15.5px] font-semibold text-white transition hover:bg-haaco-800 sm:w-auto sm:rounded-lg sm:py-2 sm:text-sm sm:font-medium"
+            >
+              Entendido
+            </button>
+          )}
         </div>
       </div>
     </div>
