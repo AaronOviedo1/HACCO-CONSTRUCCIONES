@@ -14,6 +14,13 @@ const OFFSET_HORAS = 7
 export const DIA_DE_COBRO = 12
 
 /**
+ * Cuántos días aguanta la app con la mensualidad sin pagar antes de ponerse
+ * en pausa. Aquí sólo se usa para decirlo; quien lo aplica es `bloqueo_app()`
+ * en la base, y si cambia allá hay que cambiarlo aquí.
+ */
+export const DIAS_DE_GRACIA = 7
+
+/**
  * Desde qué día (fecha civil de Hermosillo) sale el recordatorio de pago al
  * entrar. Antes de esa fecha la mensualidad pendiente sólo se anuncia con la
  * franja del tablero.

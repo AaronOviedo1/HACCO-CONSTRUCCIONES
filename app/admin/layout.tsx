@@ -26,7 +26,8 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
 
       <main className="min-w-0 flex-1 px-4 pb-[calc(var(--alto-tabs)+1rem)] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
         <div className="mx-auto max-w-7xl">
-          {/* Sólo Dirección, y sólo cuando el cobro de la app no entró. */}
+          {/* La mensualidad de la app: franja roja a Dirección si el cobro no
+              entró, y el recordatorio al entrar a Dirección y Administración. */}
           <AvisoSuscripcion rol={perfil.rol} modo="impago" />
           {children}
         </div>
