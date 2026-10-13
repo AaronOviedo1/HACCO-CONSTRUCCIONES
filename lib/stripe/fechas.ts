@@ -14,6 +14,13 @@ const OFFSET_HORAS = 7
 export const DIA_DE_COBRO = 12
 
 /**
+ * Desde qué día (fecha civil de Hermosillo) sale el recordatorio de pago al
+ * entrar. Antes de esa fecha la mensualidad pendiente sólo se anuncia con la
+ * franja del tablero.
+ */
+export const RECORDATORIO_DESDE = '2026-10-13'
+
+/**
  * El próximo día 12 a las 00:00 de Hermosillo, en segundos Unix, que es como
  * Stripe quiere el `billing_cycle_anchor`.
  *
