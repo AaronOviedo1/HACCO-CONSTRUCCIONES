@@ -57,6 +57,9 @@
 | `20260921000051_raya_semanas_viejas.sql` | Las semanas que quedaron pendientes |
 | `20260921000052_recibo_de_pago.sql` | El recibo de pago que se le manda al cliente |
 | `20261002000053_suscripcion_app.sql` | Suscripción de la app |
+| `20261027000054_rol_residente.sql` | El valor `residente` del rol, solo en su archivo |
+| `20261027000055_permisos_residente.sql` | Qué opera el residente, y el concentrado vuelve a respetar RLS |
+| `20261027000056_bitacora_de_campo.sql` | Bitácora con clase, día, fotos y tarea; un retraso recorre su tarea |
 | `seed.sql` | Catálogo real: proveedores, pinturas, insumos de taller y 57 herramientas |
 
 Aplicar en orden con `npm run bd:push` y después `npm run bd:seed`.
@@ -70,6 +73,7 @@ migración ya aplicada en producción no se edita: lo que haya que corregir va e
 
 ```
 avances/{obra_id}/{archivo}              fotos y videos de la cuadrilla
+avances/{obra_id}/bitacora/{archivo}     fotos de la bitácora (hasta diez por entrada)
 tickets/{aaaa-mm}/{archivo}              tickets y facturas de gastos
 comprobantes/{cotizacion_id}/{archivo}   comprobantes de pago del cliente
 ```
@@ -105,6 +109,22 @@ viven en funciones de Postgres, que corren dentro de una sola transacción:
 
 Las tres son `SECURITY INVOKER`: respetan RLS. Un usuario de cuadrilla que las llame recibe
 `new row violates row-level security policy`.
+
+## El residente
+
+Es el rol de campo (el MAESTRO de la app de COS): lleva la obra, el cronograma, la bitácora, las
+cotizaciones, los gastos y la nómina, pero no cobra, no paga proveedores, no toca precios ni
+borra nada. Cómo está armado, en `20261027000055_permisos_residente.sql`:
+
+- **Tablas que la app escribe directo** (obras, cronograma, bitácora, cotizaciones, clientes,
+  contratos…): políticas `residente_lee`, `residente_crea` y `residente_corrige`. Ninguna de borrar.
+- **Lo que pasa por función** (gastos, nómina, pagarés): la tabla le queda de sólo lectura y la
+  función se abre. Esas dieciocho funciones cambiaron `exigir_staff()` por `exigir_equipo()` y
+  pasaron a `SECURITY DEFINER`, para que el motor de precios y las cuentas por pagar que un gasto
+  arrastra por dentro sigan cerradas.
+- **Ojo al redefinir una de esas funciones** en una migración nueva: debe llevar
+  `exigir_equipo()` y `security definer`, o le quitará el acceso al residente en silencio. La
+  lista está en la propia migración.
 
 ## Qué NO hace la base
 

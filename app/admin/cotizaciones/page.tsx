@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { ESTATUS_COTIZACION, TIPO_COTIZACION } from '@/lib/cotizaciones'
 import { agruparPorMes, rangoDeUrl } from '@/lib/finanzas'
@@ -41,7 +41,7 @@ export default async function PaginaCotizaciones({
 }: {
   searchParams: Promise<Filtros>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const filtros = await searchParams
   const concentrado = filtros.v === 'concentrado'
   const supabase = await crearClienteServidor()

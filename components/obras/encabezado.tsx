@@ -7,6 +7,7 @@ import { ChevronLeft, Pause, Play, Truck } from 'lucide-react'
 import { Etiqueta } from '@/components/ui'
 import { BotonReabrir } from '@/components/obras/reabrir'
 import { BotonEditarObra } from '@/components/obras/editar-obra'
+import { useEsOficina } from '@/components/permisos'
 import { fecha, fechaHora, pesos } from '@/lib/format'
 import { ESTATUS_OBRA } from '@/lib/obras'
 import { actualizarObra, entregarObra } from '@/app/admin/obras/acciones'
@@ -25,6 +26,7 @@ export function EncabezadoObra({
   esAdmin: boolean
 }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -159,8 +161,10 @@ export function EncabezadoObra({
         </p>
       )}
 
-      {/* Barra de avance y saldo del cliente */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      {/* Barra de avance y saldo del cliente. El residente no ve la cobranza:
+          la base le da cero pagos, y un «saldo por cobrar» igual al total
+          sería mentira. */}
+      <div className={`mt-4 grid gap-3 ${oficina ? 'sm:grid-cols-3' : ''}`}>
         <div className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-4 py-3.5 shadow-tarjeta lg:rounded-xl lg:py-3">
           <div className="mb-1.5 flex items-center justify-between text-xs">
             <span className="text-tinta-500">Avance de obra</span>
@@ -176,29 +180,33 @@ export function EncabezadoObra({
           </div>
         </div>
 
-        <div className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-4 py-3.5 shadow-tarjeta lg:rounded-xl lg:py-3">
-          <p className="text-xs text-tinta-500">Cobrado al cliente</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-tinta-900">
-            {pesos(cobranza?.cobrado ?? 0)}
-          </p>
-          <p className="text-xs text-tinta-400">de {pesos(cobranza?.cotizado ?? 0)} de la cotización</p>
-        </div>
+        {oficina && (
+          <>
+            <div className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-4 py-3.5 shadow-tarjeta lg:rounded-xl lg:py-3">
+              <p className="text-xs text-tinta-500">Cobrado al cliente</p>
+              <p className="mt-0.5 text-lg font-semibold tabular-nums text-tinta-900">
+                {pesos(cobranza?.cobrado ?? 0)}
+              </p>
+              <p className="text-xs text-tinta-400">de {pesos(cobranza?.cotizado ?? 0)} de la cotización</p>
+            </div>
 
-        <div className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-4 py-3.5 shadow-tarjeta lg:rounded-xl lg:py-3">
-          <p className="text-xs text-tinta-500">Saldo por cobrar</p>
-          <p
-            className={`mt-0.5 text-lg font-semibold tabular-nums ${
-              Number(cobranza?.saldo ?? 0) > 0 ? 'text-amber-600' : 'text-haaco-700'
-            }`}
-          >
-            {pesos(cobranza?.saldo ?? 0)}
-          </p>
-          <p className="text-xs text-tinta-400">
-            {Number(cobranza?.saldo ?? 0) > 0
-              ? `${Number(cobranza?.pct_pendiente ?? 0)}% pendiente`
-              : 'Liquidada'}
-          </p>
-        </div>
+            <div className="rounded-[18px] border-[0.5px] border-tinta-200 bg-white px-4 py-3.5 shadow-tarjeta lg:rounded-xl lg:py-3">
+              <p className="text-xs text-tinta-500">Saldo por cobrar</p>
+              <p
+                className={`mt-0.5 text-lg font-semibold tabular-nums ${
+                  Number(cobranza?.saldo ?? 0) > 0 ? 'text-amber-600' : 'text-haaco-700'
+                }`}
+              >
+                {pesos(cobranza?.saldo ?? 0)}
+              </p>
+              <p className="text-xs text-tinta-400">
+                {Number(cobranza?.saldo ?? 0) > 0
+                  ? `${Number(cobranza?.pct_pendiente ?? 0)}% pendiente`
+                  : 'Liquidada'}
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </header>
   )

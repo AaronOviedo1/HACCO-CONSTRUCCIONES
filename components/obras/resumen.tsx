@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Tarjeta, Etiqueta } from '@/components/ui'
 import { fechaHora, pesos, porcentaje } from '@/lib/format'
-import { semaforoMaterial } from '@/lib/obras'
+import { CLASES_BITACORA, semaforoMaterial } from '@/lib/obras'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
 /**
@@ -222,8 +222,13 @@ export function PanelResumen({ datos }: { datos: DatosObra }) {
             <ul className="max-h-96 divide-y divide-tinta-100 overflow-y-auto">
               {datos.bitacora.slice(0, 20).map((b) => (
                 <li key={b.id} className="px-4 py-2.5">
-                  <p className="text-sm text-tinta-700">{b.descripcion}</p>
-                  <p className="mt-0.5 text-xs text-tinta-400">{fechaHora(b.created_at)}</p>
+                  <p className="text-sm text-tinta-700">
+                    {b.descripcion || `${b.fotos.length} ${b.fotos.length === 1 ? 'foto' : 'fotos'}`}
+                  </p>
+                  <p className="mt-0.5 text-xs text-tinta-400">
+                    {b.tipo === 'nota' && `${CLASES_BITACORA[b.clase].texto} · `}
+                    {fechaHora(b.created_at)}
+                  </p>
                 </li>
               ))}
             </ul>

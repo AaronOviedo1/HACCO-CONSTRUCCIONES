@@ -18,6 +18,7 @@ import { REGLAS } from '@/lib/empresa'
 import {
   agregarDetalle, cerrarObra, eliminarDetalle, eliminarObra, guardarPoliza, marcarDetalle,
 } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { ResultadoCierre } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -41,6 +42,7 @@ const DESLINDES_DEFECTO =
 
 export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boolean }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [nuevoDetalle, setNuevoDetalle] = useState('')
@@ -141,7 +143,7 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
                   <span className="shrink-0 text-xs text-tinta-400">
                     {d.atendido && d.fecha_atencion ? fecha(d.fecha_atencion) : fecha(d.fecha_reporte)}
                   </span>
-                  {!cerrada && (
+                  {!cerrada && oficina && (
                     <button
                       type="button"
                       onClick={() => accion(() => eliminarDetalle(datos.obra.id, d.id))}
@@ -243,11 +245,14 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
               texto="Detalles atendidos"
               nota={sinAtender.length > 0 ? `${sinAtender.length} pendientes` : 'Todos listos'}
             />
-            <Requisito
-              cumplido={saldo <= 0}
-              texto="Cliente liquidado"
-              nota={saldo > 0 ? `Faltan ${pesos(saldo)}` : 'Sin saldo'}
-            />
+            {/* El residente no ve la cobranza: el saldo le saldría completo. */}
+            {oficina && (
+              <Requisito
+                cumplido={saldo <= 0}
+                texto="Cliente liquidado"
+                nota={saldo > 0 ? `Faltan ${pesos(saldo)}` : 'Sin saldo'}
+              />
+            )}
             <Requisito
               cumplido={moPendiente <= 0}
               texto="Mano de obra pagada"
@@ -265,7 +270,13 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
             />
           </ul>
 
-          {!cerrada && (
+          {!cerrada && !oficina && (
+            <p className="border-t border-tinta-100 p-4 text-xs text-tinta-500">
+              El cierre lo hace la oficina, que es quien ve la cobranza del cliente.
+            </p>
+          )}
+
+          {!cerrada && oficina && (
             <div className="border-t border-tinta-100 p-4">
               <button
                 type="button"
@@ -306,7 +317,7 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
           )}
         </Tarjeta>
 
-        {!listo && !cerrada && (
+        {!listo && !cerrada && oficina && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
               <AlertTriangle size={16} />
@@ -332,7 +343,7 @@ export function PanelCierre({ datos, esAdmin }: { datos: DatosObra; esAdmin: boo
 
         {/* Una OT abierta por error, o de prueba, no tiene por qué quedarse
             estorbando: mientras no haya movido dinero, se borra. */}
-        {!cerrada && (
+        {!cerrada && oficina && (
           <div className="rounded-xl border border-red-200 bg-red-50/60 p-4">
             <p className="text-sm font-medium text-red-900">Eliminar la orden de trabajo</p>
             <p className="mt-1 text-xs text-red-800">

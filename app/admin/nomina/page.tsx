@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { fecha, hoyHermosillo, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { aPagarDeNomina, agruparPorMes, mesActual, rangoMes, semanaDe } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
@@ -24,7 +24,7 @@ export default async function PaginaNomina({
 }: {
   searchParams: Promise<{ mes?: string; t?: string; saldados?: string; semana?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { mes = mesActual(), t, saldados, semana: semanaUrl } = await searchParams
   const vista =
     t === 'prenomina' ? 'prenomina'

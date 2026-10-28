@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { staff } from '@/lib/auth'
+import { equipo, staff } from '@/lib/auth'
 import { fallo, type Resultado } from '@/lib/acciones'
 import type { Recordatorio } from '@/types/database'
 
@@ -32,7 +32,7 @@ export async function guardarRecordatorio(datos: {
   if (!datos.titulo.trim()) return { ok: false, error: 'El recordatorio necesita un título.' }
   if (!datos.fecha) return { ok: false, error: 'Falta la fecha del recordatorio.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data: { user } } = await supabase.auth.getUser()
 
   const fila = {
@@ -69,7 +69,7 @@ export async function atenderRecordatorio(
   atendido: boolean,
   ligas?: Ligas,
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { error } = await supabase
@@ -99,7 +99,7 @@ export async function guardarSuscripcionPush(suscripcion: {
   auth: string
   agente: string | null
 }): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'No hay sesión.' }
 
@@ -112,7 +112,7 @@ export async function guardarSuscripcionPush(suscripcion: {
 }
 
 export async function borrarSuscripcionPush(endpoint: string): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.from('push_suscripciones').delete().eq('endpoint', endpoint)
   if (error) return fallo(error)
   return { ok: true }

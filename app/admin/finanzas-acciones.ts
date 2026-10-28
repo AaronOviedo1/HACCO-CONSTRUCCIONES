@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { staff } from '@/lib/auth'
+import { equipo, staff } from '@/lib/auth'
 import { fallo, type Resultado } from '@/lib/acciones'
 import { REGLAS } from '@/lib/empresa'
 import { conceptoDePago } from '@/lib/cobranza'
@@ -36,7 +36,7 @@ export async function registrarGasto(gasto: GastoSql): Promise<Resultado<{ id: s
     return { ok: false, error: 'Un gasto de caja chica se paga de contado.' }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('registrar_gasto', {
     p_datos: { ...gasto, descripcion: gasto.descripcion.trim() },
   })
@@ -75,7 +75,7 @@ export async function actualizarGasto(
     return { ok: false, error: 'Un gasto de caja chica se paga de contado.' }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('editar_gasto', {
     p_gasto: id,
     p_datos: { ...gasto, descripcion: gasto.descripcion.trim() },
@@ -366,7 +366,7 @@ export async function pagarNomina(datos: {
   const conMonto = datos.pagos.filter((p) => p.monto > 0)
   if (conMonto.length === 0) return { ok: false, error: 'Captura al menos un abono.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('pagar_nomina', {
     p_trabajador: datos.trabajador_id,
     p_fecha: datos.fecha,
@@ -397,7 +397,7 @@ export async function editarReciboNomina(datos: {
   const conMonto = datos.pagos.filter((p) => p.monto > 0)
   if (conMonto.length === 0) return { ok: false, error: 'Deja al menos un abono con importe.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('editar_recibo_nomina', {
     p_recibo: datos.recibo_id,
     p_fecha: datos.fecha,
@@ -421,7 +421,7 @@ export async function cancelarReciboNomina(
   reciboId: string,
   motivo: string | null,
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('cancelar_recibo_nomina', {
     p_recibo: reciboId,
     p_motivo: motivo,
@@ -443,7 +443,7 @@ export async function guardarDeduccion(deduccion: {
 }): Promise<Resultado> {
   if (deduccion.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const fila = {
     trabajador_id: deduccion.trabajador_id,
     tipo: deduccion.tipo,
@@ -765,7 +765,7 @@ export async function guardarSueldoSemanal(datos: {
     return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('guardar_sueldo_semanal', {
     p_trabajador: datos.trabajador_id,
     p_monto: datos.monto_semanal,
@@ -790,7 +790,7 @@ export async function guardarSueldoSemanal(datos: {
  * pantalla tiene que poder decir cuál fue.
  */
 export async function generarRaya(semana: string): Promise<Resultado<ResultadoGenerarRaya>> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('generar_raya', { p_semana: semana })
   if (error) return fallo(error)
 
@@ -817,7 +817,7 @@ export async function guardarRaya(datos: {
     return { ok: false, error: `El reparto entre obras va en ${suma}% y no puede pasar de 100.` }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('guardar_raya', {
     p_raya: datos.raya_id,
     p_dias_trabajados: datos.dias_trabajados,
@@ -834,7 +834,7 @@ export async function guardarRaya(datos: {
 
 /** Cancela una raya que no debió existir. Si ya se pagó, primero va el recibo. */
 export async function cancelarRaya(id: string): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('cancelar_raya', { p_raya: id })
   if (error) return fallo(error)
 
@@ -1023,7 +1023,7 @@ export async function guardarMovimientoCaja(movimiento: {
   if (!movimiento.concepto.trim()) return { ok: false, error: 'Falta el concepto.' }
   if (movimiento.monto <= 0) return { ok: false, error: 'El monto tiene que ser mayor a cero.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { id, ...datos } = movimiento
   const campos = { ...datos, concepto: datos.concepto.trim() }
 

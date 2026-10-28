@@ -13,6 +13,7 @@ import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha, montoEnLetra, pesos } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { registrarPago } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { MetodoPago, TipoPagoCobranza } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -31,6 +32,7 @@ const METODOS: { valor: MetodoPago; texto: string }[] = [
 ]
 
 export function PanelDocumentos({ datos }: { datos: DatosObra }) {
+  const oficina = useEsOficina()
   const [cobrando, setCobrando] = useState(false)
   const cerrada = datos.concentrado.estatus === 'cerrada'
   const cobranza = datos.cobranza
@@ -39,101 +41,105 @@ export function PanelDocumentos({ datos }: { datos: DatosObra }) {
 
   return (
     <div className="space-y-4">
-      {/* Cobranza y recibos ---------------------------------------------- */}
-      <Tarjeta
-        titulo={
-          <span className="flex items-center gap-2">
-            <Receipt size={16} className="text-haaco-600" />
-            Recibos de pago
-          </span>
-        }
-        pie="El recibo-contrato acusa el anticipo y además deja asentado el saldo, el esquema de pagos, las fechas y las firmas."
-      >
-        {cobranza && (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-tinta-100 px-5 py-3.5 text-sm sm:grid-cols-4">
-            <Dato etiqueta="Cotizado" valor={pesos(cobranza.cotizado)} />
-            <Dato
-              etiqueta={`Anticipo ${Number(cobranza.anticipo_pct ?? 0)}%`}
-              valor={pesos(cobranza.anticipo_esperado)}
-            />
-            <Dato etiqueta="Cobrado" valor={pesos(cobranza.cobrado)} />
-            <Dato etiqueta="Saldo" valor={pesos(cobranza.saldo)} destacado />
-          </dl>
-        )}
+      {/* Cobranza y recibos ----------------------------------------------
+          De oficina: el residente no cobra, y sin los pagos que la base le
+          niega estas cifras le saldrían en cero. */}
+      {oficina && (
+        <Tarjeta
+          titulo={
+            <span className="flex items-center gap-2">
+              <Receipt size={16} className="text-haaco-600" />
+              Recibos de pago
+            </span>
+          }
+          pie="El recibo-contrato acusa el anticipo y además deja asentado el saldo, el esquema de pagos, las fechas y las firmas."
+        >
+          {cobranza && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-b border-tinta-100 px-5 py-3.5 text-sm sm:grid-cols-4">
+              <Dato etiqueta="Cotizado" valor={pesos(cobranza.cotizado)} />
+              <Dato
+                etiqueta={`Anticipo ${Number(cobranza.anticipo_pct ?? 0)}%`}
+                valor={pesos(cobranza.anticipo_esperado)}
+              />
+              <Dato etiqueta="Cobrado" valor={pesos(cobranza.cobrado)} />
+              <Dato etiqueta="Saldo" valor={pesos(cobranza.saldo)} destacado />
+            </dl>
+          )}
 
-        {datos.recibos.length === 0 ? (
-          <EstadoVacio
-            titulo="Todavía no hay recibos"
-            descripcion={
-              sinAnticipo
-                ? 'Registra el anticipo para generar el recibo-contrato.'
-                : 'Registra un pago para emitir su recibo.'
-            }
-            accion={
-              !cerrada ? (
-                <button
-                  type="button"
-                  onClick={() => setCobrando(true)}
-                  className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
-                >
-                  Registrar pago
-                </button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <>
-            <ul className="divide-y divide-tinta-100">
-              {datos.recibos.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-sm font-medium text-tinta-900">
-                      <span className="font-mono text-xs text-haaco-700">{r.folio}</span>
-                      <span className="truncate">{r.concepto}</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-tinta-500">
-                      {fecha(r.created_at)}
-                      {r.fecha_inicio && ` · Inicio ${fecha(r.fecha_inicio)}`}
-                      {r.fecha_estimada_entrega && ` · Entrega ${fecha(r.fecha_estimada_entrega)}`}
-                    </p>
-                  </div>
-                  <a
-                    href={`/api/recibos/${r.id}/pdf`}
-                    target="_blank"
-                    rel="noopener"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+          {datos.recibos.length === 0 ? (
+            <EstadoVacio
+              titulo="Todavía no hay recibos"
+              descripcion={
+                sinAnticipo
+                  ? 'Registra el anticipo para generar el recibo-contrato.'
+                  : 'Registra un pago para emitir su recibo.'
+              }
+              accion={
+                !cerrada ? (
+                  <button
+                    type="button"
+                    onClick={() => setCobrando(true)}
+                    className="rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
                   >
-                    <FileDown size={14} />
-                    {/* Los dos papeles caen en la misma lista: el contrato del
-                        anticipo y el acuse que Cobranza le manda al cliente. */}
-                    {r.tipo === 'pago' ? 'Recibo de pago' : 'Recibo-contrato'}
-                  </a>
-                </li>
-              ))}
-            </ul>
-            {/* Aquí sólo se dan de alta pagos con su recibo. Corregir uno ya
-                capturado es trabajo de Cobranza, que es donde está la lista
-                completa de la cotización. */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-tinta-100 px-5 py-2.5">
-              {!cerrada && (
-                <button
-                  type="button"
-                  onClick={() => setCobrando(true)}
-                  className="text-sm font-medium text-haaco-700 hover:underline"
+                    Registrar pago
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <ul className="divide-y divide-tinta-100">
+                {datos.recibos.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-medium text-tinta-900">
+                        <span className="font-mono text-xs text-haaco-700">{r.folio}</span>
+                        <span className="truncate">{r.concepto}</span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-tinta-500">
+                        {fecha(r.created_at)}
+                        {r.fecha_inicio && ` · Inicio ${fecha(r.fecha_inicio)}`}
+                        {r.fecha_estimada_entrega && ` · Entrega ${fecha(r.fecha_estimada_entrega)}`}
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/recibos/${r.id}/pdf`}
+                      target="_blank"
+                      rel="noopener"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 text-xs font-medium text-tinta-700 transition hover:bg-tinta-50"
+                    >
+                      <FileDown size={14} />
+                      {/* Los dos papeles caen en la misma lista: el contrato del
+                          anticipo y el acuse que Cobranza le manda al cliente. */}
+                      {r.tipo === 'pago' ? 'Recibo de pago' : 'Recibo-contrato'}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              {/* Aquí sólo se dan de alta pagos con su recibo. Corregir uno ya
+                  capturado es trabajo de Cobranza, que es donde está la lista
+                  completa de la cotización. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-tinta-100 px-5 py-2.5">
+                {!cerrada && (
+                  <button
+                    type="button"
+                    onClick={() => setCobrando(true)}
+                    className="text-sm font-medium text-haaco-700 hover:underline"
+                  >
+                    Registrar otro pago →
+                  </button>
+                )}
+                <Link
+                  href="/admin/cobranza"
+                  className="ml-auto text-xs text-tinta-400 hover:text-tinta-600 hover:underline"
                 >
-                  Registrar otro pago →
-                </button>
-              )}
-              <Link
-                href="/admin/cobranza"
-                className="ml-auto text-xs text-tinta-400 hover:text-tinta-600 hover:underline"
-              >
-                ¿Un pago quedó mal? Se corrige en Cobranza
-              </Link>
-            </div>
-          </>
-        )}
-      </Tarjeta>
+                  ¿Un pago quedó mal? Se corrige en Cobranza
+                </Link>
+              </div>
+            </>
+          )}
+        </Tarjeta>
+      )}
 
       {/* Contratos y pagarés --------------------------------------------- */}
       <div className="grid gap-4 lg:grid-cols-2">

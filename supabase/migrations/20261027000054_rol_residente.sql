@@ -1,0 +1,13 @@
+-- ===========================================================================
+-- ROL NUEVO · residente
+--
+-- Va solo en su archivo por lo mismo que 20260805000014_enums.sql: el valor
+-- recién agregado no se puede usar en la transacción que lo agrega, y las
+-- políticas y funciones que lo nombran viven en la migración siguiente.
+--
+--  · residente → el de campo: lleva la obra, el cronograma y la bitácora,
+--                cotiza, captura gastos y arma la nómina. No cobra al cliente,
+--                no paga proveedores, no toca precios ni borra nada. Es el
+--                MAESTRO de la app de COS, traído aquí.
+-- ===========================================================================
+alter type public.rol_usuario add value if not exists 'residente';

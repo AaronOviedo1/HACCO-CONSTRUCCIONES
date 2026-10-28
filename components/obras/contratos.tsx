@@ -18,6 +18,7 @@ import {
   cancelarPagare, crearPagare, devolverHerramienta, editarPagare, eliminarContrato,
   firmarContrato, guardarContrato, reasignarContrato,
 } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { ContratoOficial, Profile } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -167,6 +168,7 @@ function TarjetaContrato({
   onCorregirPagare: (pagare: DatosObra['pagares'][number]) => void
   onReasignar: () => void
 }) {
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -235,18 +237,20 @@ function TarjetaContrato({
               >
                 <PenLine size={15} />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!confirm(`¿Eliminar el contrato de ${oficial?.nombre}?`)) return
-                  accion(() => eliminarContrato(obraId, contrato.id))
-                }}
-                disabled={pendiente}
-                className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-red-50 hover:text-red-600"
-                aria-label="Eliminar contrato"
-              >
-                <Trash2 size={15} />
-              </button>
+              {oficina && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!confirm(`¿Eliminar el contrato de ${oficial?.nombre}?`)) return
+                    accion(() => eliminarContrato(obraId, contrato.id))
+                  }}
+                  disabled={pendiente}
+                  className="rounded-lg p-1.5 text-tinta-400 transition hover:bg-red-50 hover:text-red-600"
+                  aria-label="Eliminar contrato"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
             </>
           )}
         </div>

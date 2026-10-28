@@ -12,6 +12,7 @@ import type { RolUsuario } from '@/types/database'
 export const RUTA_POR_ROL: Record<RolUsuario, string> = {
   admin: '/admin',
   administracion: '/admin',
+  residente: '/admin/obras',
   contador: '/admin/reportes',
   cuadrilla: '/obra',
 }
@@ -19,6 +20,33 @@ export const RUTA_POR_ROL: Record<RolUsuario, string> = {
 export const NOMBRE_ROL: Record<RolUsuario, string> = {
   admin: 'Dirección',
   administracion: 'Administración',
+  residente: 'Residente',
   cuadrilla: 'Cuadrilla',
   contador: 'Contador',
 }
+
+/**
+ * Lo que abre el residente: la obra y lo que la rodea en campo —cotizar,
+ * gastar, pagar la raya—. Fuera quedan el tablero, la cobranza, las cuentas
+ * por pagar, los pagos fijos, el catálogo de precios, los reportes y lo de
+ * Dirección. El proxy lo usa para no dejarlo aterrizar en otra cosa; la
+ * seguridad de verdad sigue en las políticas de la base.
+ */
+export const RUTAS_RESIDENTE = [
+  '/admin/obras',
+  '/admin/cotizaciones',
+  '/admin/cotizar-rapido',
+  '/admin/clientes',
+  '/admin/gastos',
+  '/admin/nomina',
+  '/admin/caja-chica',
+  '/admin/herramientas',
+  '/admin/mas',
+  '/api/cotizaciones',
+  '/api/contratos',
+  '/api/pagares',
+  '/api/polizas',
+  '/api/recibos-nomina',
+  '/api/ticket',
+  '/api/lugares',
+]

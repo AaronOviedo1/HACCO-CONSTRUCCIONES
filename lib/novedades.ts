@@ -66,7 +66,57 @@ export type Entrega = {
 }
 
 const OFICINA: RolUsuario[] = ['admin', 'administracion']
-const TODOS: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
+const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
+const TODOS: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
+
+const DEL_28_DE_OCTUBRE: Novedad[] = [
+  {
+    donde: 'Obras · Bitácora',
+    titulo: 'La bitácora tiene su propia pestaña',
+    texto:
+      'Registras lo que pasó en la obra —llegó material, llovió, faltó alguien— con el día, la tarea que afecta y hasta diez fotos.',
+    roles: EQUIPO,
+    figura: {
+      pie: 'La pestaña Bitácora de una obra: cada entrada con su clase, su día, la tarea y sus fotos.',
+      movil: { ruta: '/novedades/2026-10-28/bitacora-movil.webp', ancho: 1080, alto: 2340, marca: { x: 79.6, y: 53.4 } },
+      escritorio: { ruta: '/novedades/2026-10-28/bitacora-escritorio.webp', ancho: 1600, alto: 1000, marca: { x: 93.8, y: 32.7 } },
+    },
+  },
+  {
+    donde: 'Obras · Bitácora',
+    titulo: 'Un retraso recorre su tarea solo',
+    texto:
+      'Si eliges «Retraso», una tarea y los días, el cronograma se mueve: completa si no ha empezado, sólo el fin si ya va en curso.',
+    roles: EQUIPO,
+    figura: {
+      pie: 'Un retraso de 2 días sobre «Aplicación de sellador»: al registrarlo, la tarea se recorre sola.',
+      movil: { ruta: '/novedades/2026-10-28/retraso-movil.webp', ancho: 1080, alto: 2340, marca: { x: 50, y: 76.6 } },
+      escritorio: { ruta: '/novedades/2026-10-28/retraso-escritorio.webp', ancho: 1600, alto: 1000, marca: { x: 57.6, y: 54.2 } },
+    },
+  },
+  {
+    donde: 'Usuarios',
+    titulo: 'Nuevo rol: Residente',
+    texto:
+      'Lleva la obra, el cronograma, la bitácora, las cotizaciones, los gastos y la nómina. No ve la cobranza, no le mete dinero a la caja chica ni borra nada.',
+    roles: ['admin'],
+    figura: {
+      pie: 'El alta de una persona con el rol Residente.',
+      escritorio: { ruta: '/novedades/2026-10-28/rol-escritorio.webp', ancho: 1600, alto: 1000, marca: { x: 42.4, y: 52.9 } },
+    },
+  },
+  {
+    donde: 'Bienvenida',
+    titulo: 'Tu cuenta de residente',
+    texto:
+      'Entras directo a las obras. Abajo tienes Cotizar, Gastos y Nómina; en cada obra, la pestaña Bitácora es donde registras el día.',
+    roles: ['residente'],
+    figura: {
+      pie: 'Abajo, tus cinco pestañas: Obras, Cotizar, Gastos, Nómina y Más.',
+      movil: { ruta: '/novedades/2026-10-28/residente-movil.webp', ancho: 1080, alto: 2340, marca: { x: 14.7, y: 95.1 } },
+    },
+  },
+]
 
 const DEL_2_DE_OCTUBRE: Novedad[] = [
   {
@@ -578,6 +628,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 const ENTREGAS: Entrega[] = [
+  { version: '2026-10-28', fecha: '28 de octubre de 2026', novedades: DEL_28_DE_OCTUBRE },
   { version: '2026-10-02', fecha: '2 de octubre de 2026', novedades: DEL_2_DE_OCTUBRE },
   { version: '2026-09-21', fecha: '21 de septiembre de 2026', novedades: DEL_21_DE_SEPTIEMBRE },
   { version: '2026-09-16', fecha: '16 de septiembre de 2026', novedades: DEL_16_DE_SEPTIEMBRE },

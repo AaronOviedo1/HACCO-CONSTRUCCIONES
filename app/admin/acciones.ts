@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol, staff } from '@/lib/auth'
+import { equipo, requerirRol, staff } from '@/lib/auth'
 import { redondear } from '@/lib/cotizaciones'
 import { REGLAS } from '@/lib/empresa'
 import { hoyHermosillo } from '@/lib/format'
@@ -33,7 +33,7 @@ export async function guardarMetaVenta(_prev: EstadoAccion, d: FormData): Promis
 // CLIENTES
 // ===========================================================================
 export async function guardarCliente(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const id = opcional(d, 'id')
   const nombre = texto(d, 'nombre')
   if (!nombre) return { error: 'El nombre del cliente es obligatorio.' }
@@ -250,7 +250,7 @@ export async function eliminarTexto(_prev: EstadoAccion, d: FormData): Promise<E
 // HERRAMIENTAS
 // ===========================================================================
 export async function guardarHerramienta(_prev: EstadoAccion, d: FormData): Promise<EstadoAccion> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const id = opcional(d, 'id')
   const codigo = texto(d, 'codigo')
   const nombre = texto(d, 'nombre')

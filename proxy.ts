@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { AUTOLOGIN_DEV } from '@/lib/supabase/autologin-dev'
 import { SUPABASE_CONFIGURADO, SUPABASE_LLAVE_PUBLICA, SUPABASE_URL } from '@/lib/supabase/entorno'
-import { RUTA_POR_ROL } from '@/lib/roles'
+import { RUTA_POR_ROL, RUTAS_RESIDENTE } from '@/lib/roles'
 import type { BloqueoApp, RolUsuario } from '@/types/database'
 
 const RUTAS_PUBLICAS = ['/login', '/auth']
@@ -147,6 +147,14 @@ export default async function proxy(request: NextRequest) {
   if (perfil.rol === 'cuadrilla' && !ruta.startsWith('/obra')) {
     const destino = request.nextUrl.clone()
     destino.pathname = '/obra'
+    return redirigir(destino)
+  }
+
+  // El residente sólo ve la obra y lo que la rodea en campo
+  if (perfil.rol === 'residente' && !RUTAS_RESIDENTE.some((p) => ruta.startsWith(p))) {
+    const destino = request.nextUrl.clone()
+    destino.pathname = inicio
+    destino.search = ''
     return redirigir(destino)
   }
 

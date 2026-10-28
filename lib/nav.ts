@@ -14,21 +14,21 @@ export type Seccion = {
  */
 const SECCIONES: Seccion[] = [
   { href: '/admin',                    titulo: 'Dashboard',         icono: 'panel',       grupo: 'Operación', roles: ['admin', 'administracion'] },
-  { href: '/admin/cotizaciones',       titulo: 'Cotizaciones',      icono: 'cotizacion',  grupo: 'Operación', roles: ['admin', 'administracion'] },
-  { href: '/admin/cotizar-rapido',     titulo: 'Cotización rápida', icono: 'rapido',      grupo: 'Operación', roles: ['admin', 'administracion'] },
-  { href: '/admin/obras',              titulo: 'Obras (OTs)',       icono: 'obra',        grupo: 'Operación', roles: ['admin', 'administracion'] },
+  { href: '/admin/cotizaciones',       titulo: 'Cotizaciones',      icono: 'cotizacion',  grupo: 'Operación', roles: ['admin', 'administracion', 'residente'] },
+  { href: '/admin/cotizar-rapido',     titulo: 'Cotización rápida', icono: 'rapido',      grupo: 'Operación', roles: ['admin', 'administracion', 'residente'] },
+  { href: '/admin/obras',              titulo: 'Obras (OTs)',       icono: 'obra',        grupo: 'Operación', roles: ['admin', 'administracion', 'residente'] },
   { href: '/admin/servicios',          titulo: 'Servicios',         icono: 'servicio',    grupo: 'Operación', roles: ['admin', 'administracion'] },
-  { href: '/admin/clientes',           titulo: 'Clientes',          icono: 'cliente',     grupo: 'Operación', roles: ['admin', 'administracion'] },
+  { href: '/admin/clientes',           titulo: 'Clientes',          icono: 'cliente',     grupo: 'Operación', roles: ['admin', 'administracion', 'residente'] },
 
   { href: '/admin/cobranza',           titulo: 'Cobranza',          icono: 'cobranza',    grupo: 'Dinero',    roles: ['admin', 'administracion'] },
-  { href: '/admin/gastos',             titulo: 'Gastos',            icono: 'gasto',       grupo: 'Dinero',    roles: ['admin', 'administracion'] },
+  { href: '/admin/gastos',             titulo: 'Gastos',            icono: 'gasto',       grupo: 'Dinero',    roles: ['admin', 'administracion', 'residente'] },
   { href: '/admin/cuentas-por-pagar',  titulo: 'Cuentas por pagar', icono: 'cxp',         grupo: 'Dinero',    roles: ['admin', 'administracion'] },
-  { href: '/admin/nomina',             titulo: 'Nómina',            icono: 'nomina',      grupo: 'Dinero',    roles: ['admin', 'administracion'] },
+  { href: '/admin/nomina',             titulo: 'Nómina',            icono: 'nomina',      grupo: 'Dinero',    roles: ['admin', 'administracion', 'residente'] },
   { href: '/admin/pagos-fijos',        titulo: 'Pagos fijos',       icono: 'pagosfijos',  grupo: 'Dinero',    roles: ['admin', 'administracion'] },
-  { href: '/admin/caja-chica',         titulo: 'Caja chica',        icono: 'caja',        grupo: 'Dinero',    roles: ['admin', 'administracion'] },
+  { href: '/admin/caja-chica',         titulo: 'Caja chica',        icono: 'caja',        grupo: 'Dinero',    roles: ['admin', 'administracion', 'residente'] },
 
   { href: '/admin/catalogo',           titulo: 'Catálogo',          icono: 'catalogo',    grupo: 'Catálogos', roles: ['admin', 'administracion'] },
-  { href: '/admin/herramientas',       titulo: 'Herramientas',      icono: 'herramienta', grupo: 'Catálogos', roles: ['admin', 'administracion'] },
+  { href: '/admin/herramientas',       titulo: 'Herramientas',      icono: 'herramienta', grupo: 'Catálogos', roles: ['admin', 'administracion', 'residente'] },
 
   { href: '/admin/reportes',           titulo: 'Reportes',          icono: 'reporte',     grupo: 'Sistema',   roles: ['admin', 'administracion', 'contador'] },
   { href: '/admin/usuarios',           titulo: 'Usuarios',          icono: 'usuario',     grupo: 'Sistema',   roles: ['admin'] },
@@ -86,8 +86,8 @@ const OPERACION_EN_MAS = ['/admin/servicios']
 
 /**
  * Las cinco cosas que se hacen desde el teléfono, por rol.
- * Dirección vigila el dinero completo; Administración cobra; la cuadrilla sube
- * avance. Todo lo demás vive en «Más».
+ * Dirección vigila el dinero completo; Administración cobra; el residente lleva
+ * la obra; la cuadrilla sube avance. Todo lo demás vive en «Más».
  */
 const PESTANAS: Record<RolUsuario, Pestana[]> = {
   admin: [
@@ -103,6 +103,14 @@ const PESTANAS: Record<RolUsuario, Pestana[]> = {
     { href: '/admin/cotizar-rapido', etiqueta: 'Cotizar',  icono: ICONO.rayo,     prefijos: ['/admin/cotizaciones', '/admin/cotizar-rapido'] },
     { href: '/admin/cobranza',       etiqueta: 'Cobranza', icono: ICONO.cobranza, prefijos: ['/admin/cobranza'] },
     { href: '/admin/mas',            etiqueta: 'Más',      icono: ICONO.mas,      prefijos: [...CATALOGOS, ...DINERO, ...OPERACION_EN_MAS] },
+  ],
+  // El de campo: la obra primero, y lo que se captura en sitio a un toque.
+  residente: [
+    { href: '/admin/obras',          etiqueta: 'Obras',   icono: ICONO.obras,      prefijos: ['/admin/obras'] },
+    { href: '/admin/cotizar-rapido', etiqueta: 'Cotizar', icono: ICONO.rayo,       prefijos: ['/admin/cotizaciones', '/admin/cotizar-rapido'] },
+    { href: '/admin/gastos',         etiqueta: 'Gastos',  icono: ICONO.dinero,     prefijos: ['/admin/gastos', '/admin/caja-chica'] },
+    { href: '/admin/nomina',         etiqueta: 'Nómina',  icono: ICONO.cobranza,   prefijos: ['/admin/nomina'] },
+    { href: '/admin/mas',            etiqueta: 'Más',     icono: ICONO.mas,        prefijos: ['/admin/mas', '/admin/clientes', '/admin/herramientas'] },
   ],
   contador: [
     { href: '/admin/reportes', etiqueta: 'Reportes', icono: ICONO.reporte, prefijos: ['/admin/reportes'] },

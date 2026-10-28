@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { staff } from '@/lib/auth'
+import { equipo, staff } from '@/lib/auth'
 import { fallo, type Resultado } from '@/lib/acciones'
 import { aPayload, validar, type BorradorCotizacion } from '@/lib/cotizaciones'
 import { pesos } from '@/lib/format'
@@ -23,7 +23,7 @@ export async function guardarCotizacion(
   const faltas = validar(borrador)
   if (faltas.length > 0) return { ok: false, error: faltas.join(' ') }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('guardar_cotizacion', {
     p_id: id,
     p_datos: aPayload(borrador),
@@ -59,7 +59,7 @@ export async function guardarTerminosPorDefecto(terminos: string): Promise<Resul
 
 /** Copia la cotización para armar una variante del mismo cliente. */
 export async function duplicarCotizacion(id: string): Promise<Resultado<{ id: string }>> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('duplicar_cotizacion', { p_id: id })
   if (error) return fallo(error)
 
@@ -81,7 +81,7 @@ export async function aprobarCotizacion(
     return { ok: false, error: 'Cada orden de trabajo necesita un nombre.' }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('aprobar_cotizacion', {
     p_id: id,
     p_obras: obras.map((o) => ({ ...o, nombre: o.nombre.trim() })),
@@ -101,7 +101,7 @@ export async function cambiarEstatus(
   id: string,
   estatus: EstatusCotizacion,
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
 
   const hoy = new Date().toISOString().slice(0, 10)
   const parche: Partial<Cotizacion> = { estatus }

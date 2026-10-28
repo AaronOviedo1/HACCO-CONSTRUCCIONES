@@ -11,6 +11,7 @@ import { pesos, porcentaje } from '@/lib/format'
 import { num } from '@/lib/cotizaciones'
 import { semaforoMaterial } from '@/lib/obras'
 import { eliminarConcepto, guardarConcepto } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { ObraConcepto } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -20,6 +21,7 @@ import type { DatosObra } from '@/app/admin/obras/datos'
  */
 export function PanelConceptos({ datos }: { datos: DatosObra }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [editando, setEditando] = useState<ObraConcepto | 'nuevo' | null>(null)
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -95,7 +97,7 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
                       </span>
                     </button>
                     <Etiqueta tono={s.tono}>{s.texto}</Etiqueta>
-                    {!cerrada && (
+                    {!cerrada && oficina && (
                       <button
                         type="button"
                         onClick={() => borrar(c.id)}
@@ -155,7 +157,7 @@ export function PanelConceptos({ datos }: { datos: DatosObra }) {
                           <Etiqueta tono={s.tono}>{s.texto}</Etiqueta>
                         </td>
                         <td className="border-b border-tinta-100 px-1 py-2.5">
-                          {!cerrada && (
+                          {!cerrada && oficina && (
                             <button
                               type="button"
                               onClick={() => borrar(c.id)}

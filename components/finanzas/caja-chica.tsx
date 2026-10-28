@@ -9,6 +9,7 @@ import {
 } from '@/components/formulario'
 import { FiltroRango, SelectorFecha } from '@/components/filtro-fechas'
 import { hoyISO, num } from '@/lib/cotizaciones'
+import { useEsOficina } from '@/components/permisos'
 import { eliminarMovimientoCaja, guardarMovimientoCaja } from '@/app/admin/finanzas-acciones'
 import type { CajaChica, TipoMovimientoCaja } from '@/types/database'
 
@@ -17,6 +18,8 @@ export function BarraCajaChica({
 }: {
   obras: { id: string; nombre: string; ot_numero: string | null }[]
 }) {
+  // El residente gasta del fondo, pero el dinero lo mete la oficina.
+  const oficina = useEsOficina()
   const [tipo, setTipo] = useState<TipoMovimientoCaja | null>(null)
 
   return (
@@ -24,18 +27,20 @@ export function BarraCajaChica({
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <FiltroRango titulo="Periodo de los movimientos" />
 
-        <button
-          type="button"
-          onClick={() => setTipo('entrada')}
-          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
-        >
-          <ArrowDownToLine size={16} className="text-haaco-600" />
-          Entrada
-        </button>
+        {oficina && (
+          <button
+            type="button"
+            onClick={() => setTipo('entrada')}
+            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+          >
+            <ArrowDownToLine size={16} className="text-haaco-600" />
+            Entrada
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setTipo('salida')}
-          className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+          className={`${oficina ? '' : 'ml-auto '}inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800`}
         >
           <ArrowUpFromLine size={16} />
           Salida
@@ -49,7 +54,10 @@ export function BarraCajaChica({
 
 export function BotonEliminarMovimiento({ id, concepto }: { id: string; concepto: string }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
+
+  if (!oficina) return null
 
   return (
     <button

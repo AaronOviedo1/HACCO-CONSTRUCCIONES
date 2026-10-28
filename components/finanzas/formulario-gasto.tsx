@@ -17,6 +17,7 @@ import { prepararTicket, type DesgloseComprobante, type LecturaTicket } from '@/
 import {
   actualizarGasto, agregarProductoAlCatalogo, eliminarGasto, registrarGasto,
 } from '@/app/admin/finanzas-acciones'
+import { useEsOficina } from '@/components/permisos'
 import type {
   CategoriaGasto, CondicionCompra, Gasto, MetodoPago, ObraConcepto, Proveedor,
   TipoProducto, VInsumoExistencia,
@@ -175,7 +176,9 @@ function FormularioGasto({
   const [insumoUnidad, setInsumoUnidad] = useState('pza')
   const [insumoCantidad, setInsumoCantidad] = useState('')
 
-  // Alta rápida en el catálogo para gastos que se repiten
+  // Alta rápida en el catálogo para gastos que se repiten. El catálogo es de
+  // oficina: el residente captura el gasto, pero no da de alta productos.
+  const oficina = useEsOficina()
   const [catalogoAbierto, setCatalogoAbierto] = useState(false)
   const [catalogoUnidad, setCatalogoUnidad] = useState('pza')
   const [catalogoTipo, setCatalogoTipo] = useState<TipoProducto>('otro')
@@ -799,7 +802,7 @@ function FormularioGasto({
                 ¿El ticket trae varios artículos? Divídelo en conceptos
               </button>
             )}
-            {descripcion.trim() && !enCatalogo && !catalogoListo && (
+            {oficina && descripcion.trim() && !enCatalogo && !catalogoListo && (
               <button
                 type="button"
                 onClick={() => setCatalogoAbierto((v) => !v)}
@@ -1273,6 +1276,7 @@ function resumenComprobante(d: DesgloseComprobante) {
  */
 export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcion: string }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState(false)
@@ -1285,6 +1289,8 @@ export function BotonEliminarGasto({ id, descripcion }: { id: string; descripcio
       setConfirmando(false)
       router.refresh()
     })
+
+  if (!oficina) return null
 
   return (
     <>
