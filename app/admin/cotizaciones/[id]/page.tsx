@@ -1,4 +1,4 @@
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { EditorCotizacion } from '@/components/cotizaciones/editor'
 import { cargarCatalogos, cargarCotizacion, sugerenciasSinEsperar } from '../datos'
 
@@ -9,7 +9,7 @@ export default async function PaginaCotizacion({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { id } = await params
 
   // Sin `await`: la promesa cruza al editor y se resuelve allá.

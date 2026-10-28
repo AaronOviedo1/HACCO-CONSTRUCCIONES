@@ -10,6 +10,7 @@ import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, FilaAccion, Td } from '@/components/ui'
 import { pesos } from '@/lib/format'
 import { eliminarCliente, guardarCliente } from '@/app/admin/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { EstadoAccion } from '@/lib/acciones'
 import type { Cliente } from '@/types/database'
 
@@ -152,6 +153,7 @@ export function FormularioCliente({
   /** El segundo dato es para que el cotizador herede el IVA sin recargar. */
   onGuardado?: (id: string, requiereFactura: boolean) => void
 }) {
+  const oficina = useEsOficina()
   const [estado, accion] = useActionState<EstadoAccion, FormData>(guardarCliente, {})
   const [estadoBorrar, accionBorrar] = useActionState<EstadoAccion, FormData>(eliminarCliente, {})
   // El domicilio se controla aparte porque lo llena Google; viaja al servidor
@@ -258,7 +260,7 @@ export function FormularioCliente({
         <PieFormulario
           onCerrar={onCerrar}
           borrado={
-            cliente
+            cliente && oficina
               ? {
                   pregunta: `¿Eliminar a ${cliente.nombre}? No se puede deshacer.`,
                   formAction: accionBorrar,

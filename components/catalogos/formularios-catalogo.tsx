@@ -10,6 +10,7 @@ import {
   eliminarHerramienta, eliminarProducto, eliminarProveedor, eliminarTexto,
   guardarHerramienta, guardarProducto, guardarProveedor, guardarTexto, moverKardex,
 } from '@/app/admin/acciones'
+import { useEsOficina } from '@/components/permisos'
 import { HistorialPrecioProducto } from '@/components/catalogos/historial-precio'
 import type { EstadoAccion } from '@/lib/acciones'
 import { hoyISO } from '@/lib/cotizaciones'
@@ -192,6 +193,8 @@ function Formulario({
   ancho?: 'md' | 'lg' | 'xl'
   children: ReactNode
 }) {
+  // Borrar es de oficina; el residente da de alta y corrige herramientas.
+  const oficina = useEsOficina()
   const [estado, accion] = useActionState<EstadoAccion, FormData>(accionGuardar, {})
   const [estadoBorrar, accionBorrar] = useActionState<EstadoAccion, FormData>(
     accionEliminar ?? accionGuardar,
@@ -220,7 +223,7 @@ function Formulario({
         <PieFormulario
           onCerrar={onCerrar}
           borrado={
-            accionEliminar
+            accionEliminar && oficina
               ? {
                   pregunta: confirmacionBorrado ?? '¿Eliminar este registro?',
                   formAction: accionBorrar,

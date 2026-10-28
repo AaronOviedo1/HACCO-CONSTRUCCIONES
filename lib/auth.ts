@@ -46,3 +46,16 @@ export async function staff() {
   await requerirRol(['admin', 'administracion'])
   return crearClienteServidor()
 }
+
+/** Quienes operan la obra: la oficina más el residente. */
+export const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
+
+/**
+ * La guarda de las acciones que también hace el residente —llevar la obra,
+ * cotizar, capturar gastos, pagar la raya—. Lo que no (cobrar, pagar a
+ * proveedores, precios, borrar) se queda con `staff()`.
+ */
+export async function equipo() {
+  await requerirRol(EQUIPO)
+  return crearClienteServidor()
+}

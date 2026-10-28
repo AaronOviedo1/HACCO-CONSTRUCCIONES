@@ -161,6 +161,7 @@ dominio de Vercel a *Site URL* y a *Redirect URLs*.
 |---|---|---|
 | **admin** (Luis, Pati) | `/admin` | Todo, incluida la gestión de usuarios |
 | **administracion** | `/admin` | Todo lo operativo y administrativo, sin usuarios |
+| **residente** | `/admin/obras` | Obras, cronograma, bitácora, cotizaciones, clientes, gastos, caja chica (sólo salidas), nómina y herramientas. Sin cobranza, cuentas por pagar, precios, reportes ni borrar |
 | **cuadrilla** (pintor/herrero) | `/obra` | Sólo sus obras: avances, materiales, su contrato, su pagaré y su cronograma. Nunca dinero ajeno |
 | **contador** | `/admin/reportes` | Sólo lectura de reportes y exportación a Excel |
 
@@ -180,7 +181,7 @@ lo que le toca. Las operaciones que mutan datos empiezan con una guarda `exigir_
 | **Recordatorios** | Una fecha pegada a la cotización: sale en el tablero, se pasa al Google Calendar y llega como aviso al teléfono a las 7 de la mañana |
 | **Cotizador de herrería** | Materiales + mano de obra + 5% indirectos → precio de venta con el % de utilidad |
 | **Cotización rápida** | Cuatro pasos con botones grandes para levantar en sitio desde el iPad |
-| **Obras (OTs)** | Concentrado cotizado/real/%, contratos, avances, materiales, conceptos, cronograma, documentos y cierre |
+| **Obras (OTs)** | Concentrado cotizado/real/%, contratos, avances, materiales, conceptos, cronograma, bitácora de campo con fotos, documentos y cierre |
 | **Documentos** | Recibo-contrato de anticipo, contrato por obra determinada, pagaré de herramientas, póliza de garantía y recibo de abono a mano de obra |
 | **Cuadrilla** | Subir avance con foto en dos taps; el herrero solicita material |
 | **Gastos** | Foto del ticket; a crédito abre la cuenta por pagar y como material alimenta la OT |
@@ -216,7 +217,7 @@ Estas no dependen de la interfaz: las hace cumplir Postgres.
 | Vencimiento, saldo y estado de las CxP | Columnas generadas + vista `v_cuentas_por_pagar` |
 | % de avance de la OT | Lo actualiza el último avance que sube la cuadrilla |
 | Devengado de nómina | Total del contrato × avance reportado, menos lo ya abonado |
-| Bitácora de obra | Triggers: cambios de estatus, movimientos de fecha, avances, pagarés |
+| Bitácora de obra | Triggers: cambios de estatus, movimientos de fecha, avances, pagarés. Lo escrito a mano pasa por `registrar_en_bitacora`, que recorre la tarea si es un retraso |
 | Cierre de obra | Cancela pagarés, devuelve herramienta, cierra contratos y marca la cotización terminada |
 | Quincena recurrente | Copia los pagos marcados como recurrentes sin duplicar |
 

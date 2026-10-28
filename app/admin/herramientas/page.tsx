@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
 import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Indicador, Tabla, Tarjeta, Td, Th,
@@ -31,7 +31,7 @@ export default async function PaginaHerramientas({
 }: {
   searchParams: Promise<{ q?: string; estado?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { q, estado } = await searchParams
   const supabase = await crearClienteServidor()
 

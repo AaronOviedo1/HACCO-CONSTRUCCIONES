@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
 import { rangoDeUrl, saldoDeCaja } from '@/lib/finanzas'
 import {
@@ -17,7 +17,7 @@ export default async function PaginaCajaChica({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const periodo = rangoDeUrl(await searchParams)
 
   const supabase = await crearClienteServidor()

@@ -8,6 +8,7 @@ import {
   AreaTexto, Campo, CuerpoDialogo, Dialogo, MensajeError, NumeroCorto, PieDialogo,
 } from '@/components/formulario'
 import { editarAvance, eliminarAvance } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import { num } from '@/lib/cotizaciones'
 import type { Avance } from '@/types/database'
 
@@ -29,6 +30,7 @@ export function AccionesAvance({
   tieneCronograma: boolean
 }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [abierto, setAbierto] = useState(false)
   const [pendiente, iniciar] = useTransition()
 
@@ -50,15 +52,17 @@ export function AccionesAvance({
         >
           <Pencil size={14} />
         </button>
-        <button
-          type="button"
-          onClick={borrar}
-          disabled={pendiente}
-          className="rounded p-1.5 text-tinta-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-          aria-label="Borrar avance"
-        >
-          <Trash2 size={14} />
-        </button>
+        {oficina && (
+          <button
+            type="button"
+            onClick={borrar}
+            disabled={pendiente}
+            className="rounded p-1.5 text-tinta-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            aria-label="Borrar avance"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </span>
 
       {abierto && (

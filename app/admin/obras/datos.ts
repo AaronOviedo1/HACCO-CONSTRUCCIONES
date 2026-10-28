@@ -91,6 +91,26 @@ export async function cargarObra(id: string) {
       supabase.from('polizas_garantia').select('items').limit(500),
     ])
 
+  // La bitácora: las fotos se firman aquí, en el servidor, porque el bucket es
+  // privado; y los autores se buscan aparte porque no todos son oficiales.
+  const entradasBitacora = bitacora.data ?? []
+  const rutasBitacora = entradasBitacora.flatMap((b) => b.fotos)
+  const idsAutores = [
+    ...new Set(entradasBitacora.map((b) => b.autor_id).filter((x): x is string => Boolean(x))),
+  ]
+  const [firmas, autores] = await Promise.all([
+    rutasBitacora.length > 0
+      ? supabase.storage.from('avances').createSignedUrls(rutasBitacora, 3600)
+      : Promise.resolve({ data: [] as { path: string | null; signedUrl: string }[] }),
+    idsAutores.length > 0
+      ? supabase.from('profiles').select('id, nombre').in('id', idsAutores)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+  ])
+  const fotosBitacora: Record<string, string> = {}
+  for (const f of firmas.data ?? []) if (f.path && f.signedUrl) fotosBitacora[f.path] = f.signedUrl
+  const autoresBitacora: Record<string, string> = {}
+  for (const a of autores.data ?? []) autoresBitacora[a.id] = a.nombre
+
   const sugerenciasConceptos = masComunes(
     (conceptosPrevios.data ?? []).map((c) => ({ texto: c.nombre, monto: c.presupuesto })),
     20,
@@ -136,7 +156,11 @@ export async function cargarObra(id: string) {
     materiales: materiales.data ?? [],
     tareas: tareas.data ?? [],
     avances: avances.data ?? [],
-    bitacora: bitacora.data ?? [],
+    bitacora: entradasBitacora,
+    /** Ruta en el bucket → URL firmada por una hora. */
+    fotosBitacora,
+    /** Id → nombre de quien escribió cada entrada. */
+    autoresBitacora,
     detalles: detalles.data ?? [],
     solicitudes: solicitudes.data ?? [],
     poliza: (polizas.data ?? [])[0] ?? null,

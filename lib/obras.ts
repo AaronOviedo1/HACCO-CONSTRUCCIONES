@@ -1,4 +1,4 @@
-import type { EstatusObra, EstatusTarea } from '@/types/database'
+import type { ClaseBitacora, EstatusObra, EstatusTarea } from '@/types/database'
 import type { TonoEtiqueta } from '@/components/ui'
 
 export const ESTATUS_OBRA: Record<EstatusObra, { texto: string; tono: TonoEtiqueta }> = {
@@ -15,6 +15,23 @@ export const ESTATUS_TAREA: Record<EstatusTarea, { texto: string; tono: TonoEtiq
   en_proceso: { texto: 'En proceso', tono: 'azul' },
   terminada: { texto: 'Terminada', tono: 'verde' },
 }
+
+// ---------------------------------------------------------------------------
+// BITÁCORA DE CAMPO · las mismas clases de evento que en COS, en ese orden
+// ---------------------------------------------------------------------------
+export const CLASES_BITACORA: Record<ClaseBitacora, { texto: string; tono: TonoEtiqueta }> = {
+  entrega_material: { texto: 'Entrega de material', tono: 'azul' },
+  incidencia: { texto: 'Incidencia', tono: 'rojo' },
+  clima: { texto: 'Clima', tono: 'azul' },
+  asistencia: { texto: 'Asistencia', tono: 'gris' },
+  retraso: { texto: 'Retraso', tono: 'ambar' },
+  avance: { texto: 'Avance', tono: 'verde' },
+  visita: { texto: 'Visita', tono: 'verde' },
+  nota: { texto: 'Nota', tono: 'gris' },
+}
+
+/** Tope de fotos por entrada; la base lo hace cumplir también. Lo pidió Abdel en COS. */
+export const MAX_FOTOS_BITACORA = 10
 
 // ---------------------------------------------------------------------------
 // CONTRATO POR OBRA DETERMINADA · los cuatro grupos del formato real

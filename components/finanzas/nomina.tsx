@@ -13,6 +13,7 @@ import { montoEnLetra, pesos, porcentaje } from '@/lib/format'
 import { hoyISO, num, redondear } from '@/lib/cotizaciones'
 import { TIPO_DEDUCCION, etiquetaSemana } from '@/lib/finanzas'
 import { eliminarDeduccion, guardarDeduccion, pagarNomina } from '@/app/admin/finanzas-acciones'
+import { useEsOficina } from '@/components/permisos'
 import { Etiqueta } from '@/components/ui'
 import type {
   Deduccion, MetodoPago, TipoDeduccion, VNominaContrato, VPrenomina, VRayaSemanal,
@@ -633,6 +634,7 @@ export function DialogoPrestamo({
     opciones.unshift({ id: deQuien, nombre: nombreInicial ?? 'Este trabajador' })
   }
 
+  const oficina = useEsOficina()
   const [trabajadorId, setTrabajadorId] = useState(deQuien ?? opciones[0]?.id ?? '')
   const [tipo, setTipo] = useState<TipoDeduccion>(deduccion?.tipo ?? 'prestamo')
   const [monto, setMonto] = useState(deduccion ? String(Number(deduccion.monto)) : '')
@@ -716,7 +718,7 @@ export function DialogoPrestamo({
       </CuerpoDialogo>
 
       <PieDialogo>
-        {deduccion && (
+        {deduccion && oficina && (
           <button
             type="button"
             onClick={borrar}

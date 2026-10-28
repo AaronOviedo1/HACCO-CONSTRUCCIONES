@@ -1,4 +1,4 @@
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { borradorVacio } from '@/lib/cotizaciones'
 import { EditorCotizacion } from '@/components/cotizaciones/editor'
 import { cargarCatalogos, sugerenciasSinEsperar } from '../datos'
@@ -6,7 +6,7 @@ import { cargarCatalogos, sugerenciasSinEsperar } from '../datos'
 export const dynamic = 'force-dynamic'
 
 export default async function NuevaCotizacion() {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { clientes, textos, productos, precios, terminosPorDefecto } = await cargarCatalogos()
 
   // Sin `await`: la promesa cruza al editor y se resuelve allá.

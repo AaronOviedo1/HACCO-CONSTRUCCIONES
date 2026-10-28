@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
 import { EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, Td, Th } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
@@ -22,7 +22,7 @@ export default async function PaginaClientes({
 }: {
   searchParams: Promise<{ q?: string; obra?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { q, obra = '' } = await searchParams
   const supabase = await crearClienteServidor()
 

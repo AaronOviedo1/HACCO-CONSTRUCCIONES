@@ -2,9 +2,10 @@ import { AvisoSuscripcion } from '@/components/admin/aviso-suscripcion'
 import { BarraLateral } from '@/components/admin/barra-lateral'
 import { BotonMas } from '@/components/movil/boton-mas'
 import { Novedades } from '@/components/novedades'
+import { ProveedorOficina } from '@/components/permisos'
 import { BarraTabs } from '@/components/movil/tabs'
 import { cerrarSesion } from '@/app/login/acciones'
-import { NOMBRE_ROL, requerirRol } from '@/lib/auth'
+import { EQUIPO, NOMBRE_ROL, requerirRol } from '@/lib/auth'
 import { pestanasDe, seccionesDe } from '@/lib/nav'
 
 /**
@@ -12,7 +13,7 @@ import { pestanasDe, seccionesDe } from '@/lib/nav'
  * e iPad horizontal, barra de pestañas en el teléfono. Nunca las dos a la vez.
  */
 export default async function LayoutAdmin({ children }: { children: React.ReactNode }) {
-  const perfil = await requerirRol(['admin', 'administracion', 'contador'])
+  const perfil = await requerirRol([...EQUIPO, 'contador'])
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
@@ -29,7 +30,9 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
           {/* La mensualidad de la app: franja roja a Dirección si el cobro no
               entró, y el recordatorio al entrar a Dirección y Administración. */}
           <AvisoSuscripcion rol={perfil.rol} modo="impago" />
-          {children}
+          {/* Al residente no le salen los botones de oficina: cobrar, borrar,
+              meterle dinero a la caja. */}
+          <ProveedorOficina oficina={perfil.rol !== 'residente'}>{children}</ProveedorOficina>
         </div>
       </main>
 

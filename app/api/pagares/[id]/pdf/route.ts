@@ -1,5 +1,5 @@
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { responderPdf } from '@/lib/pdf'
 import { DocumentoPagare, type DatosPagare } from '@/components/documentos/documentos-pdf'
 
@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(peticion: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { id } = await params
   const supabase = await crearClienteServidor()
 

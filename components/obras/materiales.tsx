@@ -16,6 +16,7 @@ import { semaforoMaterial } from '@/lib/obras'
 import {
   cambiarEstatusSolicitud, eliminarMaterial, guardarMaterial, salidaDeTaller,
 } from '@/app/admin/obras/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { OrigenMaterial } from '@/types/database'
 import type { DatosObra } from '@/app/admin/obras/datos'
 
@@ -229,6 +230,7 @@ function TablaMateriales({
   /* Un renglón que salió del taller ya descontó el insumo del kardex.
      Corregirle las piezas dejaría el inventario diciendo otra cosa, así que
      ésos se arreglan quitándolos y volviéndolos a sacar. */
+  const oficina = useEsOficina()
   const corregible = (m: DatosObra['materiales'][number]) => !cerrada && !m.es_taller
   return (
     <Tarjeta
@@ -277,7 +279,7 @@ function TablaMateriales({
                   <Pencil size={15} />
                 </button>
               )}
-              {!cerrada && (
+              {!cerrada && oficina && (
                 <button
                   type="button"
                   onClick={() => onBorrar(m.id)}
@@ -354,7 +356,7 @@ function TablaMateriales({
                           <Pencil size={13} />
                         </button>
                       )}
-                      {!cerrada && (
+                      {!cerrada && oficina && (
                         <button
                           type="button"
                           onClick={() => onBorrar(m.id)}

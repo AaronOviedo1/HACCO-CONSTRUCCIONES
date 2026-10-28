@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol, staff } from '@/lib/auth'
+import { EQUIPO, equipo, requerirRol, staff } from '@/lib/auth'
 import { fallo, type Resultado } from '@/lib/acciones'
+import { MAX_FOTOS_BITACORA } from '@/lib/obras'
 import type {
-  EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
+  ClaseBitacora, EstatusObra, EstatusSolicitud, EstatusTarea, MetodoPago, OrigenMaterial,
   ResultadoBorradoObra, ResultadoCierre, ResultadoReapertura, ResultadoReasignacion,
   TipoAvance, TipoPagoCobranza,
 } from '@/types/database'
@@ -16,7 +17,8 @@ import type {
  * pagarés de herramienta, materiales, cronograma, póliza y solicitudes de
  * material.
  *
- * Cada acción empieza por `staff()` (rol y cliente de Supabase), devuelve un
+ * Cada acción empieza por su guarda —`equipo()` si también la hace el
+ * residente, `staff()` si es de oficina (borrar, cobrar, cerrar la OT)—, devuelve un
  * `Resultado` y termina con `refrescar(obraId)`. Las operaciones que tocan
  * varias tablas no se arman aquí: son funciones de Postgres que se llaman con
  * `rpc`, para que corran en una sola transacción.
@@ -42,7 +44,7 @@ export async function actualizarObra(
     notas?: string | null
   },
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase
     .from('obras')
     .update({ ...parche, fecha_ultima_actualizacion: new Date().toISOString() })
@@ -53,42 +55,108 @@ export async function actualizarObra(
   return { ok: true }
 }
 
-/** Con `id` corrige la nota; sin él la agrega. */
+export type EntradaBitacora = {
+  clase: ClaseBitacora
+  descripcion: string
+  /** El día que pasó; sin él, hoy. */
+  fecha: string | null
+  /** Rutas ya subidas al bucket «avances», bajo la carpeta de la obra. */
+  fotos: string[]
+  tarea_id: string | null
+  /** Sólo cuenta en un retraso con tarea: la recorre esos días. */
+  dias_impacto: number | null
+}
+
+/**
+ * Con `id` corrige la entrada; sin él la registra.
+ *
+ * Registrar pasa por `registrar_en_bitacora` porque un retraso mueve el
+ * cronograma en la misma transacción. Corregir no lo vuelve a mover: el
+ * retraso ya se aplicó una vez, y repetirlo con cada typo arreglado iría
+ * empujando la tarea sin que nadie lo pidiera.
+ */
 export async function anotarEnBitacora(
   obraId: string,
-  texto: string,
+  entrada: EntradaBitacora,
   id?: string,
 ): Promise<Resultado> {
-  const supabase = await staff()
-  if (!texto.trim()) return { ok: false, error: 'La nota no puede ir vacía.' }
+  const supabase = await equipo()
+  const descripcion = entrada.descripcion.trim()
+  if (!descripcion && entrada.fotos.length === 0) {
+    return { ok: false, error: 'Escribe qué pasó o sube una foto.' }
+  }
+  if (entrada.fotos.length > MAX_FOTOS_BITACORA) {
+    return { ok: false, error: `Caben hasta ${MAX_FOTOS_BITACORA} fotos por entrada.` }
+  }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  if (!id) {
+    const { error } = await supabase.rpc('registrar_en_bitacora', {
+      p_obra: obraId,
+      p_clase: entrada.clase,
+      p_descripcion: descripcion,
+      p_fecha: entrada.fecha,
+      p_fotos: entrada.fotos,
+      p_tarea: entrada.tarea_id,
+      p_dias: entrada.clase === 'retraso' ? entrada.dias_impacto : null,
+    })
+    if (error) return fallo(error)
+    refrescar(obraId)
+    return { ok: true }
+  }
 
-  // Sólo se corrigen las notas escritas a mano: los renglones que pone el
+  if (entrada.fotos.some((r) => !r.startsWith(`${obraId}/`))) {
+    return { ok: false, error: 'Las fotos tienen que estar en la carpeta de la obra.' }
+  }
+
+  // Sólo se corrigen las entradas escritas a mano: los renglones que pone el
   // sistema —una obra que cambió de estatus, un avance que entró— son el
   // historial de lo que pasó y ahí no se escribe.
-  const { error } = id
-    ? await supabase
-        .from('bitacora_obra')
-        .update({ descripcion: texto.trim(), editado_por: user?.id ?? null })
-        .eq('id', id)
-        .eq('tipo', 'nota')
-    : await supabase.from('bitacora_obra').insert({
-        obra_id: obraId,
-        tipo: 'nota',
-        descripcion: texto.trim(),
-        autor_id: user?.id ?? null,
-      })
+  const { data: antes } = await supabase
+    .from('bitacora_obra')
+    .select('fotos')
+    .eq('id', id)
+    .eq('tipo', 'nota')
+    .maybeSingle()
+  if (!antes) return { ok: false, error: 'Esa entrada ya no existe o no se puede corregir.' }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await supabase
+    .from('bitacora_obra')
+    .update({
+      clase: entrada.clase,
+      descripcion,
+      fecha: entrada.fecha,
+      fotos: entrada.fotos,
+      tarea_id: entrada.tarea_id,
+      editado_por: user?.id ?? null,
+    })
+    .eq('id', id)
+    .eq('tipo', 'nota')
 
   if (error) return fallo(error)
+
+  // Las fotos que se quitaron dejan de ocupar lugar. Si no se pueden borrar
+  // —el residente no borra archivos—, se quedan huérfanas sin estorbar.
+  const quitadas = antes.fotos.filter((r) => !entrada.fotos.includes(r))
+  if (quitadas.length > 0) await supabase.storage.from('avances').remove(quitadas)
+
   refrescar(obraId)
   return { ok: true }
 }
 
 export async function eliminarNotaBitacora(obraId: string, id: string): Promise<Resultado> {
   const supabase = await staff()
-  const { error } = await supabase.from('bitacora_obra').delete().eq('id', id).eq('tipo', 'nota')
+  const { data, error } = await supabase
+    .from('bitacora_obra')
+    .delete()
+    .eq('id', id)
+    .eq('tipo', 'nota')
+    .select('fotos')
   if (error) return fallo(error)
+
+  const fotos = (data ?? []).flatMap((b) => b.fotos)
+  if (fotos.length > 0) await supabase.storage.from('avances').remove(fotos)
+
   refrescar(obraId)
   return { ok: true }
 }
@@ -107,7 +175,7 @@ export async function registrarAvanceAdmin(
     porcentaje: number | null
   },
 ): Promise<Resultado> {
-  const perfil = await requerirRol(['admin', 'administracion'])
+  const perfil = await requerirRol(EQUIPO)
   const supabase = await crearClienteServidor()
 
   if (!datos.storage_path && !datos.comentario.trim()) {
@@ -142,7 +210,7 @@ export async function editarAvance(
   id: string,
   datos: { comentario: string; porcentaje: number | null },
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { error } = await supabase
@@ -188,7 +256,7 @@ export async function guardarConcepto(
   obraId: string,
   concepto: { id?: string; nombre: string; presupuesto: number },
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   if (!concepto.nombre.trim()) return { ok: false, error: 'El concepto necesita un nombre.' }
 
   const fila = {
@@ -233,7 +301,7 @@ export async function guardarContrato(
     notas: string | null
   },
 ): Promise<Resultado<{ id: string }>> {
-  const supabase = await staff()
+  const supabase = await equipo()
   if (!contrato.trabajador_id) return { ok: false, error: 'Falta elegir al oficial.' }
 
   const reparaciones = contrato.reparaciones.filter((r) => r.descripcion.trim() || r.importe > 0)
@@ -269,7 +337,7 @@ export async function firmarContrato(
   id: string,
   quien: 'oficial' | 'director',
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const ahora = new Date().toISOString()
   const parche =
     quien === 'oficial' ? { firma_oficial_at: ahora } : { firma_director_at: ahora }
@@ -297,7 +365,7 @@ export async function reasignarContrato(
     motivo: string | null
   },
 ): Promise<Resultado<ResultadoReasignacion>> {
-  const supabase = await staff()
+  const supabase = await equipo()
 
   if (!datos.nuevo_trabajador_id) {
     return { ok: false, error: 'Elige al oficial que se queda con la obra.' }
@@ -350,7 +418,7 @@ export async function crearPagare(
     return { ok: false, error: 'Elige al menos una herramienta.' }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('crear_pagare', {
     p_contrato: contratoId,
     p_herramientas: herramientas,
@@ -371,7 +439,7 @@ export async function editarPagare(
     return { ok: false, error: 'El pagaré tiene que quedar con al menos una herramienta.' }
   }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('editar_pagare', {
     p_pagare: pagareId,
     p_herramientas: herramientas,
@@ -384,7 +452,7 @@ export async function editarPagare(
 }
 
 export async function cancelarPagare(obraId: string, pagareId: string): Promise<Resultado<number>> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('cancelar_pagare', { p_pagare: pagareId })
 
   if (error) return fallo(error)
@@ -394,7 +462,7 @@ export async function cancelarPagare(obraId: string, pagareId: string): Promise<
 }
 
 export async function devolverHerramienta(obraId: string, itemId: string): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase
     .from('pagare_items')
     .update({ devuelta: true, fecha_devolucion: new Date().toISOString().slice(0, 10) })
@@ -422,7 +490,7 @@ export async function guardarMaterial(
     es_taller: boolean
   },
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   if (!material.material.trim()) return { ok: false, error: 'Falta el nombre del material.' }
 
   const fila = {
@@ -468,7 +536,7 @@ export async function salidaDeTaller(
 ): Promise<Resultado> {
   if (cantidad <= 0) return { ok: false, error: 'La cantidad tiene que ser mayor a cero.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('salida_taller_a_obra', {
     p_obra: obraId,
     p_producto: productoId,
@@ -502,7 +570,7 @@ export async function guardarTarea(
     avance_pct?: number | null
   },
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   if (!tarea.nombre.trim()) return { ok: false, error: 'La tarea necesita un nombre.' }
 
   const { avance_pct, peso, ...resto } = tarea
@@ -525,7 +593,7 @@ export async function guardarTarea(
 
 /** Marcar terminada de un toque: el trigger pone el 100 % y recalcula la obra. */
 export async function marcarTareaTerminada(obraId: string, id: string): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase
     .from('cronograma_tareas')
     .update({ estatus: 'terminada' })
@@ -550,7 +618,7 @@ export async function eliminarTarea(obraId: string, id: string): Promise<Resulta
  * ajustan fechas o se recorren.
  */
 export async function crearCronogramaDesdePartidas(obraId: string): Promise<Resultado<number>> {
-  const supabase = await staff()
+  const supabase = await equipo()
 
   const { data: obra } = await supabase
     .from('obras')
@@ -627,7 +695,7 @@ export async function recorrerCronograma(
 ): Promise<Resultado<number>> {
   if (dias === 0) return { ok: false, error: 'Indica cuántos días recorrer.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data, error } = await supabase.rpc('recorrer_cronograma', {
     p_obra: obraId,
     p_dias: dias,
@@ -706,7 +774,7 @@ export async function registrarPago(
 export async function agregarDetalle(obraId: string, descripcion: string): Promise<Resultado> {
   if (!descripcion.trim()) return { ok: false, error: 'Escribe el detalle.' }
 
-  const supabase = await staff()
+  const supabase = await equipo()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { error } = await supabase.from('obra_detalles').insert({
@@ -725,7 +793,7 @@ export async function marcarDetalle(
   id: string,
   atendido: boolean,
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase
     .from('obra_detalles')
     .update({
@@ -748,7 +816,7 @@ export async function eliminarDetalle(obraId: string, id: string): Promise<Resul
 }
 
 export async function entregarObra(obraId: string, fecha: string): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase.rpc('entregar_obra', { p_obra: obraId, p_fecha: fecha })
   if (error) return fallo(error)
   refrescar(obraId)
@@ -837,7 +905,7 @@ export async function guardarPoliza(
     deslindes: string | null
   },
 ): Promise<Resultado<{ id: string }>> {
-  const supabase = await staff()
+  const supabase = await equipo()
 
   const fila = {
     obra_id: obraId,
@@ -866,7 +934,7 @@ export async function cambiarEstatusSolicitud(
   estatus: EstatusSolicitud,
   notas: string | null,
 ): Promise<Resultado> {
-  const supabase = await staff()
+  const supabase = await equipo()
   const { error } = await supabase
     .from('solicitudes_material')
     .update({ estatus, notas })

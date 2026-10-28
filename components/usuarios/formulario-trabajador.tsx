@@ -12,7 +12,7 @@ import {
 import type { EstadoAccion } from '@/lib/acciones'
 import type { OficioTrabajador, Profile, RolUsuario } from '@/types/database'
 
-const ROLES: RolUsuario[] = ['admin', 'administracion', 'contador', 'cuadrilla']
+const ROLES: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
 
 const OFICIOS: { valor: OficioTrabajador | ''; texto: string }[] = [
   { valor: '', texto: 'Sin oficio' },
@@ -161,7 +161,7 @@ function FormularioTrabajador({
                 ))}
               </Seleccion>
             }
-            ayuda={nuevo ? 'Cuadrilla es el rol que puede firmar contratos de obra.' : undefined}
+            ayuda="Residente lleva la obra, la bitácora y la nómina, sin cobranza ni borrar. Cuadrilla es el rol que firma contratos de obra."
           />
 
           <div className="flex flex-col gap-2 sm:col-span-2">

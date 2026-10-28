@@ -36,6 +36,7 @@ import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
   guardarTerminosPorDefecto,
 } from '@/app/admin/cotizaciones/acciones'
+import { useEsOficina } from '@/components/permisos'
 import type {
   Cliente, EstatusCotizacion, Obra, Producto, Recordatorio, TextoProceso, TipoCotizacion,
 } from '@/types/database'
@@ -117,6 +118,8 @@ export function EditorCotizacion({
   const [aprobando, setAprobando] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [pendiente, iniciar] = useTransition()
+  // Borrar la cotización es de oficina; el residente cotiza y la corrige.
+  const oficina = useEsOficina()
 
   const recordatoriosAbiertos = recordatorios.filter((r) => !r.atendido_en)
   const totales = useMemo(() => totalesCotizacion(doc), [doc])
@@ -713,7 +716,7 @@ export function EditorCotizacion({
 
           {/* La confirmación se pide aquí y no con el confirm() del navegador,
               que Safari puede acabar silenciando para toda la página. */}
-          {cotizacionId && obras.length === 0 && !borrando && (
+          {oficina && cotizacionId && obras.length === 0 && !borrando && (
             <button
               type="button"
               onClick={() => setBorrando(true)}
@@ -724,7 +727,7 @@ export function EditorCotizacion({
               Eliminar cotización
             </button>
           )}
-          {cotizacionId && obras.length === 0 && borrando && (
+          {oficina && cotizacionId && obras.length === 0 && borrando && (
             <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
               <p className="text-sm text-red-800">
                 Se borra la cotización {folio ?? ''} con todo lo que trae. No se puede deshacer.
@@ -857,6 +860,8 @@ function CampoTerminos({
   const [casa, setCasa] = useState(porDefecto)
   const [aviso, setAviso] = useState<string | null>(null)
   const [pendiente, iniciar] = useTransition()
+  // Cambiar el texto de la casa es de oficina: es el de todas las cotizaciones.
+  const oficina = useEsOficina()
 
   const escrito = valor.trim()
   const distinto = escrito !== casa.trim()
@@ -891,9 +896,11 @@ function CampoTerminos({
           ) : (
             distinto && (
               <>
-                <BotonTerminos onClick={fijar} deshabilitado={pendiente}>
-                  {pendiente ? 'Guardando…' : 'Dejar estos como los de siempre'}
-                </BotonTerminos>
+                {oficina && (
+                  <BotonTerminos onClick={fijar} deshabilitado={pendiente}>
+                    {pendiente ? 'Guardando…' : 'Dejar estos como los de siempre'}
+                  </BotonTerminos>
+                )}
                 <BotonTerminos onClick={() => onCambio(casa)}>Volver a los de siempre</BotonTerminos>
               </>
             )

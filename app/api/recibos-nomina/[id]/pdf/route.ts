@@ -1,5 +1,5 @@
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { responderPdf } from '@/lib/pdf'
 import { METODO_PAGO, TIPO_DEDUCCION, etiquetaSemana } from '@/lib/finanzas'
 import {
@@ -17,7 +17,7 @@ const OFICIO: Record<string, string> = {
 }
 
 export async function GET(peticion: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { id } = await params
   const supabase = await crearClienteServidor()
 

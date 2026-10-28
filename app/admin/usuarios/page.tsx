@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 const TONO_ROL: Record<RolUsuario, TonoEtiqueta> = {
   admin: 'verde',
   administracion: 'azul',
+  residente: 'azul',
   cuadrilla: 'gris',
   contador: 'ambar',
 }

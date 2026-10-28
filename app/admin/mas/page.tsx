@@ -15,6 +15,9 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaMas() {
   const perfil = await requerirPerfil()
   const secciones = seccionesDe(perfil.rol)
+  // El botón de novedades va al final del último grupo que tenga algo: el
+  // residente no ve «Sistema» y sin esto se quedaba sin cómo volver a abrirlas.
+  const ultimo = GRUPOS.filter((g) => secciones.some((s) => s.grupo === g)).at(-1)
 
   return (
     <>
@@ -45,7 +48,7 @@ export default async function PaginaMas() {
             ))}
             {/* El aviso de lo nuevo sale solo una vez; quien lo cerró de prisa
                 lo vuelve a abrir desde aquí. */}
-            {grupo === 'Sistema' && <BotonNovedades rol={perfil.rol} />}
+            {grupo === ultimo && <BotonNovedades rol={perfil.rol} />}
           </GrupoMenu>
         )
       })}

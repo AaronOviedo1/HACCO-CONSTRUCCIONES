@@ -12,6 +12,7 @@ import { enlaceGoogleCalendar } from '@/lib/calendario'
 import {
   atenderRecordatorio, eliminarRecordatorio, guardarRecordatorio,
 } from '@/app/admin/recordatorios-acciones'
+import { useEsOficina } from '@/components/permisos'
 import type { Recordatorio } from '@/types/database'
 
 /**
@@ -34,6 +35,7 @@ export function PanelRecordatorios({
   recordatorios: Recordatorio[]
 }) {
   const router = useRouter()
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [abierto, setAbierto] = useState(false)
@@ -134,15 +136,18 @@ export function PanelRecordatorios({
             >
               {r.atendido_en ? <Undo2 size={15} /> : <Check size={15} />}
             </button>
-            <button
-              type="button"
-              onClick={() => borrar(r)}
-              disabled={pendiente}
-              title="Borrar el recordatorio"
-              className="shrink-0 rounded p-1.5 text-tinta-400 transition hover:bg-white hover:text-red-600 disabled:opacity-50"
-            >
-              <Trash2 size={15} />
-            </button>
+            {/* El residente lo da por atendido, pero no lo borra. */}
+            {oficina && (
+              <button
+                type="button"
+                onClick={() => borrar(r)}
+                disabled={pendiente}
+                title="Borrar el recordatorio"
+                className="shrink-0 rounded p-1.5 text-tinta-400 transition hover:bg-white hover:text-red-600 disabled:opacity-50"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
           </div>
         )
       })}

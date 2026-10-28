@@ -13,9 +13,9 @@ import { SelectorFecha } from '@/components/filtro-fechas'
 import { fecha } from '@/lib/format'
 import { hoyISO, num } from '@/lib/cotizaciones'
 import { ESTATUS_TAREA } from '@/lib/obras'
-import { RenglonBitacora } from '@/components/obras/editar-nota'
+import { useEsOficina } from '@/components/permisos'
 import {
-  anotarEnBitacora, crearCronogramaDesdePartidas, eliminarTarea, guardarTarea,
+  crearCronogramaDesdePartidas, eliminarTarea, guardarTarea,
   marcarTareaTerminada, recorrerCronograma,
 } from '@/app/admin/obras/acciones'
 import type { CronogramaTarea, EstatusTarea } from '@/types/database'
@@ -38,7 +38,7 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
     CronogramaTarea | { padre: CronogramaTarea } | 'nueva' | null
   >(null)
   const [recorriendo, setRecorriendo] = useState(false)
-  const [nota, setNota] = useState('')
+  const oficina = useEsOficina()
   const [pendiente, iniciar] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -68,8 +68,8 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
   const accion = useAccion(iniciar, setError)
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
+    <div className="grid gap-4">
+      <div className="space-y-4">
         {error && (
           <p role="alert" className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-200">
             {error}
@@ -136,7 +136,9 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
                       onEditar={() => setEditando(t)}
                       onSubtarea={() => setEditando({ padre: t })}
                       onTerminar={() => accion(() => marcarTareaTerminada(datos.obra.id, t.id))}
-                      onEliminar={() => accion(() => eliminarTarea(datos.obra.id, t.id))}
+                      onEliminar={
+                        oficina ? () => accion(() => eliminarTarea(datos.obra.id, t.id)) : undefined
+                      }
                     />
                     {(hijosDe.get(t.id) ?? []).map((h) => (
                       <FilaTarea
@@ -149,7 +151,9 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
                         pendiente={pendiente}
                         onEditar={() => setEditando(h)}
                         onTerminar={() => accion(() => marcarTareaTerminada(datos.obra.id, h.id))}
-                        onEliminar={() => accion(() => eliminarTarea(datos.obra.id, h.id))}
+                        onEliminar={
+                          oficina ? () => accion(() => eliminarTarea(datos.obra.id, h.id)) : undefined
+                        }
                       />
                     ))}
                   </li>
@@ -172,53 +176,6 @@ export function PanelCronograma({ datos }: { datos: DatosObra }) {
           )}
         </Tarjeta>
       </div>
-
-      {/* Bitácora ---------------------------------------------------------- */}
-      <Tarjeta titulo="Bitácora de la obra" pie="Los movimientos se anotan solos; aquí puedes agregar una nota.">
-        {!cerrada && (
-          <div className="border-b border-tinta-100 p-3">
-            <div className="flex gap-2">
-              <Entrada
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                placeholder="Nota para el historial…"
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter' || !nota.trim()) return
-                  accion(() => anotarEnBitacora(datos.obra.id, nota))
-                  setNota('')
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (!nota.trim()) return
-                  accion(() => anotarEnBitacora(datos.obra.id, nota))
-                  setNota('')
-                }}
-                disabled={pendiente || !nota.trim()}
-                className="shrink-0 rounded-lg bg-haaco-700 px-3 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300"
-              >
-                Anotar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {datos.bitacora.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-tinta-500">Sin movimientos.</p>
-        ) : (
-          <ul className="max-h-[36rem] divide-y divide-tinta-100 overflow-y-auto">
-            {datos.bitacora.map((b) => (
-              <RenglonBitacora
-                key={b.id}
-                obraId={datos.obra.id}
-                entrada={b}
-                editable={!cerrada && b.tipo === 'nota'}
-              />
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
 
       {editando && (
         <FormularioTarea
@@ -256,7 +213,8 @@ function FilaTarea({
   onEditar: () => void
   onSubtarea?: () => void
   onTerminar: () => void
-  onEliminar: () => void
+  /** Sin ella no sale el bote: el residente no borra tareas. */
+  onEliminar?: () => void
 }) {
   const inicio = tarea.fecha_inicio ? new Date(`${tarea.fecha_inicio}T00:00:00`).getTime() : null
   const fin = tarea.fecha_fin ? new Date(`${tarea.fecha_fin}T00:00:00`).getTime() : inicio
@@ -326,7 +284,7 @@ function FilaTarea({
               Subtarea
             </button>
           )}
-          {!cerrada && (
+          {!cerrada && onEliminar && (
             <button
               type="button"
               onClick={(e) => {

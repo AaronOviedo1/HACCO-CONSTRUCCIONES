@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 // ENUMERACIONES (espejo de los tipos de Postgres)
 // ---------------------------------------------------------------------------
-export type RolUsuario = 'admin' | 'administracion' | 'cuadrilla' | 'contador'
+export type RolUsuario = 'admin' | 'administracion' | 'residente' | 'cuadrilla' | 'contador'
 export type OficioTrabajador = 'pintor' | 'herrero' | 'ayudante' | 'otro'
 export type TipoCotizacion = 'pintura' | 'imper' | 'herreria' | 'otros' | 'mixta'
 export type EstatusCotizacion =
@@ -56,6 +56,11 @@ export type EstatusRonda = 'pendiente' | 'confirmado' | 'pospuesto'
 export type EventoObra =
   | 'apertura' | 'estatus' | 'cronograma' | 'avance' | 'contrato'
   | 'pagare' | 'material' | 'entrega' | 'cierre' | 'reapertura' | 'nota'
+
+/** Qué clase de evento es una entrada de la bitácora escrita a mano. */
+export type ClaseBitacora =
+  | 'nota' | 'avance' | 'entrega_material' | 'incidencia' | 'clima'
+  | 'asistencia' | 'retraso' | 'visita'
 
 // ---------------------------------------------------------------------------
 // FILAS
@@ -837,6 +842,15 @@ export type BitacoraObra = {
   created_at: string
   updated_at: string
   editado_por: string | null
+  /** Sólo en lo escrito a mano (`tipo = 'nota'`); lo automático trae 'nota'. */
+  clase: ClaseBitacora
+  /** El día que pasó; vacío en lo que anotan los triggers. */
+  fecha: string | null
+  /** Rutas en el bucket «avances», hasta diez. */
+  fotos: string[]
+  tarea_id: string | null
+  /** Los días que un retraso recorrió su tarea. */
+  dias_impacto: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -1577,6 +1591,18 @@ export type Database = {
       recorrer_cronograma: {
         Args: { p_obra: string; p_dias: number; p_desde: string }
         Returns: number
+      }
+      registrar_en_bitacora: {
+        Args: {
+          p_obra: string
+          p_clase: ClaseBitacora
+          p_descripcion: string
+          p_fecha: string | null
+          p_fotos: string[]
+          p_tarea: string | null
+          p_dias: number | null
+        }
+        Returns: string
       }
       salida_taller_a_obra: {
         Args: {

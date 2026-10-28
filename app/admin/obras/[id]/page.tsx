@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { LayoutGrid } from 'lucide-react'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { SelectorMovil } from '@/components/movil/selector-movil'
 import { cargarObra } from '../datos'
 import { EncabezadoObra } from '@/components/obras/encabezado'
@@ -10,6 +10,7 @@ import { PanelAvances } from '@/components/obras/avances'
 import { PanelMateriales } from '@/components/obras/materiales'
 import { PanelConceptos } from '@/components/obras/conceptos'
 import { PanelCronograma } from '@/components/obras/cronograma'
+import { PanelBitacora } from '@/components/obras/bitacora'
 import { PanelDocumentos } from '@/components/obras/documentos'
 import { PanelCierre } from '@/components/obras/cierre'
 
@@ -22,6 +23,7 @@ const PESTANAS = [
   { clave: 'materiales', titulo: 'Materiales' },
   { clave: 'conceptos', titulo: 'Conceptos' },
   { clave: 'cronograma', titulo: 'Cronograma' },
+  { clave: 'bitacora', titulo: 'Bitácora' },
   { clave: 'documentos', titulo: 'Documentos' },
   { clave: 'cierre', titulo: 'Cierre' },
 ] as const
@@ -36,7 +38,7 @@ export default async function PaginaObra({
   searchParams: Promise<{ t?: string }>
 }) {
   // Se guarda el perfil: reabrir una OT cerrada es sólo de Dirección.
-  const perfil = await requerirRol(['admin', 'administracion'])
+  const perfil = await requerirRol(EQUIPO)
   const esAdmin = perfil.rol === 'admin'
   const { id } = await params
   const { t } = await searchParams
@@ -53,6 +55,7 @@ export default async function PaginaObra({
     documentos: datos.recibos.length + datos.pagares.length + (datos.poliza ? 1 : 0),
     cierre: datos.detalles.filter((d) => !d.atendido).length,
     resumen: 0,
+    bitacora: 0,
   } as const
 
   return (
@@ -123,6 +126,7 @@ export default async function PaginaObra({
       {activa === 'materiales' && <PanelMateriales datos={datos} />}
       {activa === 'conceptos' && <PanelConceptos datos={datos} />}
       {activa === 'cronograma' && <PanelCronograma datos={datos} />}
+      {activa === 'bitacora' && <PanelBitacora datos={datos} />}
       {activa === 'documentos' && <PanelDocumentos datos={datos} />}
       {activa === 'cierre' && <PanelCierre datos={datos} esAdmin={esAdmin} />}
     </>

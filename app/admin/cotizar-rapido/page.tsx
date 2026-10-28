@@ -1,11 +1,11 @@
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { cargarCatalogos, sugerenciasSinEsperar } from '../cotizaciones/datos'
 import { CotizadorRapido } from '@/components/cotizaciones/cotizador-rapido'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaCotizarRapido() {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { clientes, textos, productos, terminosPorDefecto } = await cargarCatalogos()
 
   // Sin `await`: la promesa cruza al cotizador y se resuelve allá. En sitio

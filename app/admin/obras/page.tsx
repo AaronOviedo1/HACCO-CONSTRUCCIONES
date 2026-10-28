@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { requerirRol } from '@/lib/auth'
+import { EQUIPO, requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { agruparPorMes } from '@/lib/finanzas'
 import { mesesPlegados } from '@/lib/meses-plegados'
@@ -32,7 +32,7 @@ export default async function PaginaObras({
 }: {
   searchParams: Promise<{ q?: string; estatus?: string; cliente?: string }>
 }) {
-  await requerirRol(['admin', 'administracion'])
+  await requerirRol(EQUIPO)
   const { q, estatus = 'activas', cliente } = await searchParams
   const supabase = await crearClienteServidor()
 
