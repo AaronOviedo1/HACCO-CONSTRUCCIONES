@@ -1,4 +1,20 @@
 import { redondear } from '@/lib/cotizaciones'
+import type { MetodoPago } from '@/types/database'
+
+/**
+ * La forma de pago como se escribe en lo que lee el cliente —el recibo y el
+ * estado de cuenta—. No es `METODO_PAGO` de lib/finanzas a propósito: aquí va
+ * la redacción formal («Transferencia electrónica», «Depósito bancario»),
+ * mientras que las pantallas usan la corta.
+ */
+export const METODO_PAGO_FORMAL: Record<MetodoPago, string> = {
+  efectivo: 'Efectivo',
+  caja_chica: 'Caja chica', // en cobros no se ofrece; el tipo pide el mapa completo
+  tarjeta_empresa: 'Tarjeta',
+  transferencia: 'Transferencia electrónica',
+  cheque: 'Cheque',
+  deposito: 'Depósito bancario',
+}
 
 /**
  * La cuenta de la cobranza, en un solo lugar.
@@ -107,6 +123,49 @@ export function resumenCobranza(filas: FilaCobranza[]): ResumenCobranza {
     pctCobrado: contratado > 0 ? Math.min(100, Math.round((cobrado / contratado) * 100)) : 0,
     anticiposPendientes: redondear(anticiposPendientes),
   }
+}
+
+/** Lo que un cliente debe, sumando todas sus obras y reparaciones con saldo. */
+export type DeudaCliente = {
+  clienteId: string
+  cliente: string
+  /** Cuántas obras (cotizaciones) y reparaciones tienen saldo. */
+  cuentas: number
+  cotizado: number
+  cobrado: number
+  saldo: number
+  /** La fecha de la cuenta pendiente más vieja: de cuándo viene el adeudo. */
+  desde: string
+}
+
+/**
+ * La cobranza vista por cliente: un renglón por quien debe, con todas sus
+ * cuentas abiertas sumadas. Es lo que respalda el estado de cuenta, que junta
+ * en un solo papel todas las obras que un cliente tiene pendientes.
+ *
+ * Sólo entra lo que tiene saldo. Lo que el cliente pagó de más en otra obra no
+ * se resta aquí, por lo mismo que en `resumenCobranza`: el estado de cuenta lo
+ * dice aparte.
+ */
+export function deudaPorCliente(
+  filas: { cliente_id: string; cliente: string; cotizado: number; cobrado: number; saldo: number; fecha: string }[],
+): DeudaCliente[] {
+  const porCliente = new Map<string, DeudaCliente>()
+  for (const f of filas) {
+    if (Number(f.saldo) <= 0) continue
+    const previo = porCliente.get(f.cliente_id) ?? {
+      clienteId: f.cliente_id, cliente: f.cliente, cuentas: 0, cotizado: 0, cobrado: 0, saldo: 0, desde: f.fecha,
+    }
+    previo.cuentas++
+    previo.cotizado += Number(f.cotizado)
+    previo.cobrado += Number(f.cobrado)
+    previo.saldo += Number(f.saldo)
+    if (f.fecha < previo.desde) previo.desde = f.fecha
+    porCliente.set(f.cliente_id, previo)
+  }
+  return [...porCliente.values()]
+    .map((d) => ({ ...d, cotizado: redondear(d.cotizado), cobrado: redondear(d.cobrado), saldo: redondear(d.saldo) }))
+    .sort((a, b) => b.saldo - a.saldo)
 }
 
 /**

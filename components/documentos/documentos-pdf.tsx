@@ -4,10 +4,11 @@ import { EMPRESA } from '@/lib/empresa'
 import { MARCA } from '@/lib/marca'
 import { fecha, fechaLarga, montoEnLetra, pesos } from '@/lib/format'
 import { GRUPOS_TRABAJOS, textoPagare, type ReparacionContrato } from '@/lib/obras'
+import type { DatosEstadoCuenta } from '@/lib/estado-de-cuenta'
 
 /**
  * Los documentos que se firman o se entregan, en PDF: recibo-contrato de
- * anticipo, recibo de pago, contrato por obra determinada, pagaré de
+ * anticipo, recibo de pago, estado de cuenta, contrato por obra determinada, pagaré de
  * herramienta y póliza de garantía. Cada uno recibe sus datos ya resueltos
  * desde su ruta en app/api y aquí sólo se dibuja.
  *
@@ -330,6 +331,152 @@ export function DocumentoReciboPago({ datos }: { datos: DatosReciboPago }) {
         </View>
 
         <Pie documento={`Recibo de pago ${datos.folio}`} />
+      </Page>
+    </Document>
+  )
+}
+
+// ===========================================================================
+// ESTADO DE CUENTA · todas las obras que un cliente tiene pendientes
+//
+// Para el cliente con varias obras abiertas a la vez. Arriba lo que pregunta
+// —cuánto debe en total—, luego una tabla con una línea por obra que suma ese
+// total, y al final el detalle de lo que ha pagado en cada una, para que pueda
+// cotejarlo contra sus comprobantes.
+// ===========================================================================
+const COL = { folio: 62, fecha: 60, monto: 74 } as const
+
+export function DocumentoEstadoCuenta({ datos }: { datos: DatosEstadoCuenta }) {
+  const n = datos.cuentas.length
+
+  return (
+    <Document title={`Estado de cuenta ${datos.cliente}`} author={EMPRESA.nombre}>
+      <Page size="LETTER" style={e.pagina}>
+        <MarcaAguaPdf />
+        <Membrete />
+
+        <View style={e.encabezadoDoc}>
+          <Text style={e.titulo}>ESTADO DE CUENTA</Text>
+          <Text style={{ fontSize: 8, color: GRIS, textAlign: 'right' }}>
+            {EMPRESA.ciudad} a {fechaLarga(datos.fecha)}
+          </Text>
+        </View>
+
+        <Text style={e.seccion}>CLIENTE</Text>
+        <Dato
+          etiqueta="Nombre"
+          valor={`${datos.tituloCortesia ? `${datos.tituloCortesia} ` : ''}${datos.cliente}`}
+          fuerte
+        />
+        {datos.domicilio ? <Dato etiqueta="Domicilio" valor={datos.domicilio} /> : null}
+        {datos.telefono ? <Dato etiqueta="Teléfono" valor={datos.telefono} /> : null}
+
+        {/* Lo que se busca al abrirlo: cuánto se debe en total. */}
+        <View style={e.cajaVerde}>
+          <Text style={{ fontSize: 8.5, color: TINTA, letterSpacing: 0.6 }}>SALDO PENDIENTE TOTAL</Text>
+          <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 22, color: VERDE, marginTop: 4 }}>
+            {pesos(datos.total.saldo)}
+          </Text>
+          <Text style={e.letra}>({montoEnLetra(datos.total.saldo)})</Text>
+          <Text style={{ fontSize: 8.5, color: TINTA, marginTop: 4 }}>
+            {n === 1 ? '1 obra pendiente' : `${n} obras pendientes`} · Contratado{' '}
+            {pesos(datos.total.cotizado)} · Pagado {pesos(datos.total.cobrado)}
+          </Text>
+        </View>
+
+        <Text style={e.seccion}>RESUMEN POR OBRA</Text>
+        <View style={e.th}>
+          <Text style={{ width: COL.folio }}>FOLIO</Text>
+          <Text style={{ flex: 1 }}>OBRA</Text>
+          <Text style={{ width: COL.fecha }}>FECHA</Text>
+          <Text style={{ width: COL.monto, textAlign: 'right' }}>CONTRATADO</Text>
+          <Text style={{ width: COL.monto, textAlign: 'right' }}>PAGADO</Text>
+          <Text style={{ width: COL.monto, textAlign: 'right' }}>SALDO</Text>
+        </View>
+        {datos.cuentas.map((c) => (
+          <View key={c.clave} style={e.tr} wrap={false}>
+            <Text style={{ width: COL.folio, fontFamily: 'Figtree', fontWeight: 700, fontSize: 8.5 }}>
+              {c.folio ?? '—'}
+            </Text>
+            <Text style={{ flex: 1, fontSize: 8.5, paddingRight: 6, lineHeight: 1.3 }}>{c.titulo}</Text>
+            <Text style={{ width: COL.fecha, fontSize: 8.5, color: GRIS }}>{fecha(c.fecha)}</Text>
+            <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5 }}>{pesos(c.cotizado)}</Text>
+            <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5, color: GRIS }}>
+              {pesos(c.cobrado)}
+            </Text>
+            <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5, fontFamily: 'Figtree', fontWeight: 700 }}>
+              {pesos(c.saldo)}
+            </Text>
+          </View>
+        ))}
+        <View
+          style={{
+            flexDirection: 'row', backgroundColor: VERDE_CLARO,
+            paddingVertical: 5, paddingHorizontal: 6, marginTop: 3,
+          }}
+          wrap={false}
+        >
+          <Text style={{ flex: 1, fontFamily: 'Figtree', fontWeight: 700, color: VERDE }}>TOTAL</Text>
+          <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5, fontFamily: 'Figtree', fontWeight: 700 }}>
+            {pesos(datos.total.cotizado)}
+          </Text>
+          <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5, fontFamily: 'Figtree', fontWeight: 700 }}>
+            {pesos(datos.total.cobrado)}
+          </Text>
+          <Text style={{ width: COL.monto, textAlign: 'right', fontFamily: 'Figtree', fontWeight: 700, color: VERDE }}>
+            {pesos(datos.total.saldo)}
+          </Text>
+        </View>
+
+        <Text style={e.seccion}>PAGOS RECIBIDOS POR OBRA</Text>
+        {datos.cuentas.map((c) => (
+          <View key={c.clave} style={{ marginBottom: 8 }} wrap={false}>
+            <Text style={{ fontFamily: 'Figtree', fontWeight: 700, fontSize: 9, marginBottom: 2, lineHeight: 1.3 }}>
+              {c.folio ? `${c.folio} · ` : ''}
+              {c.titulo}
+            </Text>
+            {c.domicilio ? (
+              <Text style={{ fontSize: 8, color: GRIS, marginBottom: 2, lineHeight: 1.3 }}>{c.domicilio}</Text>
+            ) : null}
+            {c.pagos.length === 0 ? (
+              <Text style={{ fontSize: 8.5, color: GRIS, paddingVertical: 3, paddingHorizontal: 6 }}>
+                Sin pagos registrados.
+              </Text>
+            ) : (
+              c.pagos.map((p, i) => (
+                <View key={i} style={e.tr}>
+                  <Text style={{ width: COL.fecha, fontSize: 8.5, color: GRIS }}>{fecha(p.fecha)}</Text>
+                  <Text style={{ width: 80, fontSize: 8.5 }}>{p.concepto}</Text>
+                  <Text style={{ flex: 1, fontSize: 8.5, color: GRIS }}>{p.forma}</Text>
+                  <Text style={{ width: COL.monto, textAlign: 'right', fontSize: 8.5 }}>{pesos(p.monto)}</Text>
+                </View>
+              ))
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 3, paddingHorizontal: 6 }}>
+              <Text style={{ fontSize: 8.5, color: GRIS }}>
+                Contratado {pesos(c.cotizado)} · Pagado {pesos(c.cobrado)} ·{' '}
+              </Text>
+              <Text style={{ fontSize: 8.5, fontFamily: 'Figtree', fontWeight: 700 }}>
+                Saldo {pesos(c.saldo)}
+              </Text>
+            </View>
+          </View>
+        ))}
+
+        {datos.saldoAFavor > 0 ? (
+          <Text style={{ fontSize: 8.5, lineHeight: 1.4, marginTop: 4, marginBottom: 6 }}>
+            Además, registramos {pesos(datos.saldoAFavor)} pagados de más en obras ya liquidadas. No se
+            descuentan del saldo de arriba; con gusto lo aclaramos con usted.
+          </Text>
+        ) : null}
+
+        <Text style={{ fontSize: 8.5, lineHeight: 1.4, color: GRIS, marginTop: 4 }}>
+          Este estado de cuenta refleja los pagos registrados al {fechaLarga(datos.fecha)}. Si algún pago
+          suyo no aparece, le pedimos compartirnos el comprobante para aplicarlo. Agradecemos su
+          preferencia.
+        </Text>
+
+        <Pie documento={`Estado de cuenta · ${datos.cliente}`} />
       </Page>
     </Document>
   )

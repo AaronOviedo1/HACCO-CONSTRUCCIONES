@@ -25,7 +25,7 @@ registerHooks({
 
 // Dinámico y no arriba: los imports estáticos se resuelven antes de que corra
 // nada de este archivo, y para entonces el alias todavía no existiría.
-const { cobranzaViva, resumenCobranza } = await import('../lib/cobranza.ts')
+const { cobranzaViva, deudaPorCliente, resumenCobranza } = await import('../lib/cobranza.ts')
 
 /** Una fila de cobranza. El saldo es lo cotizado menos lo cobrado, como en la vista. */
 const fila = (id, estatus, cotizado, cobrado, anticipoEsperado = 0, anticipo = 0) => ({
@@ -141,9 +141,78 @@ for (const caso of CASOS) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Por cliente: el renglón que respalda el estado de cuenta. Su saldo tiene que
+// ser la suma de las obras del cliente que deben, ni más ni menos.
+// ---------------------------------------------------------------------------
+const deuda = (cliente_id, cotizado, cobrado, fecha) => ({
+  cliente_id,
+  cliente: cliente_id.toUpperCase(),
+  cotizado,
+  cobrado,
+  saldo: Math.round((cotizado - cobrado) * 100) / 100,
+  fecha,
+})
+
+const CASOS_CLIENTE = [
+  {
+    nombre: 'Un cliente con tres obras abiertas sale en un solo renglón',
+    filas: [
+      deuda('a', 100_000, 50_000, '2026-05-10'),
+      deuda('a', 40_000, 0, '2026-03-02'),
+      deuda('a', 25_000.5, 10_000.25, '2026-09-01'),
+      deuda('b', 10_000, 2_000, '2026-08-01'),
+    ],
+    esperado: [
+      { clienteId: 'a', cuentas: 3, saldo: 105_000.25, desde: '2026-03-02' },
+      { clienteId: 'b', cuentas: 1, saldo: 8_000, desde: '2026-08-01' },
+    ],
+  },
+  {
+    nombre: 'Lo saldado y lo pagado de más no entra ni resta',
+    nota: 'El sobrepago de una obra no baja lo que debe otra; el estado de cuenta lo dice aparte.',
+    filas: [
+      deuda('a', 30_000, 30_000, '2026-01-01'),
+      deuda('a', 20_000, 25_000, '2026-02-01'),
+      deuda('a', 15_000, 5_000, '2026-04-01'),
+    ],
+    esperado: [{ clienteId: 'a', cuentas: 1, saldo: 10_000, desde: '2026-04-01' }],
+  },
+  {
+    nombre: 'Quien no debe nada no aparece',
+    filas: [deuda('a', 30_000, 30_000, '2026-01-01')],
+    esperado: [],
+  },
+]
+
+for (const caso of CASOS_CLIENTE) {
+  const salio = deudaPorCliente(caso.filas)
+  const problemas = []
+  if (salio.length !== caso.esperado.length) {
+    problemas.push(`se esperaban ${caso.esperado.length} clientes y salieron ${salio.length}`)
+  }
+  caso.esperado.forEach((esperado, i) => {
+    for (const [campo, valor] of Object.entries(esperado)) {
+      if (salio[i]?.[campo] !== valor) {
+        problemas.push(`${esperado.clienteId}.${campo}: se esperaba ${valor} y salió ${salio[i]?.[campo]}`)
+      }
+    }
+  })
+
+  if (problemas.length === 0) {
+    console.log(`✓ ${caso.nombre}`)
+    if (caso.nota) console.log(`  ${caso.nota}`)
+  } else {
+    fallaron++
+    console.error(`✗ ${caso.nombre}`)
+    for (const p of problemas) console.error(`  ${p}`)
+  }
+}
+
+const total = CASOS.length + CASOS_CLIENTE.length
 console.log('')
 if (fallaron > 0) {
-  console.error(`${fallaron} de ${CASOS.length} casos fallaron.`)
+  console.error(`${fallaron} de ${total} casos fallaron.`)
   process.exit(1)
 }
-console.log(`Los ${CASOS.length} casos cuadran.`)
+console.log(`Los ${total} casos cuadran.`)

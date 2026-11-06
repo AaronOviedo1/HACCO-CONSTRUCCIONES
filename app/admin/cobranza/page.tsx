@@ -3,7 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, horaCorta, pesos, pesosCortos, porcentaje } from '@/lib/format'
 import { TIPO_PAGO_COBRANZA, agruparPorMes, etiquetaMes, mesActual, tonoCobranza } from '@/lib/finanzas'
-import { cobranzaViva, resumenCobranza } from '@/lib/cobranza'
+import { cobranzaViva, deudaPorCliente, resumenCobranza } from '@/lib/cobranza'
 import { comoCobranza, etapaServicio, serviciosCobrables } from '@/lib/servicios'
 import { mesesPlegados } from '@/lib/meses-plegados'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui'
 import { CuerpoMes, MesesPlegables, SeccionMes } from '@/components/meses'
 import { AccionesCobranza, FilaCobranza, type RecibosDelPago } from '@/components/finanzas/cobranza'
+import { AccionesEstadoCuenta } from '@/components/finanzas/recibo-de-pago'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
 import { PuntoAbriendo } from '@/components/enlace-abriendo'
@@ -20,6 +21,7 @@ export const dynamic = 'force-dynamic'
 
 const PESTANAS = [
   { clave: 'registro', titulo: 'Por cobrar' },
+  { clave: 'clientes', titulo: 'Por cliente' },
   { clave: 'historial', titulo: 'Historial' },
   { clave: 'concentrado', titulo: 'Concentrado' },
 ] as const
@@ -169,6 +171,22 @@ export default async function PaginaCobranza({
     ? Math.round(diasDeCobro.reduce((s, d) => s + d, 0) / diasDeCobro.length)
     : null
 
+  // Por cliente: lo que debe cada quien sumando todas sus obras y reparaciones
+  // abiertas, que es lo que respalda su estado de cuenta. Las sumas salen de
+  // todo lo del cliente y no sólo de lo que encontró la búsqueda: buscar un
+  // folio tiene que dar el cliente con su total completo, el mismo que dice
+  // el PDF.
+  const deudas = deudaPorCliente([
+    ...todas,
+    ...serviciosVivos.map((s) => ({ ...s, fecha: s.fecha_visita })),
+  ])
+  const clientesEncontrados = new Set([
+    ...filas.map((c) => c.cliente_id),
+    ...serviciosFiltrados.map((s) => s.cliente_id),
+  ])
+  const deudasVistas = busqueda ? deudas.filter((d) => clientesEncontrados.has(d.clienteId)) : deudas
+  const conVarias = deudasVistas.filter((d) => d.cuentas > 1).length
+
   // El concentrado no se pliega: es la corrida completa de lo que se debe, de
   // la cotización más vieja a la más nueva. Cortarlo por meses era pedirle al
   // contador que sumara siete bloques para saber el total.
@@ -258,14 +276,19 @@ export default async function PaginaCobranza({
         <ChipsFiltro
           className="shrink-0 lg:hidden"
           opciones={[
-            { titulo: 'Por cobrar', href: enlace('registro'), activo: vista !== 'historial' },
+            {
+              titulo: 'Por cobrar',
+              href: enlace('registro'),
+              activo: vista === 'registro' || vista === 'concentrado',
+            },
+            { titulo: 'Por cliente', href: enlace('clientes'), activo: vista === 'clientes' },
             { titulo: 'Historial', href: enlace('historial'), activo: vista === 'historial' },
           ]}
         />
       </div>
 
       {/* Teléfono: una tarjeta por obra, con el abono a un toque ------------ */}
-      {(vista === 'historial' ? historial : conSaldo).length > 0 && (
+      {vista !== 'clientes' && (vista === 'historial' ? historial : conSaldo).length > 0 && (
         <div className="flex flex-col gap-3 lg:hidden">
           <MesesPlegables
             lista={vista === 'historial' ? 'cobranza-historial' : 'cobranza-registro'}
@@ -334,6 +357,49 @@ export default async function PaginaCobranza({
             </SeccionMes>
           ))}
           </MesesPlegables>
+        </div>
+      )}
+
+      {/* Teléfono: una tarjeta por cliente, con su estado de cuenta ----- */}
+      {vista === 'clientes' && (
+        <div className="flex flex-col gap-3 lg:hidden">
+          {deudasVistas.length === 0 ? (
+            <p className="py-6 text-center text-sm text-tinta-400">Ningún cliente tiene saldo pendiente.</p>
+          ) : (
+            deudasVistas.map((d) => (
+              <article
+                key={d.clienteId}
+                className="rounded-[20px] border-[0.5px] border-tinta-200 bg-white p-4 shadow-tarjeta"
+              >
+                <h2 className="text-[15.5px] font-semibold leading-snug -tracking-[0.2px]">{d.cliente}</h2>
+                <p className="mt-0.5 text-xs text-tinta-400">
+                  {d.cuentas === 1 ? '1 obra pendiente' : `${d.cuentas} obras pendientes`} · desde{' '}
+                  {fecha(d.desde)}
+                </p>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                  <span>
+                    <span className="block text-[10px] uppercase tracking-[0.06em] text-tinta-400">
+                      Saldo total
+                    </span>
+                    <span className="mt-px block text-base font-bold tabular-nums">{pesos(d.saldo)}</span>
+                  </span>
+                  <span className="text-right text-[11.5px] text-tinta-500">
+                    Cobrado {pesos(d.cobrado)}
+                    <br />
+                    de {pesos(d.cotizado)}
+                  </span>
+                </div>
+                <div className="mt-3 border-t-[0.5px] border-tinta-150 pt-3">
+                  <AccionesEstadoCuenta
+                    clienteId={d.clienteId}
+                    cliente={d.cliente}
+                    telefono={telefonos.get(d.clienteId)}
+                    saldo={d.saldo}
+                  />
+                </div>
+              </article>
+            ))
+          )}
         </div>
       )}
 
@@ -464,6 +530,69 @@ export default async function PaginaCobranza({
               ))}
             </MesesPlegables>
           </Tabla>
+        </Tarjeta>
+      ) : vista === 'clientes' ? (
+        <Tarjeta
+          className="hidden lg:block"
+          pie={
+            conVarias > 0
+              ? `${conVarias} ${conVarias === 1 ? 'cliente tiene' : 'clientes tienen'} más de una obra pendiente. El estado de cuenta junta todas en un solo PDF.`
+              : 'El estado de cuenta junta en un solo PDF todas las obras pendientes del cliente.'
+          }
+        >
+          {deudasVistas.length === 0 ? (
+            <EstadoVacio
+              titulo="Ningún cliente tiene saldo pendiente"
+              descripcion="En cuanto una obra aprobada tenga saldo, su cliente aparece aquí."
+            />
+          ) : (
+            <Tabla>
+              <thead>
+                <tr>
+                  <Th>Cliente</Th>
+                  <Th numerico>Obras pendientes</Th>
+                  <Th>Desde</Th>
+                  <Th numerico>Cotizado</Th>
+                  <Th numerico>Cobrado</Th>
+                  <Th numerico>Saldo</Th>
+                  <Th> </Th>
+                </tr>
+              </thead>
+              <tbody>
+                {deudasVistas.map((d) => (
+                  <tr key={d.clienteId}>
+                    <Td className="font-medium text-tinta-900">
+                      {/* Buscar al cliente lleva a sus renglones en «Por cobrar». */}
+                      <Link
+                        href={`/admin/cobranza?t=registro&q=${encodeURIComponent(d.cliente)}`}
+                        prefetch={false}
+                        className="hover:text-haaco-700 hover:underline"
+                      >
+                        {d.cliente}
+                      </Link>
+                    </Td>
+                    <Td numerico>
+                      {d.cuentas > 1 ? <Etiqueta tono="azul">{d.cuentas}</Etiqueta> : d.cuentas}
+                    </Td>
+                    <Td className="whitespace-nowrap text-tinta-500">{fecha(d.desde)}</Td>
+                    <Td numerico>{pesos(d.cotizado)}</Td>
+                    <Td numerico className="text-tinta-500">{pesos(d.cobrado)}</Td>
+                    <Td numerico className="font-semibold text-amber-700">{pesos(d.saldo)}</Td>
+                    <Td>
+                      <span className="flex justify-end">
+                        <AccionesEstadoCuenta
+                          clienteId={d.clienteId}
+                          cliente={d.cliente}
+                          telefono={telefonos.get(d.clienteId)}
+                          saldo={d.saldo}
+                        />
+                      </span>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Tabla>
+          )}
         </Tarjeta>
       ) : vista === 'historial' ? (
         <Tarjeta
@@ -658,7 +787,7 @@ export default async function PaginaCobranza({
           columnas de anticipo y de «Abono 1..N» que a un portón no le aplican
           —se cobra de un tirón, al terminar—. El dinero sí está sumado en los
           totales de la cabecera; lo que cambia es cómo se enseña. */}
-      {vista !== 'historial' && serviciosFiltrados.length > 0 && (
+      {(vista === 'registro' || vista === 'concentrado') && serviciosFiltrados.length > 0 && (
         <Tarjeta
           className="mt-4"
           titulo="Servicios y reparaciones"

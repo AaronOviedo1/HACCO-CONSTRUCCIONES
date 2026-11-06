@@ -69,6 +69,16 @@ const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
 
+const DEL_6_DE_NOVIEMBRE: Novedad[] = [
+  {
+    donde: 'Cobranza · Por cliente',
+    titulo: 'Estado de cuenta por cliente',
+    texto:
+      'Si un cliente tiene varias obras pendientes, sale en un solo renglón con su saldo total. Con un toque sacas su estado de cuenta en PDF o se lo mandas por WhatsApp.',
+    roles: OFICINA,
+  },
+]
+
 const DEL_28_DE_OCTUBRE: Novedad[] = [
   {
     donde: 'Obras · Bitácora',
@@ -628,6 +638,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 const ENTREGAS: Entrega[] = [
+  { version: '2026-11-06', fecha: '6 de noviembre de 2026', novedades: DEL_6_DE_NOVIEMBRE },
   { version: '2026-10-28', fecha: '28 de octubre de 2026', novedades: DEL_28_DE_OCTUBRE },
   { version: '2026-10-02', fecha: '2 de octubre de 2026', novedades: DEL_2_DE_OCTUBRE },
   { version: '2026-09-21', fecha: '21 de septiembre de 2026', novedades: DEL_21_DE_SEPTIEMBRE },
