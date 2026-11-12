@@ -11,6 +11,9 @@ import {
 } from '@/components/finanzas/cxp'
 import { TablaCxp } from '@/components/finanzas/tabla-cxp'
 import { BarrasSemanas, FilaLista } from '@/components/movil/piezas'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
+import { EsqueletoTabla } from '@/components/esqueletos'
 import type { EstadoCxp } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -68,7 +71,7 @@ export default async function PaginaCuentasPorPagar({
   const proximo = activas.filter((c) => c.estado === 'proxima').reduce((s, c) => s + Number(c.saldo), 0)
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Cuentas por pagar"
         descripcion="Vencimiento, saldo y estado se calculan solos con la fecha de factura y los días de crédito del proveedor."
@@ -94,6 +97,7 @@ export default async function PaginaCuentasPorPagar({
         />
       </div>
 
+      <ContenidoPestana>
       {/* Teléfono: primero cuándo pega, luego a quién ---------------------- */}
       {activas.length > 0 && (
         <div className="lg:hidden">
@@ -165,20 +169,20 @@ export default async function PaginaCuentasPorPagar({
           </Tarjeta>
         </div>
       )}
+      </ContenidoPestana>
 
       <nav className="mb-4 hidden flex-wrap items-center gap-2 lg:flex">
         {VISTAS.map((v) => (
-          <Link
+          <EnlacePestana
             key={v.clave}
             href={`/admin/cuentas-por-pagar?t=${v.clave}${proveedor ? `&proveedor=${proveedor}` : ''}`}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              vista === v.clave
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-            }`}
+            activo={vista === v.clave}
+            clase={CLASE_PESTANA}
+            claseActiva={PESTANA_ACTIVA}
+            claseInactiva={PESTANA_INACTIVA}
           >
             {v.titulo}
-          </Link>
+          </EnlacePestana>
         ))}
         {proveedor && (
           <Link
@@ -190,6 +194,9 @@ export default async function PaginaCuentasPorPagar({
         )}
       </nav>
 
+      <ContenidoPestana
+        esqueleto={<EsqueletoTabla filas={10} columnas={7} className="hidden lg:block" />}
+      >
       <TablaCxp
         plegados={plegados}
         grupos={meses.map((g) => ({
@@ -206,6 +213,7 @@ export default async function PaginaCuentasPorPagar({
         sinDatos={todas.length === 0}
         error={Boolean(error)}
       />
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

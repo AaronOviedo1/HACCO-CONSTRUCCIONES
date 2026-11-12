@@ -10,6 +10,7 @@ import {
   BotonEditarTrabajador, BotonNuevoTrabajador, FilaTrabajadorMovil,
 } from '@/components/usuarios/formulario-trabajador'
 import type { RolUsuario } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +63,7 @@ export default async function PaginaUsuarios({
   }
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Usuarios"
         descripcion="No hay registro público: las cuentas las crea Dirección. Cada rol ve exactamente lo que le toca."
@@ -84,6 +85,7 @@ export default async function PaginaUsuarios({
         />
       </div>
 
+      <ContenidoPestana>
       {/* Teléfono: quién es y con qué rol entra --------------------------- */}
       {filas.length > 0 && (
         <Tarjeta
@@ -179,6 +181,7 @@ export default async function PaginaUsuarios({
         recibe contraseña. Dar de baja a alguien no borra nada: sus contratos, recibos y pagos se
         quedan como están, sólo deja de aparecer en los contratos nuevos y en la nómina.
       </p>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos, pesosCortos } from '@/lib/format'
@@ -11,6 +10,9 @@ import {
   AccionesPagoFijo, AsegurarQuincenas, BarraPagosFijos, OmitidosDeQuincena,
 } from '@/components/finanzas/pagos-fijos'
 import { CatalogoProgramados } from '@/components/finanzas/pagos-programados'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
+import { EsqueletoIndicadores, EsqueletoLista, EsqueletoQuincenas } from '@/components/esqueletos'
 import type { EstadoPagoFijo } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -114,7 +116,7 @@ export default async function PaginaPagosFijos({
   }
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Pagos fijos"
         descripcion="Nómina administrativa y servicios. Es distinto de la nómina de oficiales por avance."
@@ -122,20 +124,32 @@ export default async function PaginaPagosFijos({
 
       <nav className="mb-5 flex flex-wrap gap-1.5">
         {PESTANAS.map((p) => (
-          <Link
+          <EnlacePestana
             key={p.clave}
             href={`/admin/pagos-fijos?t=${p.clave}&mes=${mes}`}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              activa === p.clave
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-            }`}
+            activo={activa === p.clave}
+            clase={CLASE_PESTANA}
+            claseActiva={PESTANA_ACTIVA}
+            claseInactiva={PESTANA_INACTIVA}
           >
             {p.titulo}
-          </Link>
+          </EnlacePestana>
         ))}
       </nav>
 
+      {/* Son dos pestañas: la que se abre siempre es la otra. */}
+      <ContenidoPestana
+        esqueleto={
+          activa === 'catalogo' ? (
+            <>
+              <EsqueletoIndicadores holgado enMovil={4} />
+              <EsqueletoQuincenas />
+            </>
+          ) : (
+            <EsqueletoLista filas={6} filasTabla={8} columnas={5} />
+          )
+        }
+      >
       {activa === 'catalogo' ? (
         <CatalogoProgramados programados={programados} trabajadores={personal ?? []} />
       ) : (
@@ -295,6 +309,7 @@ export default async function PaginaPagosFijos({
           </div>
         </>
       )}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

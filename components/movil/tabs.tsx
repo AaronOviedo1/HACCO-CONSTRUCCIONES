@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import type { Pestana } from '@/lib/nav'
+import { useDestinoTocado } from '@/components/zona-navegable'
 
 /**
  * Barra de pestañas del teléfono.
@@ -149,7 +150,11 @@ function useEstiron(activa: number) {
 
 export function BarraTabs({ pestanas }: { pestanas: Pestana[] }) {
   const pathname = usePathname()
-  const activa = indiceActivo(pathname, pestanas)
+  // La cápsula sale hacia la pestaña tocada sin esperar a que llegue la ruta:
+  // el esqueleto de la pantalla nueva y la cápsula se mueven juntos.
+  const { destino, tocar } = useDestinoTocado()
+  const tocada = destino ? pestanas.findIndex((p) => p.href === destino) : -1
+  const activa = tocada >= 0 ? tocada : indiceActivo(pathname, pestanas)
   // La ruta reinicia el estado al cambiar de pantalla y relee la preferencia
   // de movimiento por si se cambió desde ajustes.
   const minimizada = useMinimizarAlBajar(pathname)
@@ -230,7 +235,10 @@ export function BarraTabs({ pestanas }: { pestanas: Pestana[] }) {
                 onPointerLeave={soltar}
                 // Red de seguridad: si la navegación se lleva el `pointerup`
                 // por delante, el destino se quedaría hundido para siempre.
-                onClick={soltar}
+                onClick={(e) => {
+                  soltar()
+                  tocar(p.href, e)
+                }}
                 className="relative z-10 flex flex-1 basis-0 flex-col items-center justify-center py-2 [touch-action:manipulation]"
                 style={{
                   // El color entrante espera a que la cápsula llegue; el que

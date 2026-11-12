@@ -14,6 +14,8 @@ import { FiltrosCotizaciones } from '@/components/cotizaciones/filtros'
 import { FolioAbriendo, PuntoAbriendo } from '@/components/enlace-abriendo'
 import { BotonGrande, ChipsFiltro } from '@/components/movil/piezas'
 import type { EstatusCotizacion, TipoCotizacion, VCotizacion } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
+import { EsqueletoLista } from '@/components/esqueletos'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,7 +161,7 @@ export default async function PaginaCotizaciones({
   }
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Cotizaciones"
         descripcion="De aquí cuelga todo: órdenes de trabajo, cobranza, nómina y materiales."
@@ -201,6 +203,7 @@ export default async function PaginaCotizaciones({
 
       <div className="mb-3.5 lg:mb-4">
         <ChipsFiltro
+          tipo="pestana"
           opciones={[
             { titulo: 'Por mes', href: enlaceVista(), activo: !concentrado },
             { titulo: 'Concentrado', href: enlaceVista('concentrado'), activo: concentrado },
@@ -210,6 +213,7 @@ export default async function PaginaCotizaciones({
 
       <FiltrosCotizaciones clientes={clientes ?? []} />
 
+      <ContenidoPestana esqueleto={<EsqueletoLista filas={6} filasTabla={10} columnas={7} />}>
       {/* Teléfono: renglón tocable con el folio como ancla visual ----------- */}
       {filas.length > 0 && (
         <div className="lg:hidden">
@@ -327,6 +331,7 @@ export default async function PaginaCotizaciones({
           </Tabla>
         )}
       </Tarjeta>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

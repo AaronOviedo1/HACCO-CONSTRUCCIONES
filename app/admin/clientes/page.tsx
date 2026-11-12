@@ -8,6 +8,7 @@ import { ChipsFiltro } from '@/components/movil/piezas'
 import {
   BotonNuevoCliente, FilaCliente, FilaClienteMovil,
 } from '@/components/catalogos/formulario-cliente'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +61,7 @@ export default async function PaginaClientes({
   })
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Clientes"
         descripcion="Cada cliente puede tener varias cotizaciones; sólo la aprobada genera órdenes de trabajo."
@@ -86,6 +87,7 @@ export default async function PaginaClientes({
         />
       </div>
 
+      <ContenidoPestana>
       {/* Teléfono: un renglón por cliente, que la tabla no cabe ----------- */}
       {filas.length > 0 && (
         <Tarjeta className="lg:hidden" pie={`${filas.length} ${filas.length === 1 ? 'cliente' : 'clientes'}`}>
@@ -187,6 +189,7 @@ export default async function PaginaClientes({
           </Tabla>
         )}
       </Tarjeta>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

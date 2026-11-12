@@ -17,3 +17,11 @@ export const BOTON_SECUNDARIO =
 /** «Guardar», «Registrar»: la acción principal del pie de un diálogo. */
 export const BOTON_PRIMARIO =
   'rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 disabled:bg-haaco-300'
+
+/**
+ * Las pestañas de escritorio (`<nav>` de catálogo, cobranza, nómina…), para
+ * `EnlacePestana`: la base y lo que cambia según esté puesta o no.
+ */
+export const CLASE_PESTANA = 'rounded-lg px-3 py-2 text-sm font-medium transition'
+export const PESTANA_ACTIVA = 'bg-haaco-700 text-white'
+export const PESTANA_INACTIVA = 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'

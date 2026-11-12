@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { EQUIPO, requerirRol } from '@/lib/auth'
 import { pesos } from '@/lib/format'
@@ -7,6 +6,8 @@ import {
   type TonoEtiqueta,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
 import { FilaLista } from '@/components/movil/piezas'
 import { BotonEditarHerramienta, BotonNuevaHerramienta } from '@/components/catalogos/formularios-catalogo'
 import type { EstadoHerramienta } from '@/types/database'
@@ -52,7 +53,7 @@ export default async function PaginaHerramientas({
   const valorEnObra = enObra.reduce((s, h) => s + Number(h.valor ?? 0), 0)
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Herramientas"
         descripcion="Inventario que alimenta los pagarés. Al prestar una herramienta pasa a «En obra» con el oficial; al devolverla regresa al taller."
@@ -79,22 +80,23 @@ export default async function PaginaHerramientas({
             if (q) params.set('q', q)
             if (f.clave) params.set('estado', f.clave)
             return (
-              <Link
+              <EnlacePestana
                 key={f.titulo}
                 href={`/admin/herramientas${params.toString() ? `?${params}` : ''}`}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  activo
-                    ? 'bg-haaco-700 text-white'
-                    : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-                }`}
+                activo={activo}
+                tipo="filtro"
+                clase={CLASE_PESTANA}
+                claseActiva={PESTANA_ACTIVA}
+                claseInactiva={PESTANA_INACTIVA}
               >
                 {f.titulo}
-              </Link>
+              </EnlacePestana>
             )
           })}
         </nav>
       </div>
 
+      <ContenidoPestana>
       {/* Teléfono: qué pieza es, dónde anda y cómo está ------------------- */}
       {filas.length > 0 && (
         <Tarjeta className="lg:hidden" pie={`${filas.length} de ${inventario.length} herramientas`}>
@@ -168,6 +170,7 @@ export default async function PaginaHerramientas({
           </Tabla>
         )}
       </Tarjeta>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

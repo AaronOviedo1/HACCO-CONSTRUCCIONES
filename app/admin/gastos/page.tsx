@@ -15,6 +15,7 @@ import { FiltrosGastos } from '@/components/finanzas/filtros-gastos'
 import { FilaLista } from '@/components/movil/piezas'
 import { masComunes, precioPagado } from '@/lib/sugerencias'
 import type { CategoriaGasto } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,7 +145,7 @@ export default async function PaginaGastos({
   const categorias = [...porCategoria.entries()].sort((a, b) => b[1] - a[1])
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Gastos"
         descripcion="Todo gasto ligado a una obra alimenta su material consumido; a crédito abre su cuenta por pagar."
@@ -178,6 +179,7 @@ export default async function PaginaGastos({
 
       <FiltrosGastos obras={obras ?? []} />
 
+      <ContenidoPestana>
       {/* Teléfono: el ticket del día, en renglones ------------------------- */}
       {filas.length > 0 && (
         <Tarjeta className="lg:hidden">
@@ -325,6 +327,7 @@ export default async function PaginaGastos({
           )}
         </Tarjeta>
       </div>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

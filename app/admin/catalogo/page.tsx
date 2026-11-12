@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
@@ -7,6 +6,9 @@ import {
   EncabezadoPagina, EstadoVacio, Etiqueta, Tabla, Tarjeta, TarjetaPlegable, Td, Th,
 } from '@/components/ui'
 import { BuscadorTabla } from '@/components/buscador'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
+import { EsqueletoLista } from '@/components/esqueletos'
 import { FilaLista } from '@/components/movil/piezas'
 import {
   BotonEditarProducto, BotonEditarProveedor, BotonEditarTexto, BotonMovimiento,
@@ -45,7 +47,7 @@ export default async function PaginaCatalogo({
   const listaProveedores = proveedores ?? []
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Catálogo"
         descripcion="La materia prima de las cotizaciones: qué se aplica, con qué producto, a qué costo y a quién se le compra."
@@ -54,17 +56,16 @@ export default async function PaginaCatalogo({
 
       <nav className="mb-5 flex flex-wrap gap-1.5">
         {PESTANAS.map((p) => (
-          <Link
+          <EnlacePestana
             key={p.clave}
             href={`/admin/catalogo?t=${p.clave}`}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              activa === p.clave
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-            }`}
+            activo={activa === p.clave}
+            clase={CLASE_PESTANA}
+            claseActiva={PESTANA_ACTIVA}
+            claseInactiva={PESTANA_INACTIVA}
           >
             {p.titulo}
-          </Link>
+          </EnlacePestana>
         ))}
       </nav>
 
@@ -80,6 +81,7 @@ export default async function PaginaCatalogo({
         </div>
       )}
 
+      <ContenidoPestana esqueleto={<EsqueletoLista filas={8} filasTabla={10} columnas={6} />}>
       {activa === 'productos' && (
         <TablaProductos proveedores={listaProveedores} busqueda={busqueda} />
       )}
@@ -94,7 +96,8 @@ export default async function PaginaCatalogo({
         />
       )}
       {activa === 'textos' && <TablaTextos />}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }
 

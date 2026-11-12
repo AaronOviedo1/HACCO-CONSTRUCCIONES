@@ -1,3 +1,7 @@
+/**
+ * «Mis obras» vive en el grupo `(inicio)` para que este esqueleto sea sólo
+ * suyo: en `app/obra/` envolvía también a la obra y al perfil.
+ */
 export default function Cargando() {
   return (
     <div className="animate-pulse space-y-3" aria-busy="true" aria-label="Cargando">

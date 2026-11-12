@@ -1,7 +1,8 @@
-import Link from 'next/link'
 import { LayoutGrid } from 'lucide-react'
 import { EQUIPO, requerirRol } from '@/lib/auth'
 import { SelectorMovil } from '@/components/movil/selector-movil'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { EsqueletoSeccionObra } from '@/components/esqueletos'
 import { cargarObra } from '../datos'
 import { EncabezadoObra } from '@/components/obras/encabezado'
 import { PanelResumen } from '@/components/obras/resumen'
@@ -59,7 +60,7 @@ export default async function PaginaObra({
   } as const
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoObra
         concentrado={datos.concentrado}
         obra={datos.obra}
@@ -76,6 +77,7 @@ export default async function PaginaObra({
           titulo="Ir a"
           activa={activa}
           icono={<LayoutGrid size={16} />}
+          tipo="pestana"
           opciones={PESTANAS.map((p) => ({
             clave: p.clave,
             titulo: p.titulo,
@@ -90,15 +92,13 @@ export default async function PaginaObra({
             const es = activa === p.clave
             const n = pendientes[p.clave]
             return (
-              <Link
+              <EnlacePestana
                 key={p.clave}
                 href={`/admin/obras/${id}?t=${p.clave}`}
-                scroll={false}
-                className={`relative flex min-h-9 shrink-0 items-center rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:min-h-0 lg:rounded-none lg:rounded-t-lg lg:border-0 lg:border-b-2 lg:px-3.5 lg:py-2.5 lg:text-sm ${
-                  es
-                    ? 'border-haaco-700 bg-haaco-700 text-white lg:border-haaco-600 lg:bg-transparent lg:text-haaco-800'
-                    : 'border-tinta-200 bg-white text-tinta-600 lg:border-transparent lg:bg-transparent lg:text-tinta-500 lg:hover:text-tinta-800'
-                }`}
+                activo={es}
+                clase="relative flex min-h-9 shrink-0 items-center rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:min-h-0 lg:rounded-none lg:rounded-t-lg lg:border-0 lg:border-b-2 lg:px-3.5 lg:py-2.5 lg:text-sm"
+                claseActiva="border-haaco-700 bg-haaco-700 text-white lg:border-haaco-600 lg:bg-transparent lg:text-haaco-800"
+                claseInactiva="border-tinta-200 bg-white text-tinta-600 lg:border-transparent lg:bg-transparent lg:text-tinta-500 lg:hover:text-tinta-800"
               >
                 {p.titulo}
                 {n > 0 && (
@@ -114,12 +114,15 @@ export default async function PaginaObra({
                     {n}
                   </span>
                 )}
-              </Link>
+              </EnlacePestana>
             )
           })}
         </div>
       </nav>
 
+      {/* Cambiar de sección sólo cambia `?t=`, y eso no vuelve a mostrar el
+          `loading.tsx`: el esqueleto de la sección lo pone esta zona. */}
+      <ContenidoPestana esqueleto={<EsqueletoSeccionObra />}>
       {activa === 'resumen' && <PanelResumen datos={datos} />}
       {activa === 'contratos' && <PanelContratos datos={datos} />}
       {activa === 'avances' && <PanelAvances datos={datos} />}
@@ -129,6 +132,7 @@ export default async function PaginaObra({
       {activa === 'bitacora' && <PanelBitacora datos={datos} />}
       {activa === 'documentos' && <PanelDocumentos datos={datos} />}
       {activa === 'cierre' && <PanelCierre datos={datos} esAdmin={esAdmin} />}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

@@ -7,6 +7,7 @@ import {
   LayoutDashboard, LogOut, Receipt, ShoppingCart, Users, Wallet, Wrench, Zap,
 } from 'lucide-react'
 import { Membrete } from '@/components/marca'
+import { useDestinoTocado } from '@/components/zona-navegable'
 import { BotonNovedades } from '@/components/novedades'
 import { GRUPOS, type Seccion } from '@/lib/nav'
 import type { RolUsuario } from '@/types/database'
@@ -57,6 +58,7 @@ export function BarraLateral({
   cerrarSesion: () => Promise<void>
 }) {
   const pathname = usePathname()
+  const { destino, tocar } = useDestinoTocado()
 
   /*
    * El `z-10` de la barra no es decorativo. Sin él se queda en el nivel de
@@ -86,12 +88,14 @@ export function BarraLateral({
                 <ul className="space-y-0.5">
                   {items.map((seccion) => {
                     const Icono = ICONOS[seccion.icono] ?? LayoutDashboard
-                    const activa = estaActiva(pathname, seccion.href)
+                    // Lo recién tocado manda sobre la ruta, que todavía no cambia.
+                    const activa = destino ? destino === seccion.href : estaActiva(pathname, seccion.href)
 
                     return (
                       <li key={seccion.href}>
                         <Link
                           href={seccion.href}
+                          onClick={(e) => tocar(seccion.href, e)}
                           className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${
                             activa
                               ? 'bg-white/12 font-medium text-white before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-haaco-300'

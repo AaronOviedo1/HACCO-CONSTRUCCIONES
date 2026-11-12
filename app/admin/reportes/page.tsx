@@ -12,6 +12,7 @@ import {
 import { FilaLista } from '@/components/movil/piezas'
 import { BarraReportes, BotonHoja } from '@/components/reportes/barra'
 import type { EstatusObra } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,7 @@ export default async function PaginaReportes({
     f.facturado === 0 && f.cobrado === 0 && r.obras.length === 0 && r.cotizaciones.length === 0
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Reportes"
         descripcion={`Cierre de ${r.etiqueta}. Todo lo que necesita el contador, exportable a Excel.`}
@@ -37,6 +38,7 @@ export default async function PaginaReportes({
 
       <BarraReportes mes={mes} soloLectura={perfil.rol === 'contador'} />
 
+      <ContenidoPestana>
       {r.errorLectura && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           No se pudo leer parte de la información: {r.errorLectura}
@@ -571,7 +573,8 @@ export default async function PaginaReportes({
           </section>
         </div>
       )}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }
 

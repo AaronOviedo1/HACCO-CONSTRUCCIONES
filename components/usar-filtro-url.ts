@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useTransicionFiltro } from '@/components/zona-navegable'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 /**
@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 export function useFiltroUrl() {
   const router = useRouter()
   const params = useSearchParams()
-  const [, iniciar] = useTransition()
+  const [, iniciar] = useTransicionFiltro()
 
   const fijar = (clave: string, valor: string) => {
     const nuevos = new URLSearchParams(params.toString())
