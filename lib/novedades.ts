@@ -69,6 +69,23 @@ const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
 
+const DEL_12_DE_NOVIEMBRE: Novedad[] = [
+  {
+    donde: 'Cotizaciones',
+    titulo: 'La cotización de una obra en marcha ya no se edita',
+    texto:
+      'Si su orden de trabajo ya tiene cobros o trabajo, la cotización queda fija y la cobranza de la obra no se mueve. Para otra obra, usa Duplicar, que ahora también está en el teléfono.',
+    roles: EQUIPO,
+  },
+  {
+    donde: 'Cotizaciones',
+    titulo: 'Corregir una recién aprobada sin abrir otra OT',
+    texto:
+      'Si todavía no tiene movimiento, la regresas a borrador, la corriges y tocas «Volver a aprobar». Se queda con la misma orden de trabajo.',
+    roles: EQUIPO,
+  },
+]
+
 const DEL_6_DE_NOVIEMBRE: Novedad[] = [
   {
     donde: 'Cobranza · Por cliente',
@@ -638,6 +655,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 const ENTREGAS: Entrega[] = [
+  { version: '2026-11-12', fecha: '12 de noviembre de 2026', novedades: DEL_12_DE_NOVIEMBRE },
   { version: '2026-11-06', fecha: '6 de noviembre de 2026', novedades: DEL_6_DE_NOVIEMBRE },
   { version: '2026-10-28', fecha: '28 de octubre de 2026', novedades: DEL_28_DE_OCTUBRE },
   { version: '2026-10-02', fecha: '2 de octubre de 2026', novedades: DEL_2_DE_OCTUBRE },

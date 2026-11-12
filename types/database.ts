@@ -1584,6 +1584,14 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      cotizacion_con_movimiento: {
+        Args: { p_id: string }
+        Returns: boolean
+      }
+      reaprobar_cotizacion: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       aprobar_cotizacion: {
         Args: { p_id: string; p_obras: ObraNuevaSql[]; p_anticipo_pct: number | null }
         Returns: ResultadoAprobacion

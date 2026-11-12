@@ -171,10 +171,17 @@ export async function cargarCotizacion(id: string) {
       })),
   }
 
+  // Con una OT que ya cobró, avanzó o gastó, la cotización queda congelada:
+  // la base de datos no deja tocarla y el editor ofrece duplicarla.
+  const congelada = (obras ?? []).length > 0
+    ? ((await supabase.rpc('cotizacion_con_movimiento', { p_id: id })).data ?? true)
+    : false
+
   return {
     cotizacion,
     borrador,
     obras: obras ?? [],
+    congelada,
     recordatorios: recordatorios ?? [],
   }
 }

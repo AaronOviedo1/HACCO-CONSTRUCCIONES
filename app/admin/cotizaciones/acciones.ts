@@ -24,6 +24,16 @@ export async function guardarCotizacion(
   if (faltas.length > 0) return { ok: false, error: faltas.join(' ') }
 
   const supabase = await equipo()
+
+  // Aprobada o terminada ya tiene OT abiertas: se corrige regresándola a
+  // borrador, que sólo se puede mientras sus obras no tengan movimiento.
+  if (id) {
+    const { data: actual } = await supabase.from('cotizaciones').select('estatus').eq('id', id).maybeSingle()
+    if (actual?.estatus === 'aprobada' || actual?.estatus === 'terminada') {
+      return { ok: false, error: 'Esta cotización ya está aprobada. Para cambiarla, regrésala a borrador.' }
+    }
+  }
+
   const { data, error } = await supabase.rpc('guardar_cotizacion', {
     p_id: id,
     p_datos: aPayload(borrador),
@@ -94,6 +104,22 @@ export async function aprobarCotizacion(
   revalidatePath('/admin/obras')
   revalidatePath('/admin/cobranza')
   return { ok: true, datos: data as ResultadoAprobacion }
+}
+
+/**
+ * Volver a aprobar una cotización que ya tiene OT y se regresó a borrador para
+ * corregirla. No abre órdenes nuevas: la deja aprobada y, si tiene una sola OT
+ * abierta, le pone el monto corregido.
+ */
+export async function reaprobarCotizacion(id: string): Promise<Resultado> {
+  const supabase = await equipo()
+  const { error } = await supabase.rpc('reaprobar_cotizacion', { p_id: id })
+  if (error) return fallo(error)
+
+  refrescar(id)
+  revalidatePath('/admin/obras')
+  revalidatePath('/admin/cobranza')
+  return { ok: true }
 }
 
 /** Enviada, rechazada, terminada o de regreso a borrador. */
