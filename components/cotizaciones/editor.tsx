@@ -34,7 +34,7 @@ import {
 } from '@/lib/cotizaciones'
 import {
   cambiarEstatus, duplicarCotizacion, eliminarCotizacion, guardarCotizacion,
-  guardarTerminosPorDefecto,
+  guardarTerminosPorDefecto, reaprobarCotizacion,
 } from '@/app/admin/cotizaciones/acciones'
 import { useEsOficina } from '@/components/permisos'
 import type {
@@ -97,6 +97,12 @@ type Props = {
   /** Último precio pagado de cada material, para el semáforo de los costos. */
   precios: PrecioVigente[]
   obras: ObraLigada[]
+  /**
+   * Alguna de sus OT ya tiene cobros, avances o gastos. Entonces no se edita
+   * ni se regresa a borrador —la base de datos tampoco lo deja—: para otra
+   * obra se duplica. Sin movimiento, sí se puede corregir.
+   */
+  congelada?: boolean
   /** Los pendientes con fecha de esta cotización. Vacío en una nueva. */
   recordatorios: Recordatorio[]
   /** Los términos y condiciones de la casa, para comparar y para restituir. */
@@ -106,7 +112,7 @@ type Props = {
 
 export function EditorCotizacion({
   cotizacionId, folio, estatus, inicial, clientes, textos, productos, precios, obras,
-  recordatorios, terminosPorDefecto, sugerencias: promesaSugerencias,
+  congelada = false, recordatorios, terminosPorDefecto, sugerencias: promesaSugerencias,
 }: Props) {
   const router = useRouter()
   const sugerencias = useSugerenciasDiferidas(promesaSugerencias)
@@ -164,7 +170,11 @@ export function EditorCotizacion({
   const precioDe = (m: MaterialBorrador) =>
     (m.producto_id ? preciosPorMaterial.get(m.producto_id) : undefined) ??
     preciosPorMaterial.get(normalizarMaterial(m.material))
-  const bloqueado = estatus === 'aprobada' || estatus === 'terminada'
+  const aprobada = estatus === 'aprobada' || estatus === 'terminada'
+  const bloqueado = aprobada || congelada
+  // Ya abrió sus OT y se regresó a borrador para corregirla: al terminar se
+  // vuelve a aprobar, sin abrir órdenes nuevas.
+  const corrigiendo = obras.length > 0 && !aprobada
   // En el teléfono todo nace plegado: la cotización completa mide varias
   // pantallas y así se ve de un vistazo qué trae y se abre nada más lo que se
   // va a tocar. En el escritorio hay espacio, y al capturar una cotización
@@ -244,6 +254,16 @@ export function EditorCotizacion({
       const r = await duplicarCotizacion(cotizacionId)
       if (!r.ok) return setError(r.error)
       router.push(`/admin/cotizaciones/${r.datos!.id}`)
+    })
+
+  const alReaprobar = () =>
+    iniciar(async () => {
+      if (!cotizacionId) return
+      if (sucio && !(await guardar())) return
+      const r = await reaprobarCotizacion(cotizacionId)
+      if (!r.ok) return setError(r.error)
+      setAviso('Cotización aprobada otra vez. Sus órdenes de trabajo siguen siendo las mismas.')
+      router.refresh()
     })
 
   const alEliminar = () =>
@@ -335,14 +355,18 @@ export function EditorCotizacion({
                 <Share2 size={16} />
                 WhatsApp
               </button>
+              {/* En el teléfono va sólo el ícono: tres botones con texto no
+                  caben en un renglón. */}
               <button
                 type="button"
                 onClick={alDuplicar}
                 disabled={pendiente}
-                className="hidden items-center gap-2 rounded-lg border border-tinta-300 bg-white px-3 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 lg:inline-flex"
+                aria-label="Duplicar"
+                title="Duplicar"
+                className="inline-flex min-h-12 w-12 shrink-0 items-center justify-center gap-2 rounded-[14px] border-[0.5px] border-tinta-300 bg-white text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 lg:min-h-0 lg:w-auto lg:rounded-lg lg:border lg:px-3 lg:py-2 lg:text-sm lg:font-medium"
               >
                 <Copy size={16} />
-                Duplicar
+                <span className="hidden lg:inline">Duplicar</span>
               </button>
             </>
           )}
@@ -359,12 +383,23 @@ export function EditorCotizacion({
           {aviso}
         </p>
       )}
-      {bloqueado && (
+      {congelada ? (
+        <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+          Su orden de trabajo ya tiene cobros o trabajo registrado, así que esta cotización ya no se
+          puede modificar. Si es para otra obra, duplícala.
+        </p>
+      ) : bloqueado ? (
         <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
           Esta cotización ya está {ESTATUS_COTIZACION[estatus].texto.toLowerCase()} y sus órdenes de
-          trabajo están abiertas. Para modificarla, regrésala a borrador.
+          trabajo están abiertas. Para corregirla, regrésala a borrador; si es para otra obra,
+          duplícala.
         </p>
-      )}
+      ) : corrigiendo ? (
+        <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+          Estás corrigiendo la cotización de una orden de trabajo que ya está abierta. Al terminar,
+          vuelve a aprobarla: no se abre otra orden.
+        </p>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-5 lg:col-span-2">
@@ -668,7 +703,19 @@ export function EditorCotizacion({
             )}
           </TarjetaPlegable>
 
-          {cotizacionId && !bloqueado && (
+          {cotizacionId && corrigiendo && (
+            <button
+              type="button"
+              onClick={alReaprobar}
+              disabled={pendiente}
+              className="mt-4 flex min-h-[54px] w-full items-center justify-center gap-2 rounded-[16px] bg-haaco-700 px-4 text-base font-semibold text-white shadow-verde transition hover:bg-haaco-800 disabled:bg-haaco-300 lg:min-h-0 lg:rounded-lg lg:py-3 lg:text-sm lg:shadow-none"
+            >
+              <Check size={17} />
+              {sucio ? 'Guardar y volver a aprobar' : 'Volver a aprobar'}
+            </button>
+          )}
+
+          {cotizacionId && !bloqueado && !corrigiendo && (
             <div className="mt-4 space-y-2">
               <button
                 type="button"
@@ -703,7 +750,19 @@ export function EditorCotizacion({
             </div>
           )}
 
-          {bloqueado && (
+          {cotizacionId && congelada && (
+            <button
+              type="button"
+              onClick={alDuplicar}
+              disabled={pendiente}
+              className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-tinta-300 bg-white px-4 text-[15.5px] font-semibold text-tinta-700 transition hover:bg-tinta-50 disabled:opacity-50 lg:min-h-0 lg:rounded-lg lg:py-2.5 lg:text-sm lg:font-medium"
+            >
+              <Copy size={16} />
+              Duplicar para otra obra
+            </button>
+          )}
+
+          {aprobada && !congelada && (
             <button
               type="button"
               onClick={() => alCambiarEstatus('borrador')}
@@ -782,15 +841,19 @@ export function EditorCotizacion({
                 <Save size={16} />
                 {pendiente ? 'Guardando…' : 'Guardar'}
               </button>
+              {/* Una cotización que ya tiene OT no se vuelve a enviar: se
+                  vuelve a aprobar. */}
               <button
                 type="button"
-                onClick={alEnviar}
+                onClick={corrigiendo ? alReaprobar : alEnviar}
                 disabled={pendiente}
                 className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-[14px] bg-haaco-700 px-4 text-sm font-semibold text-white transition hover:bg-haaco-800 disabled:bg-haaco-300 sm:min-h-0 sm:flex-none sm:rounded-lg sm:py-2.5"
               >
-                <Send size={16} />
-                <span className="sm:hidden">Enviar</span>
-                <span className="hidden sm:inline">Guardar y marcar enviada</span>
+                {corrigiendo ? <Check size={16} /> : <Send size={16} />}
+                <span className="sm:hidden">{corrigiendo ? 'Aprobar' : 'Enviar'}</span>
+                <span className="hidden sm:inline">
+                  {corrigiendo ? 'Guardar y volver a aprobar' : 'Guardar y marcar enviada'}
+                </span>
               </button>
             </div>
           </div>
