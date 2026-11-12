@@ -1,8 +1,9 @@
 /**
  * Esqueleto del detalle de obra.
  *
- * Cada cambio de sección vuelve a armar el concentrado completo en el
- * servidor; sin esto la pantalla se quedaba en blanco a medio camino.
+ * Cubre la entrada a la obra. Las secciones sólo cambian `?t=`, y eso no
+ * vuelve a mostrar este archivo: el esqueleto de cada sección lo pone
+ * `ContenidoPestana` en la página (ver components/zona-navegable).
  */
 export default function Cargando() {
   return (

@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, X } from 'lucide-react'
+import { useTransicionFiltro } from '@/components/zona-navegable'
 
 /**
  * Buscador que escribe en la URL: así el resultado se puede compartir,
@@ -21,7 +22,7 @@ export function BuscadorTabla({
   const router = useRouter()
   const params = useSearchParams()
   const [valor, setValor] = useState(params.get(parametro) ?? '')
-  const [, iniciarTransicion] = useTransition()
+  const [, iniciarTransicion] = useTransicionFiltro()
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -32,7 +33,7 @@ export function BuscadorTabla({
       iniciarTransicion(() => router.replace(`?${nuevos.toString()}`, { scroll: false }))
     }, 250)
     return () => clearTimeout(t)
-  }, [valor, params, parametro, router])
+  }, [valor, params, parametro, router, iniciarTransicion])
 
   return (
     <div className={`relative w-full lg:max-w-sm ${className}`}>

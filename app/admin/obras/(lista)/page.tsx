@@ -15,6 +15,7 @@ import { SelectorMovil } from '@/components/movil/selector-movil'
 import { TarjetaObraMovil } from '@/components/obras/tarjeta-movil'
 import { PuntoAbriendo } from '@/components/enlace-abriendo'
 import type { EstatusObra } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,7 +85,7 @@ export default async function PaginaObras({
   const cotizadoActivo = activas.reduce((s, o) => s + Number(o.cotizado), 0)
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Obras"
         descripcion="Cada orden de trabajo con su concentrado: lo cotizado contra lo que realmente se está gastando."
@@ -149,6 +150,7 @@ export default async function PaginaObras({
         </div>
       </div>
 
+      <ContenidoPestana>
       {/* Teléfono: una tarjeta por orden de trabajo ------------------------- */}
       <div className="flex flex-col gap-3 lg:hidden">
         <MesesPlegables lista="obras" plegados={plegados}>
@@ -310,6 +312,7 @@ export default async function PaginaObras({
           </Tabla>
         )}
       </Tarjeta>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

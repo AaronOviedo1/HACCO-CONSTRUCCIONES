@@ -14,6 +14,9 @@ import { EnviarRecibo } from '@/components/finanzas/enviar-recibo'
 import { BotonEditarRecibo } from '@/components/finanzas/editar-recibo'
 import { PanelRayas } from '@/components/finanzas/rayas'
 import { ChipsFiltro } from '@/components/movil/piezas'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
+import { EsqueletoTabla } from '@/components/esqueletos'
 import { FiltroMes } from '@/components/filtro-fechas'
 import type { EstatusObra } from '@/types/database'
 
@@ -166,7 +169,7 @@ export default async function PaginaNomina({
   const plegados = await mesesPlegados('prestamos', mesesDeducciones.map((g) => g.mes))
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Nómina"
         descripcion="Por avance de obra o por raya semanal. Lo devengado por contrato es el total por el porcentaje reportado; la raya se devenga completa cada semana."
@@ -285,17 +288,16 @@ export default async function PaginaNomina({
           { clave: 'rayas', titulo: 'Raya semanal' },
           { clave: 'prestamos', titulo: 'Préstamos y adelantos' },
         ].map((p) => (
-          <Link
+          <EnlacePestana
             key={p.clave}
             href={`/admin/nomina?t=${p.clave}&mes=${mes}`}
-            className={`hidden rounded-lg px-3 py-2 text-sm font-medium transition lg:block ${
-              vista === p.clave
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-            }`}
+            activo={vista === p.clave}
+            clase={`hidden lg:block ${CLASE_PESTANA}`}
+            claseActiva={PESTANA_ACTIVA}
+            claseInactiva={PESTANA_INACTIVA}
           >
             {p.titulo}
-          </Link>
+          </EnlacePestana>
         ))}
         <FiltroMes mes={mes} titulo="Mes de la nómina" />
         <PanelNomina
@@ -306,6 +308,7 @@ export default async function PaginaNomina({
         />
       </nav>
 
+      <ContenidoPestana esqueleto={<EsqueletoTabla filas={10} columnas={6} className="hidden lg:block" />}>
       {/* La raya semanal va aparte: no depende de que haya contratos por
           avance. Un pintor puede estar a puro sueldo y no tener ninguno. */}
       {vista === 'rayas' ? (
@@ -616,6 +619,7 @@ export default async function PaginaNomina({
       )}
       </>
       )}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

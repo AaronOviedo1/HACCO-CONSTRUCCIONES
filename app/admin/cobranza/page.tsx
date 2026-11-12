@@ -14,6 +14,11 @@ import { AccionesCobranza, FilaCobranza, type RecibosDelPago } from '@/component
 import { AccionesEstadoCuenta } from '@/components/finanzas/recibo-de-pago'
 import { BuscadorTabla } from '@/components/buscador'
 import { ChipsFiltro } from '@/components/movil/piezas'
+import { ContenidoPestana, EnlacePestana, ZonaNavegable } from '@/components/zona-navegable'
+import { CLASE_PESTANA, PESTANA_ACTIVA, PESTANA_INACTIVA } from '@/components/clases'
+import {
+  EsqueletoIndicadores, EsqueletoMes, EsqueletoTabla, EsqueletoTarjetas,
+} from '@/components/esqueletos'
 import { PuntoAbriendo } from '@/components/enlace-abriendo'
 import type { PagoCobranza } from '@/types/database'
 
@@ -202,12 +207,13 @@ export default async function PaginaCobranza({
     `/admin/cobranza?t=${pestana}${busqueda ? `&q=${encodeURIComponent(q ?? '')}` : ''}`
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Cobranza"
         descripcion="Por cotización aprobada: anticipo, abonos, saldo y porcentaje pendiente."
       />
 
+      <ContenidoPestana esqueleto={<EsqueletoIndicadores />}>
       {vista === 'historial' ? (
         <div className="mb-3.5 grid grid-cols-2 gap-2.5 lg:mb-5 lg:grid-cols-3 lg:gap-3">
           <Indicador etiqueta="Liquidado" valor={pesosCortos(totalLiquidado)} tono="verde" />
@@ -265,6 +271,7 @@ export default async function PaginaCobranza({
           {' '}ya saldadas. No se descuenta de lo que falta por cobrar; búscalo en el historial.
         </p>
       )}
+      </ContenidoPestana>
 
       <div className="mb-3.5 flex items-center gap-2 lg:mb-4">
         <BuscadorTabla
@@ -275,6 +282,7 @@ export default async function PaginaCobranza({
             y lo que ya se saldó, que es toda la decisión que se toma aquí. */}
         <ChipsFiltro
           className="shrink-0 lg:hidden"
+          tipo="pestana"
           opciones={[
             {
               titulo: 'Por cobrar',
@@ -287,6 +295,14 @@ export default async function PaginaCobranza({
         />
       </div>
 
+      <ContenidoPestana
+        esqueleto={
+          <div className="lg:hidden">
+            <EsqueletoMes />
+            <EsqueletoTarjetas n={3} />
+          </div>
+        }
+      >
       {/* Teléfono: una tarjeta por obra, con el abono a un toque ------------ */}
       {vista !== 'clientes' && (vista === 'historial' ? historial : conSaldo).length > 0 && (
         <div className="flex flex-col gap-3 lg:hidden">
@@ -402,26 +418,29 @@ export default async function PaginaCobranza({
           )}
         </div>
       )}
+      </ContenidoPestana>
 
       <nav className="mb-4 hidden flex-wrap items-center gap-1.5 lg:flex">
         {PESTANAS.map((p) => (
-          <Link
+          <EnlacePestana
             key={p.clave}
             href={enlace(p.clave)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-              vista === p.clave
-                ? 'bg-haaco-700 text-white'
-                : 'border border-tinta-200 bg-white text-tinta-600 hover:bg-tinta-50'
-            }`}
+            activo={vista === p.clave}
+            clase={CLASE_PESTANA}
+            claseActiva={PESTANA_ACTIVA}
+            claseInactiva={PESTANA_INACTIVA}
           >
             {p.titulo}
             {p.clave === 'historial' && liquidadas.length > 0 && (
               <span className="ml-1.5 text-xs opacity-70">{liquidadas.length}</span>
             )}
-          </Link>
+          </EnlacePestana>
         ))}
       </nav>
 
+      <ContenidoPestana
+        esqueleto={<EsqueletoTabla filas={10} columnas={7} className="hidden lg:block" />}
+      >
       {filas.length === 0 ? (
         <Tarjeta>
           <EstadoVacio
@@ -887,6 +906,7 @@ export default async function PaginaCobranza({
           </ul>
         </Tarjeta>
       )}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

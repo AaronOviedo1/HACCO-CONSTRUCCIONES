@@ -9,6 +9,7 @@ import {
 import {
   BarraCajaChica, BotonEditarMovimiento, BotonEliminarMovimiento,
 } from '@/components/finanzas/caja-chica'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +42,7 @@ export default async function PaginaCajaChica({
   const nombreObra = new Map((obras ?? []).map((o) => [o.id, `${o.ot_numero} · ${o.nombre}`]))
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Caja chica"
         descripcion="Entradas y salidas de efectivo. El saldo es acumulado; los totales son del periodo elegido."
@@ -61,6 +62,7 @@ export default async function PaginaCajaChica({
 
       <BarraCajaChica obras={obras ?? []} />
 
+      <ContenidoPestana>
       <Tarjeta pie={`${delPeriodo.length} movimientos · ${periodo.etiqueta} · saldo acumulado ${pesos(saldo)}`}>
         {delPeriodo.length === 0 ? (
           <EstadoVacio
@@ -121,6 +123,7 @@ export default async function PaginaCajaChica({
           </Tabla>
         )}
       </Tarjeta>
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

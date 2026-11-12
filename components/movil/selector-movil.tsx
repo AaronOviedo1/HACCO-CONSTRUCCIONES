@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, ListFilter } from 'lucide-react'
 import { Dialogo } from '@/components/formulario'
+import { EnlacePestana, useZonaNavegable, type TipoNavegacion } from '@/components/zona-navegable'
 
 /**
  * Selector de una sola línea para el teléfono.
@@ -35,6 +35,7 @@ export function SelectorMovil({
   onElegir,
   className = '',
   icono,
+  tipo = 'filtro',
 }: {
   /** Nombre accesible del control: «Filtro», «Sección». No se pinta. */
   etiqueta: string
@@ -47,9 +48,14 @@ export function SelectorMovil({
   className?: string
   /** Sustituye el embudo del disparador. */
   icono?: ReactNode
+  /** Modo navegación dentro de una `ZonaNavegable`: ver `ChipsFiltro`. */
+  tipo?: TipoNavegacion
 }) {
   const [abierto, setAbierto] = useState(false)
-  const puesta = opciones.find((o) => o.clave === activa)
+  const zona = useZonaNavegable()
+  // Con una sección en camino, el disparador ya dice a dónde se va.
+  const destino = zona?.destino ? opciones.find((o) => o.href === zona.destino?.href) : undefined
+  const puesta = destino ?? opciones.find((o) => o.clave === activa)
 
   return (
     <div className={`lg:hidden ${className}`}>
@@ -108,15 +114,16 @@ export function SelectorMovil({
                     {cuerpo}
                   </button>
                 ) : (
-                  <Link
+                  <EnlacePestana
                     href={o.href}
-                    scroll={false}
+                    activo={es}
+                    tipo={tipo}
                     onClick={() => setAbierto(false)}
                     aria-current={es ? 'page' : undefined}
-                    className={clases}
+                    clase={clases}
                   >
                     {cuerpo}
-                  </Link>
+                  </EnlacePestana>
                 )}
               </li>
             )

@@ -18,6 +18,7 @@ import { BotonGrande, ChipsFiltro } from '@/components/movil/piezas'
 import { FolioAbriendo, PuntoAbriendo } from '@/components/enlace-abriendo'
 import { FiltroRango } from '@/components/filtro-fechas'
 import type { EstatusServicio, TipoServicio, VServicio } from '@/types/database'
+import { ContenidoPestana, ZonaNavegable } from '@/components/zona-navegable'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,7 +165,7 @@ export default async function PaginaServicios({
   ]
 
   return (
-    <>
+    <ZonaNavegable>
       <EncabezadoPagina
         titulo="Servicios y reparaciones"
         descripcion="Portones eléctricos: la visita, el diagnóstico, el presupuesto y el cobro."
@@ -209,6 +210,7 @@ export default async function PaginaServicios({
         </span>
       </div>
 
+      <ContenidoPestana>
       {filas.length === 0 ? (
         <Tarjeta>
           <EstadoVacio
@@ -408,6 +410,7 @@ export default async function PaginaServicios({
           </Tarjeta>
         </>
       )}
-    </>
+      </ContenidoPestana>
+    </ZonaNavegable>
   )
 }

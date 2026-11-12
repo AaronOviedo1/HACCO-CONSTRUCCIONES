@@ -1,11 +1,12 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useLayoutEffect, useRef, useState, useTransition } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { diaDeRaya, etiquetaSemana, semanaDe, sumarDias } from '@/lib/finanzas'
 import { MESES_CORTOS, MESES_LARGOS, fecha, isoLocal } from '@/lib/format'
+import { useTransicionFiltro } from '@/components/zona-navegable'
 
 /**
  * Filtros de fecha de las pantallas de consulta.
@@ -218,7 +219,7 @@ export function FiltroRango({
 }) {
   const router = useRouter()
   const params = useSearchParams()
-  const [, iniciar] = useTransition()
+  const [, iniciar] = useTransicionFiltro()
   const [abierto, setAbierto] = useState(false)
 
   const desdeUrl = leer(params.get(paramDesde))
@@ -539,7 +540,7 @@ export function FiltroMes({
 }) {
   const router = useRouter()
   const params = useSearchParams()
-  const [, iniciar] = useTransition()
+  const [, iniciar] = useTransicionFiltro()
   const [abierto, setAbierto] = useState(false)
 
   const [anio, mesNum] = mes.split('-').map(Number)
@@ -629,7 +630,7 @@ export function FiltroSemana({
 }) {
   const router = useRouter()
   const params = useSearchParams()
-  const [pendiente, iniciar] = useTransition()
+  const [pendiente, iniciar] = useTransicionFiltro()
 
   const ir = (lunes: string | null) => {
     const nuevos = new URLSearchParams(params.toString())

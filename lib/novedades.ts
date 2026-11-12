@@ -69,6 +69,20 @@ const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
 
+/**
+ * Segunda entrega del mismo día: lleva su propia versión para que el aviso
+ * vuelva a salir a quien ya había visto la de la mañana.
+ */
+const DEL_12_DE_NOVIEMBRE_TARDE: Novedad[] = [
+  {
+    donde: 'En toda la app',
+    titulo: 'Las pantallas responden al instante',
+    texto:
+      'Al tocar un menú o una pestaña, la pantalla se dibuja de inmediato mientras llegan los datos. Al filtrar o buscar, la lista se aclara un momento: así sabes que ya va.',
+    roles: TODOS,
+  },
+]
+
 const DEL_12_DE_NOVIEMBRE: Novedad[] = [
   {
     donde: 'Cotizaciones',
@@ -655,6 +669,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 const ENTREGAS: Entrega[] = [
+  { version: '2026-11-12-2', fecha: '12 de noviembre de 2026', novedades: DEL_12_DE_NOVIEMBRE_TARDE },
   { version: '2026-11-12', fecha: '12 de noviembre de 2026', novedades: DEL_12_DE_NOVIEMBRE },
   { version: '2026-11-06', fecha: '6 de noviembre de 2026', novedades: DEL_6_DE_NOVIEMBRE },
   { version: '2026-10-28', fecha: '28 de octubre de 2026', novedades: DEL_28_DE_OCTUBRE },

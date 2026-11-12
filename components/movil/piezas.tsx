@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { EnlacePestana, type TipoNavegacion } from '@/components/zona-navegable'
 
 /**
  * Piezas de la interfaz de teléfono.
@@ -198,9 +199,15 @@ export function Tile({
 // ---------------------------------------------------------------------------
 export function ChipsFiltro({
   opciones,
+  tipo = 'filtro',
   className = '',
 }: {
   opciones: { titulo: string; href: string; activo: boolean }[]
+  /**
+   * Dentro de una `ZonaNavegable`: un filtro atenúa la lista mientras llega;
+   * una pestaña marca el chip al instante y pone el esqueleto.
+   */
+  tipo?: TipoNavegacion
   className?: string
 }) {
   return (
@@ -209,19 +216,19 @@ export function ChipsFiltro({
     // se desplaza de lado.
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
       {opciones.map((o) => (
-        <Link
+        // Sólo cambia el filtro: la lista se queda donde el pulgar la dejó
+        // (`EnlacePestana` navega con `scroll: false`).
+        <EnlacePestana
           key={o.titulo}
           href={o.href}
-          // Sólo cambia el filtro: la lista se queda donde el pulgar la dejó.
-          scroll={false}
-          className={`flex min-h-9 items-center whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:rounded-lg ${
-            o.activo
-              ? 'border-haaco-700 bg-haaco-700 text-white'
-              : 'border-tinta-200 bg-white text-tinta-600'
-          }`}
+          activo={o.activo}
+          tipo={tipo}
+          clase="flex min-h-9 items-center whitespace-nowrap rounded-full border-[0.5px] px-3.5 text-[13.5px] font-medium transition lg:rounded-lg"
+          claseActiva="border-haaco-700 bg-haaco-700 text-white"
+          claseInactiva="border-tinta-200 bg-white text-tinta-600"
         >
           {o.titulo}
-        </Link>
+        </EnlacePestana>
       ))}
     </div>
   )
