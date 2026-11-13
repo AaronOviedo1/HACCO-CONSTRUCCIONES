@@ -15,6 +15,7 @@
     "probar:cuadre": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cuadre.mjs",
     "probar:cobranza": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cobranza.mjs",
     "probar:servicios": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-servicios.mjs",
+    "probar:importar-cos": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-importar-cos.mjs",
     "bd:enlazar": "npx supabase link",
     "bd:push": "node --env-file=.env.local scripts/aplicar-migraciones.mjs",
     "bd:push:prod": "node --env-file=.env.local.produccion.bak scripts/aplicar-migraciones.mjs",
