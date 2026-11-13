@@ -57,3 +57,6 @@ capturas-landing/
 
 # Respaldos de datos de producción para clonar a la Supabase local (datos de negocio)
 /respaldos/
+
+# Credenciales de acceso (nunca al repo)
+/CREDENCIALES.txt
