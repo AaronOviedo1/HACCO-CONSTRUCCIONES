@@ -133,7 +133,10 @@ const e = StyleSheet.create({
   filaAlterna: { backgroundColor: MARCA.papel },
   cNum: { width: 20, color: GRIS },
   cNumEncabezado: { width: 20 },
-  cDesc: { flex: 1, paddingRight: 8, lineHeight: 1.1 },
+  // Sin lineHeight a propósito: con él, react-pdf espacia al doble cada
+  // renglón que se parte (12/nov/2026: la cotización de COS de 41 partidas
+  // largas salía en 16 páginas; sin él, en 9). El de un renglón sale igual.
+  cDesc: { flex: 1, paddingRight: 8 },
   cDescEncabezado: { flex: 1, paddingRight: 8 },
   /** Lleva el número y su unidad: «189.8 m²», «1 serv», «3 pza». */
   cCant: { width: 64, textAlign: 'right' },

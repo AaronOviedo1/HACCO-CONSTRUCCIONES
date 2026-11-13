@@ -17,6 +17,8 @@ import { CampoDomicilio } from '@/components/campo-domicilio'
 import { Etiqueta, TarjetaPlegable } from '@/components/ui'
 import { DialogoAprobar } from '@/components/cotizaciones/dialogo-aprobar'
 import { SelectorPintura } from '@/components/cotizaciones/selector-pintura'
+import { ImportarDeCos } from '@/components/cotizaciones/importar-de-cos'
+import { aBorrador, nombrePropio, type LecturaCos } from '@/lib/importar-cos'
 import { PrecioVivo } from '@/components/precios/precio-vivo'
 import { PanelRecordatorios } from '@/components/recordatorios/panel'
 import { pesos } from '@/lib/format'
@@ -121,6 +123,13 @@ export function EditorCotizacion({
   const [aviso, setAviso] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [nuevoCliente, setNuevoCliente] = useState(false)
+  /** Lo que se trajo del PDF de COS, para el aviso de arriba. */
+  const [importada, setImportada] = useState<{
+    folio: string | null
+    partidas: number
+    avisos: string[]
+    clienteSinAlta: string | null
+  } | null>(null)
   const [aprobando, setAprobando] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [pendiente, iniciar] = useTransition()
@@ -209,6 +218,29 @@ export function EditorCotizacion({
     setSucio(true)
     setAviso(null)
   }
+
+  /**
+   * La cotización de COS ya leída se monta sobre lo que hay —que en una
+   * nueva es el borrador vacío con los términos de la casa— y queda sin
+   * guardar: se revisa y se guarda como cualquier otra.
+   */
+  const alLeerCos = (lectura: LecturaCos, avisos: string[]) => {
+    const { borrador, clienteSinAlta } = aBorrador(lectura, doc, clientes)
+    setDoc(borrador)
+    setSucio(true)
+    setAviso(null)
+    setError(null)
+    setImportada({
+      folio: lectura.folio,
+      partidas: borrador.items.length,
+      avisos,
+      clienteSinAlta: clienteSinAlta ? nombrePropio(clienteSinAlta) : null,
+    })
+  }
+  // Sólo en una cotización nueva que todavía no trae partidas: importar
+  // encima de lo ya capturado lo borraría.
+  const puedeImportar =
+    nueva && !importada && !doc.items.some((i) => i.descripcion.trim()) && doc.desglose.length === 0
 
   // -------------------------------------------------------------------------
   async function guardar(): Promise<string | null> {
@@ -400,6 +432,46 @@ export function EditorCotizacion({
           vuelve a aprobarla: no se abre otra orden.
         </p>
       ) : null}
+
+      {puedeImportar && <ImportarDeCos onLeida={alLeerCos} />}
+      {importada && (
+        <div className="mb-4 rounded-lg bg-haaco-50 px-4 py-3 text-sm text-haaco-900 ring-1 ring-haaco-200">
+          <div className="flex items-start justify-between gap-3">
+            <p>
+              <span className="font-semibold">
+                Importada de COS{importada.folio ? ` · ${importada.folio}` : ''}
+              </span>
+              {` · ${importada.partidas} ${importada.partidas === 1 ? 'partida' : 'partidas'}. `}
+              Revisa el cliente, las partidas y los precios, y guarda.
+            </p>
+            <button
+              type="button"
+              onClick={() => setImportada(null)}
+              aria-label="Cerrar aviso"
+              className="-m-1 shrink-0 rounded p-1 text-haaco-700 hover:bg-haaco-100"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {importada.avisos.length > 0 && (
+            <ul className="mt-2 list-disc space-y-0.5 pl-5 text-amber-800">
+              {importada.avisos.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          )}
+          {importada.clienteSinAlta && !doc.cliente_id && (
+            <button
+              type="button"
+              onClick={() => setNuevoCliente(true)}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+            >
+              <Plus size={15} />
+              Dar de alta a {importada.clienteSinAlta}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-5 lg:col-span-2">
@@ -863,6 +935,7 @@ export function EditorCotizacion({
       {nuevoCliente && (
         <FormularioCliente
           abierto
+          nombreInicial={!doc.cliente_id ? (importada?.clienteSinAlta ?? undefined) : undefined}
           onCerrar={() => setNuevoCliente(false)}
           onGuardado={(id, pideFactura) => {
             setDoc((d) => ({

@@ -69,6 +69,16 @@ const OFICINA: RolUsuario[] = ['admin', 'administracion']
 const EQUIPO: RolUsuario[] = ['admin', 'administracion', 'residente']
 const TODOS: RolUsuario[] = ['admin', 'administracion', 'residente', 'contador', 'cuadrilla']
 
+const DEL_13_DE_NOVIEMBRE: Novedad[] = [
+  {
+    donde: 'Cotizaciones',
+    titulo: 'Las cotizaciones de COS se arman solas',
+    texto:
+      'En «Nueva cotización» suelta el PDF que manda COS —o tócalo para elegirlo en el teléfono— y salen todas sus partidas con sus precios. Revisa el cliente y guarda.',
+    roles: EQUIPO,
+  },
+]
+
 /**
  * Segunda entrega del mismo día: lleva su propia versión para que el aviso
  * vuelva a salir a quien ya había visto la de la mañana.
@@ -669,6 +679,7 @@ const DEL_11_DE_AGOSTO: Novedad[] = [
 
 /** De la más nueva a la más vieja: la primera es la que se abre. */
 const ENTREGAS: Entrega[] = [
+  { version: '2026-11-13', fecha: '13 de noviembre de 2026', novedades: DEL_13_DE_NOVIEMBRE },
   { version: '2026-11-12-2', fecha: '12 de noviembre de 2026', novedades: DEL_12_DE_NOVIEMBRE_TARDE },
   { version: '2026-11-12', fecha: '12 de noviembre de 2026', novedades: DEL_12_DE_NOVIEMBRE },
   { version: '2026-11-06', fecha: '6 de noviembre de 2026', novedades: DEL_6_DE_NOVIEMBRE },

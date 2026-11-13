@@ -146,8 +146,11 @@ export function FormularioCliente({
   abierto,
   onCerrar,
   onGuardado,
+  nombreInicial,
 }: {
   cliente?: Cliente
+  /** Para un cliente nuevo que ya trae nombre, como el de una cotización de COS. */
+  nombreInicial?: string
   abierto: boolean
   onCerrar: () => void
   /** El segundo dato es para que el cotizador herede el IVA sin recargar. */
@@ -198,7 +201,7 @@ export function FormularioCliente({
           <Campo
             etiqueta="Nombre"
             hijo={
-              <Entrada name="nombre" defaultValue={cliente?.nombre ?? ''} required autoFocus />
+              <Entrada name="nombre" defaultValue={cliente?.nombre ?? nombreInicial ?? ''} required autoFocus />
             }
           />
           <Campo

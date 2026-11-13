@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { FileUp, Plus } from 'lucide-react'
 import { crearClienteServidor } from '@/lib/supabase/server'
 import { EQUIPO, requerirRol } from '@/lib/auth'
 import { fecha, pesos } from '@/lib/format'
@@ -166,13 +166,23 @@ export default async function PaginaCotizaciones({
         titulo="Cotizaciones"
         descripcion="De aquí cuelga todo: órdenes de trabajo, cobranza, nómina y materiales."
         acciones={
-          <Link
-            href="/admin/cotizaciones/nueva"
-            className="hidden items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800 lg:inline-flex"
-          >
-            <Plus size={16} />
-            Nueva cotización
-          </Link>
+          <div className="hidden items-center gap-2 lg:flex">
+            {/* Lleva a la cotización nueva, que es donde se suelta el PDF de COS. */}
+            <Link
+              href="/admin/cotizaciones/nueva"
+              className="inline-flex items-center gap-2 rounded-lg border border-tinta-300 bg-white px-4 py-2 text-sm font-medium text-tinta-700 transition hover:bg-tinta-50"
+            >
+              <FileUp size={16} />
+              Importar de COS
+            </Link>
+            <Link
+              href="/admin/cotizaciones/nueva"
+              className="inline-flex items-center gap-2 rounded-lg bg-haaco-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-haaco-800"
+            >
+              <Plus size={16} />
+              Nueva cotización
+            </Link>
+          </div>
         }
       />
 

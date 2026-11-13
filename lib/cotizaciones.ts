@@ -38,6 +38,8 @@ export const UNIDADES_PARTIDA: { valor: string; texto: string; abrevia: string }
   { valor: 'ml',      texto: 'Metro lineal', abrevia: 'ml' },
   { valor: 'lote',    texto: 'Lote',     abrevia: 'lote' },
   { valor: 'servicio', texto: 'Servicio', abrevia: 'serv' },
+  // Las salidas eléctricas e hidráulicas, como las cotiza COS.
+  { valor: 'sal',     texto: 'Salida',   abrevia: 'sal' },
 ]
 
 /** Cómo se escribe la unidad de una partida en la carta al cliente. */
