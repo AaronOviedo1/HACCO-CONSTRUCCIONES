@@ -20,7 +20,7 @@ import { GraficaAntiguedad } from '@/components/admin/grafica-antiguedad'
 import { GraficaObrasCosto } from '@/components/admin/grafica-obras-costo'
 import { CalendarioPagos } from '@/components/admin/calendario-pagos'
 import { TileResumen } from '@/components/admin/tile-resumen'
-import { VentasDelMes } from '@/components/admin/ventas-del-mes'
+import { VentasDelMes, type PartidaVendida } from '@/components/admin/ventas-del-mes'
 import { AvisosDelDia } from '@/components/recordatorios/avisos-del-dia'
 import { AvisoSuscripcion } from '@/components/admin/aviso-suscripcion'
 import type { CategoriaGasto, EstatusCotizacion, EstatusObra } from '@/types/database'
@@ -115,7 +115,7 @@ export default async function Dashboard() {
       // obra, así que cuentan en los mismos números.
       supabase
         .from('v_servicios')
-        .select('servicio_id, estatus, cotizado, cobrado, saldo, fecha_venta'),
+        .select('servicio_id, folio, cliente, descripcion, estatus, cotizado, cobrado, saldo, fecha_venta'),
       supabase.from('servicio_pagos').select('monto, fecha').gte('fecha', desdeSeis),
     ])
 
@@ -175,6 +175,41 @@ export default async function Dashboard() {
   const vendidoMes =
     suma(todas.filter((c) => cerrada(c.estatus) && enMes(c, mes))) +
     vendidoServicios(listaServicios, mes)
+
+  /**
+   * Lo mismo que suma `vendidoMes`, renglón por renglón. Sin esto el número
+   * no se podía comprobar: quien sacaba la cuenta a mano sumaba lo cotizado en
+   * el mes y no le cuadraba, porque aquí entran cotizaciones viejas aprobadas
+   * este mes, las ya terminadas y las reparaciones de portones.
+   */
+  const partidasVendidas: PartidaVendida[] = [
+    ...todas
+      .filter((c) => cerrada(c.estatus) && enMes(c, mes))
+      .map((c) => ({
+        clave: `c-${c.id}`,
+        tipo: 'cotizacion' as const,
+        folio: c.folio,
+        cliente: c.cliente,
+        concepto: c.nombre_obra,
+        fechaVenta: c.fecha_venta ?? c.fecha,
+        fechaCotizacion: c.fecha,
+        estatus: ESTATUS_COTIZACION[c.estatus].texto,
+        total: Number(c.total),
+      })),
+    ...serviciosCobrables(listaServicios)
+      .filter((s) => String(s.fecha_venta ?? '').startsWith(mes))
+      .map((s) => ({
+        clave: `s-${s.servicio_id}`,
+        tipo: 'reparacion' as const,
+        folio: s.folio,
+        cliente: s.cliente,
+        concepto: s.descripcion,
+        fechaVenta: s.fecha_venta,
+        fechaCotizacion: null,
+        estatus: null,
+        total: Number(s.cotizado),
+      })),
+  ].sort((a, b) => b.total - a.total)
   const metaVenta = Number(meta.data?.valor ?? 0)
 
   const resumenEstatus = (
@@ -363,7 +398,13 @@ export default async function Dashboard() {
         </section>
 
         {/* Lo vendido contra la meta ----------------------------------------- */}
-        <VentasDelMes vendido={vendidoMes} meta={metaVenta} etiqueta={etiquetaMes(mes)} />
+        <VentasDelMes
+          vendido={vendidoMes}
+          meta={metaVenta}
+          etiqueta={etiquetaMes(mes)}
+          mes={mes}
+          partidas={partidasVendidas}
+        />
       </div>
 
       {/* Lo que toca hoy ---------------------------------------------------- */}
