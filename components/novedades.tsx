@@ -1,9 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Maximize2, Sparkles, X } from 'lucide-react'
+import {
+  Banknote, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileDown, FileText, FileUp,
+  HardHat, Maximize2, MoreHorizontal, MousePointerClick, Pencil, Plus, Share2, ShoppingCart,
+  Sparkles, Undo2, Users, Wallet, X,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { FECHA_NOVEDADES, VERSION_NOVEDADES, entregasDe } from '@/lib/novedades'
-import type { Captura, Figura, Marca, Novedad } from '@/lib/novedades'
+import type {
+  Captura, Figura, IconoPaso, Marca, Novedad, Paso, Recuadro,
+} from '@/lib/novedades'
 import type { RolUsuario } from '@/types/database'
 
 const CLAVE = 'haaco:novedades-vistas'
@@ -129,11 +136,11 @@ function HojaNovedades({ rol, onCerrar }: { rol: RolUsuario; onCerrar: () => voi
   const cuerpoRef = useRef<HTMLDivElement>(null)
 
   /*
-   * Si la entrega de hoy trae aunque sea una captura, se cuenta lámina por
-   * lámina; si no —roles a los que no les tocó imagen, o una entrega de puro
-   * texto—, la lista de siempre.
+   * Si la entrega de hoy trae aunque sea una captura o un camino, se cuenta
+   * lámina por lámina; si no —roles a los que no les tocó nada que ver, o una
+   * entrega de puro texto—, la lista de siempre.
    */
-  const conFiguras = (reciente?.novedades ?? []).some((n) => n.figura)
+  const conFiguras = (reciente?.novedades ?? []).some((n) => n.figura || n.pasos?.length)
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar()
@@ -222,7 +229,8 @@ function ListaNovedades({ novedades }: { novedades: Novedad[] }) {
             {n.donde}
           </p>
           <p className="mt-1 text-[15px] font-semibold leading-snug text-tinta-900">{n.titulo}</p>
-          <p className="mt-1 text-sm leading-relaxed text-tinta-600">{n.texto}</p>
+          {n.pasos && <CaminoNovedad pasos={n.pasos} compacto />}
+          <p className="mt-1.5 text-sm leading-relaxed text-tinta-600">{n.texto}</p>
         </li>
       ))}
     </ul>
@@ -243,9 +251,12 @@ function ListaNovedades({ novedades }: { novedades: Novedad[] }) {
 function RecorridoNovedades({
   novedades,
   alCambiar,
+  conTeclado = true,
 }: {
   novedades: Novedad[]
   alCambiar?: () => void
+  /** Sólo el recorrido de arriba escucha las flechas: si no, se mueven todos. */
+  conTeclado?: boolean
 }) {
   const [actual, setActual] = useState(0)
   const [ampliada, setAmpliada] = useState<{ captura: Captura; pie: string } | null>(null)
@@ -264,6 +275,7 @@ function RecorridoNovedades({
   // Sin lista de dependencias a propósito: se re-engancha en cada render y así
   // siempre ve la lámina actual, sin duplicar la lógica de `ir` aquí adentro.
   useEffect(() => {
+    if (!conTeclado) return
     const alTeclear = (e: KeyboardEvent) => {
       if (ampliada) return
       if (e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
@@ -314,13 +326,14 @@ function RecorridoNovedades({
         <p className="mt-1 text-[15px] font-semibold leading-snug text-tinta-900">
           {novedad.titulo}
         </p>
+        {novedad.pasos && <CaminoNovedad pasos={novedad.pasos} />}
         {novedad.figura && (
           <FiguraNovedad
             figura={novedad.figura}
             onAmpliar={(captura, pie) => setAmpliada({ captura, pie })}
           />
         )}
-        <p className="mt-2.5 text-sm leading-relaxed text-tinta-600">{novedad.texto}</p>
+        <p className="mt-3 text-sm leading-relaxed text-tinta-600">{novedad.texto}</p>
       </div>
 
       {total > 1 && (
@@ -375,10 +388,85 @@ function RecorridoNovedades({
   )
 }
 
+const ICONOS_PASO: Record<IconoPaso, LucideIcon> = {
+  // Los del menú, los mismos de la barra lateral.
+  cotizacion: FileText,
+  obra: HardHat,
+  cobranza: Banknote,
+  gasto: ShoppingCart,
+  nomina: Wallet,
+  cliente: Users,
+  mas: MoreHorizontal,
+  // Los de los botones, los mismos que trae cada botón.
+  nuevo: Plus,
+  subir: FileUp,
+  abrir: MousePointerClick,
+  copiar: Copy,
+  editar: Pencil,
+  deshacer: Undo2,
+  aprobar: Check,
+  pdf: FileDown,
+  whatsapp: Share2,
+}
+
+/**
+ * El cómo, dibujado: lo que se toca, en orden, con la cara que tiene en la
+ * app. Un renglón del menú se ve como la barra lateral, un botón como botón
+ * —verde si allá es verde— y lo que hace uno con la mano, sin caja.
+ *
+ * Si no cabe en un renglón, se parte entre pasos y no a media palabra. En lo
+ * plegado va más chico: ahí se repasa, no se aprende.
+ */
+function CaminoNovedad({ pasos, compacto = false }: { pasos: Paso[]; compacto?: boolean }) {
+  return (
+    <ol
+      className={`flex flex-wrap items-center gap-x-1 gap-y-2 ${compacto ? 'mt-2' : 'mt-3'}`}
+      aria-label="Cómo se hace"
+    >
+      {pasos.map((p, i) => {
+        const Icono = p.icono ? ICONOS_PASO[p.icono] : null
+        const tam = compacto ? 13 : 14
+        const cara =
+          p.tipo === 'menu'
+            ? 'rounded-lg bg-haaco-900 px-2.5 py-1.5 text-haaco-50'
+            : p.tipo === 'boton'
+              ? p.principal
+                ? 'rounded-lg bg-haaco-700 px-2.5 py-1.5 font-medium text-white shadow-sm'
+                : 'rounded-lg border border-tinta-300 bg-white px-2.5 py-1.5 font-medium text-tinta-700 shadow-sm'
+              : 'px-0.5 py-1.5 text-tinta-700'
+        return (
+          <li key={`${i}-${p.texto}`} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight size={15} className="shrink-0 text-tinta-300" aria-hidden />}
+            <span
+              className={`flex shrink-0 items-center justify-center rounded-full bg-haaco-100 font-semibold text-haaco-800 ${
+                compacto ? 'h-4 w-4 text-[10px]' : 'h-5 w-5 text-[11px]'
+              }`}
+              aria-hidden
+            >
+              {i + 1}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 leading-none ${
+                compacto ? 'text-[12.5px]' : 'text-[13.5px]'
+              } ${cara}`}
+            >
+              {Icono && <Icono size={tam} className="shrink-0" aria-hidden />}
+              {p.texto}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 /**
  * La captura que le toca a cada tamaño, elegida por CSS y no por JS: el mismo
  * árbol sirve en el teléfono y en la computadora, como el resto de la hoja.
  * Si sólo hay una variante, se enseña en los dos.
+ *
+ * Sin pie de foto a la vista: el título y el camino ya dicen qué se ve. El
+ * `pie` sigue como texto alternativo y como título de la vista grande.
  */
 function FiguraNovedad({
   figura,
@@ -393,7 +481,9 @@ function FiguraNovedad({
         <CapturaConMarca
           captura={figura.movil}
           pie={figura.pie}
-          telefono
+          // La pantalla completa del teléfono va angosta, como un teléfono; la
+          // que ya viene acercada al cambio ocupa todo el ancho.
+          telefono={!figura.movil.recuadro}
           clase={figura.escritorio ? 'sm:hidden' : ''}
           onAmpliar={onAmpliar}
         />
@@ -406,7 +496,6 @@ function FiguraNovedad({
           onAmpliar={onAmpliar}
         />
       )}
-      <figcaption className="mt-2 text-[13px] leading-snug text-tinta-500">{figura.pie}</figcaption>
     </figure>
   )
 }
@@ -448,6 +537,9 @@ function CapturaConMarca({
           }`}
         />
       </button>
+      {captura.recuadro && (
+        <Reflector recuadro={captura.recuadro} redondeo={telefono ? 'rounded-[22px]' : 'rounded-xl'} />
+      )}
       {captura.marca && <Marcador marca={captura.marca} />}
       <span
         className="pointer-events-none absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-tinta-950/55 text-white"
@@ -473,6 +565,30 @@ function Marcador({ marca }: { marca: Marca }) {
     >
       <span className="absolute inset-0 rounded-full bg-haaco-500/50 animate-destello" />
       <span className="absolute inset-0 rounded-full border-2 border-white bg-haaco-600 shadow-verde ring-4 ring-haaco-500/25" />
+    </span>
+  )
+}
+
+/**
+ * El cambio enmarcado: lo de alrededor se apaga y el recuadro queda a la
+ * vista. La sombra enorme del recuadro es la que oscurece; el contenedor la
+ * recorta al borde redondeado de la imagen. El halo respira como el del
+ * marcador, y sin animación —reduced motion— el borde sigue señalando.
+ */
+function Reflector({ recuadro, redondeo }: { recuadro: Recuadro; redondeo: string }) {
+  const caja = {
+    left: `${recuadro.x}%`,
+    top: `${recuadro.y}%`,
+    width: `${recuadro.ancho}%`,
+    height: `${recuadro.alto}%`,
+  }
+  return (
+    <span aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${redondeo}`}>
+      <span
+        className="absolute rounded-lg border-2 border-haaco-500 shadow-[0_0_0_9999px_rgb(10_20_15/0.38)]"
+        style={caja}
+      />
+      <span className="absolute rounded-lg animate-recuadro" style={caja} />
     </span>
   )
 }
@@ -543,6 +659,7 @@ function Lupa({ captura, pie, onCerrar }: { captura: Captura; pie: string; onCer
             height={captura.alto}
             className="h-auto w-full rounded-lg"
           />
+          {captura.recuadro && <Reflector recuadro={captura.recuadro} redondeo="rounded-lg" />}
           {captura.marca && <Marcador marca={captura.marca} />}
         </div>
       </div>
@@ -555,10 +672,12 @@ function Lupa({ captura, pie, onCerrar }: { captura: Captura; pie: string; onCer
  *
  * Lo de hoy es lo que hay que leer; lo de la vez pasada ya se leyó y no tiene
  * por qué estorbar arriba. Pero tampoco se borra: el que entró de vacaciones o
- * quiere volver a ver cómo era algo, lo abre y ahí está.
+ * quiere volver a ver cómo era algo, lo abre y ahí está —con sus capturas, si
+ * las trajo, que para eso se tomaron—.
  */
 function EntregaPlegada({ fecha, novedades }: { fecha: string; novedades: Novedad[] }) {
   const [abierta, setAbierta] = useState(false)
+  const conFiguras = novedades.some((n) => n.figura)
 
   return (
     <div className="border-t-[0.5px] border-tinta-150">
@@ -580,7 +699,12 @@ function EntregaPlegada({ fecha, novedades }: { fecha: string; novedades: Noveda
           aria-hidden
         />
       </button>
-      {abierta && <ListaNovedades novedades={novedades} />}
+      {abierta &&
+        (conFiguras ? (
+          <RecorridoNovedades novedades={novedades} conTeclado={false} />
+        ) : (
+          <ListaNovedades novedades={novedades} />
+        ))}
     </div>
   )
 }
