@@ -7,10 +7,17 @@ import type { RolUsuario } from '@/types/database'
  * que no existan a la vista. Cada renglón responde una sola pregunta —«¿qué
  * puedo hacer hoy que ayer no?»— y se lee en voz alta sin tropezar.
  *
- * Y corto. El título carga el mensaje y el texto son dos renglones, tres a lo
- * mucho: quien abre esto está por ponerse a trabajar, no a leer. Los párrafos
- * de las entregas de arriba se saltan enteros —el motivo, el porqué y el caso
- * raro se cuentan cuando alguien pregunta, no antes—.
+ * Y corto, y más dibujo que letra. El título carga el mensaje; el texto es
+ * UNA línea (110 caracteres, a lo mucho) con lo que no se ve en la imagen. El
+ * cómo va en `pasos` —lo que se toca, en orden, con el nombre que trae el
+ * botón— y el dónde en `figura`, una captura ya acercada al cambio con su
+ * `recuadro`. Toda novedad que tenga algo que tocar lleva las dos cosas: el
+ * motivo, el porqué y el caso raro se cuentan cuando alguien pregunta.
+ *
+ * Las capturas no se toman a mano: `npm run novedades:capturar -- <versión>`
+ * las saca con el guion de scripts/novedades/<versión>.mjs, y
+ * `npm run novedades:imagenes -- <versión>` las pasa a WebP con el recuadro
+ * ya medido.
  *
  * Las entregas van de la más nueva a la más vieja. La de arriba es la que se
  * abre; las anteriores quedan plegadas, porque quien ya las leyó no tiene por
@@ -23,6 +30,13 @@ import type { RolUsuario } from '@/types/database'
 /** Dónde está el cambio, en porcentaje del ancho y alto de la imagen. */
 export type Marca = { x: number; y: number }
 
+/**
+ * La zona del cambio, en porcentaje de la imagen: esquina superior izquierda,
+ * ancho y alto. Lo de fuera se oscurece y el recuadro queda a la vista. Lo
+ * mide el script de capturas a partir del elemento, no se calcula a ojo.
+ */
+export type Recuadro = { x: number; y: number; ancho: number; alto: number }
+
 /** Una captura ya optimizada bajo public/novedades/<version>/. */
 export type Captura = {
   /** Ruta pública: '/novedades/2026-08-12/gastos-concepto-escritorio.webp'. */
@@ -30,8 +44,10 @@ export type Captura = {
   /** Medidas intrínsecas del WebP: reservan el hueco y la lámina no salta. */
   ancho: number
   alto: number
-  /** Sin marca, la captura habla por sí sola. */
+  /** El punto que parpadea: lo usan las entregas de agosto y octubre. */
   marca?: Marca
+  /** Lo de ahora: la captura viene acercada y el cambio, enmarcado. */
+  recuadro?: Recuadro
 }
 
 /**
@@ -41,19 +57,54 @@ export type Captura = {
  * se enseña en los dos tamaños. Al menos una de las dos debe venir.
  */
 export type Figura = {
-  /** Pie de foto y texto alternativo: qué se está viendo. */
+  /** Texto alternativo y título de la vista grande: qué se está viendo. */
   pie: string
   movil?: Captura
   escritorio?: Captura
+}
+
+/** Los íconos que puede llevar un paso: los mismos que se ven en la app. */
+export type IconoPaso =
+  | 'cotizacion'
+  | 'obra'
+  | 'cobranza'
+  | 'gasto'
+  | 'nomina'
+  | 'cliente'
+  | 'mas'
+  | 'nuevo'
+  | 'subir'
+  | 'abrir'
+  | 'copiar'
+  | 'editar'
+  | 'deshacer'
+  | 'aprobar'
+  | 'pdf'
+  | 'whatsapp'
+
+/**
+ * Un paso del camino, dicho con lo que hay en la pantalla.
+ * - `menu`: una sección del menú, se dibuja como el renglón de la barra.
+ * - `boton`: un botón, con el mismo nombre; `principal` si en la app es verde.
+ * - `accion`: lo que haces tú —soltar, elegir, corregir—, sin caja.
+ */
+export type Paso = {
+  texto: string
+  icono?: IconoPaso
+  tipo?: 'menu' | 'boton' | 'accion'
+  principal?: boolean
 }
 
 export type Novedad = {
   /** Dónde vive, dicho como se llama en el menú. */
   donde: string
   titulo: string
+  /** Una línea: lo que la imagen y el camino no alcanzan a decir. */
   texto: string
   /** A quién le sirve: a los demás ni se les enseña. */
   roles: RolUsuario[]
+  /** Lo que se toca, en orden: dos o tres pasos. */
+  pasos?: Paso[]
   /** Opcional: las entregas viejas no traen imagen y no pasa nada. */
   figura?: Figura
 }
@@ -73,9 +124,17 @@ const DEL_13_DE_NOVIEMBRE: Novedad[] = [
   {
     donde: 'Cotizaciones',
     titulo: 'Las cotizaciones de COS se arman solas',
-    texto:
-      'En «Nueva cotización» suelta el PDF que manda COS —o tócalo para elegirlo en el teléfono— y salen todas sus partidas con sus precios. Revisa el cliente y guarda.',
+    texto: 'Salen todas sus partidas con sus precios. Revisa el cliente y guarda.',
     roles: EQUIPO,
+    pasos: [
+      { texto: 'Cotizaciones', icono: 'cotizacion', tipo: 'menu' },
+      { texto: 'Nueva cotización', icono: 'nuevo', tipo: 'boton', principal: true },
+      { texto: 'Suelta o elige el PDF de COS', icono: 'subir', tipo: 'accion' },
+    ],
+    figura: {
+      pie: 'Al abrir una cotización nueva, arriba está el recuadro para soltar el PDF de COS.',
+      escritorio: { ruta: '/novedades/2026-11-13/cos-pdf-escritorio.webp', ancho: 1440, alto: 900, recuadro: { x: 3.6, y: 23.6, ancho: 96.4, alto: 20.4 } },
+    },
   },
 ]
 
@@ -87,8 +146,7 @@ const DEL_12_DE_NOVIEMBRE_TARDE: Novedad[] = [
   {
     donde: 'En toda la app',
     titulo: 'Las pantallas responden al instante',
-    texto:
-      'Al tocar un menú o una pestaña, la pantalla se dibuja de inmediato mientras llegan los datos. Al filtrar o buscar, la lista se aclara un momento: así sabes que ya va.',
+    texto: 'La pantalla se dibuja en cuanto tocas, y se llena cuando llegan los datos.',
     roles: TODOS,
   },
 ]
@@ -97,16 +155,33 @@ const DEL_12_DE_NOVIEMBRE: Novedad[] = [
   {
     donde: 'Cotizaciones',
     titulo: 'La cotización de una obra en marcha ya no se edita',
-    texto:
-      'Si su orden de trabajo ya tiene cobros o trabajo, la cotización queda fija y la cobranza de la obra no se mueve. Para otra obra, usa Duplicar, que ahora también está en el teléfono.',
+    texto: 'Si su obra ya tiene cobros o trabajo, queda fija. Para otra obra, duplícala.',
     roles: EQUIPO,
+    pasos: [
+      { texto: 'Abre la cotización', icono: 'abrir', tipo: 'accion' },
+      { texto: 'Duplicar para otra obra', icono: 'copiar', tipo: 'boton' },
+    ],
+    figura: {
+      pie: 'Una cotización con obra en marcha: en lugar de editarla, «Duplicar para otra obra».',
+      movil: { ruta: '/novedades/2026-11-12/congelada-movil.webp', ancho: 1080, alto: 811, recuadro: { x: 2.6, y: 40.4, ancho: 94.9, alto: 19.1 } },
+      escritorio: { ruta: '/novedades/2026-11-12/congelada-escritorio.webp', ancho: 1440, alto: 900, recuadro: { x: 38.8, y: 44, ancho: 57.6, alto: 12 } },
+    },
   },
   {
     donde: 'Cotizaciones',
     titulo: 'Corregir una recién aprobada sin abrir otra OT',
-    texto:
-      'Si todavía no tiene movimiento, la regresas a borrador, la corriges y tocas «Volver a aprobar». Se queda con la misma orden de trabajo.',
+    texto: 'Mientras no tenga movimiento, se corrige y se queda con la misma orden de trabajo.',
     roles: EQUIPO,
+    pasos: [
+      { texto: 'Regresar a borrador', icono: 'deshacer', tipo: 'boton' },
+      { texto: 'Corrige', icono: 'editar', tipo: 'accion' },
+      { texto: 'Volver a aprobar', icono: 'aprobar', tipo: 'boton', principal: true },
+    ],
+    figura: {
+      pie: 'Una cotización recién aprobada, sin movimiento: abajo del resumen, «Regresar a borrador».',
+      movil: { ruta: '/novedades/2026-11-12/reaprobar-movil.webp', ancho: 1080, alto: 811, recuadro: { x: 2.6, y: 40.4, ancho: 94.9, alto: 19.1 } },
+      escritorio: { ruta: '/novedades/2026-11-12/reaprobar-escritorio.webp', ancho: 1440, alto: 900, recuadro: { x: 38.8, y: 44, ancho: 57.6, alto: 12 } },
+    },
   },
 ]
 
@@ -114,9 +189,19 @@ const DEL_6_DE_NOVIEMBRE: Novedad[] = [
   {
     donde: 'Cobranza · Por cliente',
     titulo: 'Estado de cuenta por cliente',
-    texto:
-      'Si un cliente tiene varias obras pendientes, sale en un solo renglón con su saldo total. Con un toque sacas su estado de cuenta en PDF o se lo mandas por WhatsApp.',
+    texto: 'Todas sus obras pendientes en un renglón y en un solo PDF, listo para su WhatsApp.',
     roles: OFICINA,
+    pasos: [
+      { texto: 'Cobranza', icono: 'cobranza', tipo: 'menu' },
+      { texto: 'Por cliente', tipo: 'boton' },
+      { texto: 'Estado de cuenta', icono: 'pdf', tipo: 'boton' },
+      { texto: 'Enviar al cliente', icono: 'whatsapp', tipo: 'boton' },
+    ],
+    figura: {
+      pie: 'Cobranza por cliente: cada renglón con su estado de cuenta y el botón para mandárselo.',
+      movil: { ruta: '/novedades/2026-11-06/estado-de-cuenta-movil.webp', ancho: 1080, alto: 1351, recuadro: { x: 2.6, y: 28.8, ancho: 94.9, alto: 42.3 } },
+      escritorio: { ruta: '/novedades/2026-11-06/estado-de-cuenta-escritorio.webp', ancho: 1440, alto: 900, recuadro: { x: 46.3, y: 42.4, ancho: 50, alto: 15.3 } },
+    },
   },
 ]
 

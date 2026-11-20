@@ -10,6 +10,7 @@
     "lint": "eslint",
     "iconos": "node scripts/generar-iconos.mjs",
     "novedades:imagenes": "node scripts/generar-novedades.mjs",
+    "novedades:capturar": "node scripts/capturar-novedades.mjs",
     "imagotipo": "node scripts/extraer-imagotipo.mjs",
     "splash": "node scripts/generar-splash-ios.mjs",
     "probar:cuadre": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/probar-cuadre.mjs",
@@ -56,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "pg": "^8.22.0",
+    "playwright-core": "^1.65.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

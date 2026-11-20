@@ -13,15 +13,20 @@
  * <tema>-escritorio.png. La variante decide a cuánto se encoge:
  * escritorio a 1600 de ancho, móvil a 1080 —de sobra para la lupa—.
  *
- * La marca (el anillo que señala el cambio) no la calcula este script: se
- * mide a mano SOBRE EL WEBP FINAL, no sobre el PNG. Abre el WebP en Vista
+ * Si junto al PNG hay un <nombre>.json —lo deja `npm run novedades:capturar`—,
+ * su `recuadro` sale ya puesto en el snippet: está en porcentaje, así que
+ * encoger la imagen no lo mueve.
+ *
+ * Sin ese .json (una captura tomada a mano), la marca —el punto que señala el
+ * cambio— no la calcula este script: se mide a mano SOBRE EL WEBP FINAL, no
+ * sobre el PNG. Abre el WebP en Vista
  * Previa o en el inspector del navegador, apunta el píxel del cambio y
  * conviértelo a porcentaje: x = px ÷ ancho × 100, y = px ÷ alto × 100, con
  * un decimal basta. Ese par va en `marca` del snippet impreso.
  *
  * No pide red ni dependencias nuevas: sharp ya viene con el proyecto.
  */
-import { existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
@@ -76,10 +81,12 @@ for (const png of pngs) {
   const { width, height } = await sharp(webp).metadata()
   const tema = nombre.slice(0, -(variante.length + 1))
   if (!figuras.has(tema)) figuras.set(tema, {})
+  const lado = path.join(origen, `${nombre}.json`)
   figuras.get(tema)[variante] = {
     ruta: `/novedades/${version}/${nombre}.webp`,
     ancho: width,
     alto: height,
+    recuadro: existsSync(lado) ? JSON.parse(readFileSync(lado, 'utf8')).recuadro : undefined,
   }
   console.log(`  ✓ public/novedades/${version}/${nombre}.webp (${width}×${height}, ${Math.round(webp.length / 1024)} KB)`)
 }
@@ -89,7 +96,7 @@ if (figuras.size === 0) {
   process.exit(1)
 }
 
-console.log('\nPara pegar en lib/novedades.ts (falta el pie, y medir cada marca sobre el WebP):\n')
+console.log('\nPara pegar en lib/novedades.ts (falta el pie; donde no hay recuadro, medir la marca sobre el WebP):\n')
 for (const [tema, capturas] of figuras) {
   console.log(`    // ${tema}`)
   console.log('    figura: {')
@@ -97,9 +104,10 @@ for (const [tema, capturas] of figuras) {
   for (const variante of ['movil', 'escritorio']) {
     const c = capturas[variante]
     if (!c) continue
-    console.log(
-      `      ${variante}: { ruta: '${c.ruta}', ancho: ${c.ancho}, alto: ${c.alto}, marca: { x: 0, y: 0 } },`,
-    )
+    const senal = c.recuadro
+      ? `recuadro: { x: ${c.recuadro.x}, y: ${c.recuadro.y}, ancho: ${c.recuadro.ancho}, alto: ${c.recuadro.alto} }`
+      : 'marca: { x: 0, y: 0 }'
+    console.log(`      ${variante}: { ruta: '${c.ruta}', ancho: ${c.ancho}, alto: ${c.alto}, ${senal} },`)
   }
   console.log('    },\n')
 }
